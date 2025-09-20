@@ -1,5 +1,7 @@
 # Changelog
 
+## v0.0.10 - 2025-09-20
+- Adds a background image and transluceny to UI so that it remains visible.
 ## v0.0.9 - 2025-09-20
 ### Added
 - Optional Daily Fields modal (🧾 button in header) for entering: Charges, Total Received, Net Sales, Gross Profit Amount ($), Gross Profit Percentage (%), Number of Invoices, Number of Voids.
