@@ -1,5 +1,5 @@
 /* Drawer Count Service Worker */
-const CACHE_VERSION = 'v9';
+const CACHE_VERSION = 'v10';
 const PRECACHE = `precache-${CACHE_VERSION}`;
 const RUNTIME = `runtime-${CACHE_VERSION}`;
 
@@ -19,6 +19,15 @@ const RAW_PRECACHE_URLS = [
   'src/icons/apple-touch-icon-180x180.png',
   'src/icons/favicon-32x32.png',
   'src/icons/favicon-16x16.png',
+  // Background images used for random body background
+  'src/images/1g-eclipse-bg.png',
+  'src/images/crownvic-bg.png',
+  'src/images/eclipse-challenge-bg.png',
+  'src/images/vw-bg.png',
+  'src/images/1g-eclipse-bg.webp',
+  'src/images/crownvic-bg.webp',
+  'src/images/eclipse-challenge-bg.webp',
+  'src/images/vw-bg.webp',
   'favicon.ico',
   'browserconfig.xml'
 ];
