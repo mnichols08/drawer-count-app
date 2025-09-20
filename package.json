@@ -1,6 +1,6 @@
 {
   "name": "drawer-count-app",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A minimal, installable PWA to help myself and coworkers count drawers at the end of the day.",
   "main": "index.html",
   "scripts": {
