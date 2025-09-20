@@ -16,6 +16,7 @@ Status: Initial scaffold (vanilla, no framework)
 - `index.html` – app shell and UI
 - `src/style.css` – base styles
 - `src/main.js` – app logic, persistence, SW registration
+- `src/drawer-count.js` - Custom Drawer Count App
 - `sw.js` – service worker (precache + runtime caching + offline fallback)
 - `offline.html` – displayed when offline and navigation fails
 - `manifest.webmanifest` – web app manifest
