@@ -14,7 +14,7 @@ Status: Vanilla JS + Web Components (no framework)
 - Daily History: Save by day, Load, Delete, and Rename entries; auto reset on a new day
 - Import/Export: Backup or restore your data as JSON
 - Theme: Light/Dark/System with live `theme-color` updates
-- Network status pill and toast notifications
+- Network status pill with server health badge, plus toast notifications
 - Keyboard shortcuts for faster entry
  - Visual polish: random background image with smooth fade-in; light/dark overlays for readability
 
@@ -81,6 +81,11 @@ Background & images:
 - A random background image is selected from `src/images/` on each load.
 - Images are served as `.webp` (with alpha) when supported, and fall back to optimized `.png` otherwise.
 - The image gently fades in on load; the light/dark overlay remains crisp when you toggle themes.
+
+Network and Server status:
+- A single pill at the bottom-right shows both network status and a server health badge.
+- Badge codes: `OK` (connected), `NODB` (configured but DB not connected), `ERR` (health check failed), `OFF` (offline), `N/A` (not configured).
+- Updates every ~20 seconds and also responds immediately to online/offline events; tooltip shows the API base.
 
 ## Project structure
 

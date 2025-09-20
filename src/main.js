@@ -711,14 +711,11 @@ class AppHeader extends HTMLElement {
         .right { grid-area: right; justify-self: end; display: flex; gap: .35rem; align-items: center; flex-wrap: wrap; }
         .icon-btn, .action-btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 10px; cursor: pointer; min-height: 44px; }
         .action-btn { font-weight: 600; }
-        select.profile-select { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 10px; min-height: 44px; min-width: 0; max-width: min(55vw, 320px); }
+    select.profile-select { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 10px; min-height: 44px; min-width: 0; max-width: min(55vw, 320px); }
   .status-pill { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border, #2a345a); font-size: .85rem; }
         .status-pill.saved { background: #12371f; color: #baf0c3; border-color: #2a5a3a; }
         .status-pill.dirty { background: #42201e; color: #ffd6d6; border-color: #5a2a2a; }
-  .server-pill { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border, #2a345a); font-size: .85rem; }
-  .server-pill.ok { background: #12371f; color: #baf0c3; border-color: #2a5a3a; }
-  .server-pill.warn { background: #5a4a2a; color: #ffe3b3; border-color: #7a6a3a; }
-  .server-pill.err { background: #42201e; color: #ffd6d6; border-color: #5a2a2a; }
+  /* server status pill moved out of header */
         /* Visually hidden but accessible label */
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,1px,1px); white-space: nowrap; border: 0; }
         
@@ -735,7 +732,6 @@ class AppHeader extends HTMLElement {
           <button class="icon-btn new-profile-btn" aria-label="New profile" title="New profile">＋</button>
           <button class="icon-btn delete-profile-btn" aria-label="Delete profile" title="Delete profile">🗑️</button>
           <span class="status-pill" aria-live="polite">—</span>
-          <span class="server-pill" aria-live="polite" title="Server status">Server: …</span>
         </div>
         <h1 class="title">${title}</h1>
         <div class="actions right">
@@ -761,8 +757,7 @@ class AppHeader extends HTMLElement {
   this.querySelector('.lock-btn')?.addEventListener('click', this._onToggleLock);
 
     // Initialize profiles UI
-    try { ensureProfilesInitialized(); populateProfilesSelect(this); updateStatusPill(this); updateLockButtonUI(this); } catch(_) {}
-    try { initServerStatusPill(this); } catch(_) {}
+  try { ensureProfilesInitialized(); populateProfilesSelect(this); updateStatusPill(this); updateLockButtonUI(this); } catch(_) {}
   }
   _onTheme() { toggleTheme(); }
   _onHelp() { getHelpModal().open(); }
@@ -1337,7 +1332,10 @@ class NetworkStatus extends HTMLElement {
     this._update = this._update.bind(this);
     this._onSwMessage = this._onSwMessage.bind(this);
     this._askSwStatus = this._askSwStatus.bind(this);
+    this._tickHealth = this._tickHealth.bind(this);
     this._offline = null; // unknown initially
+    this._server = { cls: 'warn', short: 'N/A', title: 'Server: n/a' };
+    this._timer = null;
   }
 
   connectedCallback() {
@@ -1355,6 +1353,10 @@ class NetworkStatus extends HTMLElement {
 
     // Set initial state from navigator, will be corrected by SW if needed
     this._setStatus(!navigator.onLine);
+
+    // Start server health polling
+    this._tickHealth();
+    this._timer = setInterval(this._tickHealth, 20000);
   }
 
   disconnectedCallback() {
@@ -1364,6 +1366,7 @@ class NetworkStatus extends HTMLElement {
       navigator.serviceWorker.removeEventListener('message', this._onSwMessage);
       navigator.serviceWorker.removeEventListener('controllerchange', this._askSwStatus);
     }
+    if (this._timer) { clearInterval(this._timer); this._timer = null; }
   }
 
   _update() {
@@ -1381,7 +1384,7 @@ class NetworkStatus extends HTMLElement {
     this.classList.toggle('online', !offline);
     this.setAttribute('aria-live', 'polite');
     this.setAttribute('role', 'status');
-    this.innerHTML = `<span class="dot" aria-hidden="true"></span><span class="label">${offline ? 'Offline' : 'Online'}</span>`;
+    this._render();
   }
 
   _onSwMessage(event) {
@@ -1406,6 +1409,36 @@ class NetworkStatus extends HTMLElement {
     } catch (_) {
       // ignore
     }
+  }
+
+  async _tickHealth() {
+    try {
+      const offline = !navigator.onLine;
+      let cls = 'warn';
+      let short = 'N/A';
+      let title = 'Server: n/a';
+      if (offline) { cls = 'warn'; short = 'OFF'; title = 'Server: offline'; }
+      else {
+        const health = await fetchServerHealth();
+        if (!health || health.ok !== true) { cls = 'err'; short = 'ERR'; title = 'Server: error'; }
+        else if (health.db && health.db.configured && health.db.connected) { cls = 'ok'; short = 'OK'; title = 'Server: connected'; }
+        else if (health.db && health.db.configured && !health.db.connected) { cls = 'warn'; short = 'NODB'; title = 'Server: DB not connected'; }
+        else { cls = 'warn'; short = 'N/A'; title = 'Server: not configured'; }
+      }
+      this._server = { cls, short, title };
+      this._render();
+    } catch (_) { /* ignore */ }
+  }
+
+  _render() {
+    const offline = !!this._offline;
+    const label = offline ? 'Offline' : 'Online';
+    const { cls, short, title } = this._server || { cls: 'warn', short: 'N/A', title: 'Server: n/a' };
+    this.innerHTML = `
+      <span class="dot" aria-hidden="true"></span>
+      <span class="label">${label}</span>
+      <span class="server-badge ${cls}" title="${title}"><span class="icon" aria-hidden="true">🗄️</span><span class="text">${short}</span></span>
+    `;
   }
 }
 customElements.define('network-status', NetworkStatus);
@@ -1651,69 +1684,12 @@ window.addEventListener('DOMContentLoaded', () => {
     // Auto-save snapshot for the active view day
     try {
       const key = getActiveViewDateKey();
-      saveSpecificDay(key);
+      saveDay(key);
     } catch(_) {}
   });
-
-  // Also listen for banner internal state changes via events/messages to recompute height quickly
-  try {
-    const banner = document.querySelector('app-install-banner');
-    if (banner) {
-      // MutationObserver to detect style/display toggles within shadow DOM host size
-      const mo = new MutationObserver(() => setBannerVar());
-      mo.observe(banner, { attributes: true, attributeFilter: ['style', 'class'] });
-      // Fallback: poll once after 1s in case of async show
-      setTimeout(setBannerVar, 1000);
-    }
-  } catch (_) { /* ignore */ }
-
-  // Initialize backend synchronization
-  try { initOnlineSync(); } catch (_) {}
 });
 
-// Daily history — per profile, keyed by local YYYY-MM-DD
-const DRAWER_DAYS_KEY = 'drawer-days-v1';
-function _formatDateLocalYMD(d) {
-  const yr = d.getFullYear();
-  const mo = String(d.getMonth() + 1).padStart(2, '0');
-  const da = String(d.getDate()).padStart(2, '0');
-  return `${yr}-${mo}-${da}`;
-}
-function getTodayKey() { return _formatDateLocalYMD(new Date()); }
-function loadDaysData() {
-  try { const raw = localStorage.getItem(DRAWER_DAYS_KEY); const parsed = raw ? JSON.parse(raw) : {}; return parsed && typeof parsed==='object' ? parsed : {}; } catch(_) { return {}; }
-}
-function saveDaysData(data) { try { localStorage.setItem(DRAWER_DAYS_KEY, JSON.stringify(data)); return true; } catch(_) { return false; } }
-function _saveDaysDataAndSync(data) {
-  const ok = saveDaysData(data);
-  if (ok) { try { _setLocalMeta(DRAWER_DAYS_KEY, { updatedAt: Date.now() }); _scheduleSyncPush(DRAWER_DAYS_KEY); } catch(_) {} }
-  return ok;
-}
-function _getActiveDaysEntry(createIfMissing = true) {
-  const data = loadDaysData(); const pid = getActiveProfileId();
-  if (!data[pid] && createIfMissing) data[pid] = { lastVisitedDate: null, days: {} };
-  return { data, pid, entry: data[pid] || { lastVisitedDate: null, days: {} } };
-}
-function listSavedDaysForActiveProfile() {
-  const { entry } = _getActiveDaysEntry(false);
-  const days = entry.days || {};
-  const arr = Object.keys(days).map((k) => ({ date: k, savedAt: days[k]?.savedAt || 0 }));
-  arr.sort((a,b) => (b.date.localeCompare(a.date)) || (b.savedAt - a.savedAt));
-  return arr;
-}
-function saveTodayToDays() {
-  const comp = getDrawerComponent(); if (!comp?.getState) return false;
-  const { data, pid, entry } = _getActiveDaysEntry(true);
-  const key = getTodayKey();
-  entry.days = entry.days || {};
-  // Preserve any existing label
-  const prev = entry.days[key] || {};
-  entry.days[key] = { state: comp.getState(), savedAt: Date.now(), label: prev.label || '' };
-  entry.lastVisitedDate = key;
-  data[pid] = entry;
-  return _saveDaysDataAndSync(data);
-}
-function saveSpecificDay(key) {
+function saveDay(key) {
   const comp = getDrawerComponent(); if (!comp?.getState) return false;
   const { data, pid, entry } = _getActiveDaysEntry(true);
   const k = key || getTodayKey();
@@ -1907,40 +1883,7 @@ async function fetchServerHealth() {
     return { ok: false };
   }
 }
-function applyServerStatusToPill(headerEl, health) {
-  try {
-    const pill = headerEl?.querySelector('.server-pill');
-    if (!pill) return;
-    const offline = !navigator.onLine;
-    const base = getApiBase();
-    // Default states
-    let cls = 'warn';
-    let txt = 'Server: n/a';
-    if (offline) { cls = 'warn'; txt = 'Server: offline'; }
-    else if (!health || health.ok !== true) { cls = 'err'; txt = 'Server: error'; }
-    else if (health.db && health.db.configured && health.db.connected) { cls = 'ok'; txt = 'Server: connected'; }
-    else if (health.db && health.db.configured && !health.db.connected) { cls = 'warn'; txt = 'Server: no-DB'; }
-    else { cls = 'warn'; txt = 'Server: not configured'; }
-    pill.classList.remove('ok','warn','err');
-    pill.classList.add(cls);
-    pill.textContent = txt;
-    pill.title = `API: ${base}`;
-  } catch(_) { /* ignore */ }
-}
-function initServerStatusPill(headerEl) {
-  const tick = async () => {
-    const health = await fetchServerHealth();
-    applyServerStatusToPill(headerEl, health);
-  };
-  // Initial and periodic
-  tick();
-  const id = setInterval(tick, 20000);
-  // Update when online/offline switches
-  window.addEventListener('online', tick);
-  window.addEventListener('offline', () => applyServerStatusToPill(headerEl, null));
-  // Keep a ref if we need to clear later (not used now)
-  headerEl._serverPillTimer = id;
-}
+// server status now displayed inline within <network-status>
 
 // --- Online sync with backend API (/api/kv/:key) ---
 const SYNC_KEYS = [DRAWER_PROFILES_KEY, DRAWER_DAYS_KEY];

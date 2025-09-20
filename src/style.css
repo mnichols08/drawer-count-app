@@ -249,6 +249,20 @@ network-status {
   align-items: center;
   gap: 8px;
 }
+/* Inline server badge inside the network-status pill */
+network-status .server-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+  padding-left: 10px;
+  border-left: 1px dashed rgba(255,255,255,0.2);
+}
+:root[data-theme="light"] network-status .server-badge { border-left-color: rgba(0,0,0,0.2); }
+network-status .server-badge .icon { font-size: 1rem; line-height: 1; }
+network-status .server-badge.ok .icon { filter: hue-rotate(80deg) saturate(1.2); }
+network-status .server-badge.warn .icon { filter: saturate(1); }
+network-status .server-badge.err .icon { filter: hue-rotate(-20deg) saturate(1.2); }
 /* Light theme background for the status pill */
 :root[data-theme="light"] network-status { background: #eef2ff; }
 network-status .dot {

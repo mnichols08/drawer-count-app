@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.3 - 2025-09-20
+### Changed
+- Server status is now displayed inside the same bottom-right network status pill as a small badge (icon + short code).
+- Removed the separate server status pill from the header and the temporary floating server pill.
+
+### UI
+- The combined pill updates every 20s and on online/offline events. Badge codes: `OK`, `NODB`, `ERR`, `OFF`, and `N/A`.
+
 ## v0.1.2 - 2025-09-20
 ### Added
 - Server supports configurable MongoDB TLS via env vars: `MONGODB_TLS`, `MONGODB_TLS_INSECURE`, and optional CA inputs (`MONGODB_TLS_CA_FILE`, `MONGODB_TLS_CA_PEM`, `MONGODB_TLS_CA_BASE64`).
