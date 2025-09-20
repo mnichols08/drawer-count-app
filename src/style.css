@@ -31,7 +31,14 @@ html, body { height: 100%; }
 body {
   margin: 0;
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-  background: radial-gradient(1200px 800px at 10% -10%, #0f1a3a 0%, var(--bg) 35%) no-repeat, var(--bg);
+  /* Layered background: fixed translucent overlay + fixed hero image + solid fallback */
+  background-color: var(--bg);
+  background-image: linear-gradient(rgba(7, 10, 26, 0.50), rgba(7, 10, 26, 0.50)), url("./images/logobg.png");
+  background-repeat: no-repeat, no-repeat;
+  background-position: left 5vh, left 5vh;
+  background-size: cover, contain;
+  /* Fix both layers so translucency doesn't scroll away */
+  background-attachment: fixed, fixed;
   color: var(--fg);
   line-height: 1.45;
   letter-spacing: .2px;
@@ -64,8 +71,16 @@ body {
   --kbd-border: #b8c1e1;
 }
 
-/* Light mode: remove dramatic background gradient */
-:root[data-theme="light"] body { background: var(--bg); }
+/* Light mode: keep the hero image, soften with a light translucent overlay for readability */
+:root[data-theme="light"] body {
+  background-color: var(--bg);
+  background-image: linear-gradient(rgba(255,255,255,0.7), rgba(255,255,255,0.7)), url("./images/logobg.png");
+  background-repeat: no-repeat, no-repeat;
+  background-position: left 5vh, left 5vh;
+  background-size: cover, contain;
+  /* Fix overlay and image to avoid overlay scrolling off-screen */
+  background-attachment: fixed, fixed;
+}
 
 .app-header {
   position: fixed;
@@ -92,7 +107,11 @@ body {
 }
 
 .card {
-  background: var(--card);
+  /* Translucent card to let the background image subtly show through */
+  background: rgba(21, 28, 53, 0.72);
+  /* Frosted-glass effect where supported */
+  backdrop-filter: saturate(120%) blur(6px);
+  -webkit-backdrop-filter: saturate(120%) blur(6px);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 1.1rem 1.1rem 1.25rem;
@@ -101,6 +120,11 @@ body {
   width: 100%;
   max-width: 640px;
   margin: 0 auto;
+}
+
+/* Light theme translucency for card */
+:root[data-theme="light"] .card {
+  background: rgba(255, 255, 255, 0.85);
 }
 
 /* Bridge theme variables into <drawer-count> shadow via host */
