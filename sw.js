@@ -101,6 +101,23 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // Always bypass cache for API requests; prefer live data
+  if (url.origin === self.location.origin && url.pathname.startsWith(new URL('/api/', self.registration.scope).pathname)) {
+    if (request.method === 'GET' || request.method === 'POST' || request.method === 'PUT' || request.method === 'PATCH' || request.method === 'DELETE') {
+      event.respondWith((async () => {
+        try {
+          const res = await fetch(request);
+          setOffline(false);
+          return res;
+        } catch {
+          setOffline(true);
+          return new Response(JSON.stringify({ offline: true }), { status: 503, headers: { 'Content-Type': 'application/json' } });
+        }
+      })());
+      return;
+    }
+  }
+
   if (request.mode === 'navigate') {
     // Network-first for navigations with scope-aware fallbacks
     event.respondWith(
@@ -130,6 +147,20 @@ self.addEventListener('fetch', (event) => {
   // Static assets: try cache first, then network (scope-aware lookup)
   if (url.origin === self.location.origin) {
     const normalizedPath = url.pathname;
+    if (normalizedPath.endsWith('/config.js')) {
+      // Always fetch fresh config
+      event.respondWith((async () => {
+        try {
+          const res = await fetch(request, { cache: 'no-store' });
+          setOffline(false);
+          return res;
+        } catch {
+          setOffline(true);
+          return new Response('', { status: 503 });
+        }
+      })());
+      return;
+    }
     const isPrecacheAsset = PRECACHE_URLS.includes(normalizedPath);
     if (isPrecacheAsset) {
       event.respondWith(

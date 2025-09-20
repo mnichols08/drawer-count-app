@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.1.1 - 2025-09-20
+### Added
+- Backend runtime config endpoint: `GET /config.js` exposes `window.DCA_API_BASE` derived from the `API_BASE` environment variable.
+- Client-side API base resolution: app now reads `window.DCA_API_BASE`, optional `localStorage['dca.apiBase']`, and defaults to `'/api'`.
+
+### Changed
+- Backend storage is now global/shared across all clients (no `X-Client-Id` needed). Legacy per-client records are still read if a global value is missing.
+- Frontend sync switched to the new global scope and uses `apiUrl()` for all requests (`/health`, `/kv/:key`).
+
+### PWA
+- Service worker always bypasses caching for `/api/*` requests and for `/config.js`; returns JSON `503` when offline.
+
+### Docs
+- README updated with environment-based `API_BASE` config (works with Render), global/shared data behavior, and SW caching notes.
+
 ## v0.0.11 - 2025-09-20
 ### Added
 - Random background image chosen from `src/images/` on load.

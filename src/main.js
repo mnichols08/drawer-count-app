@@ -712,9 +712,13 @@ class AppHeader extends HTMLElement {
         .icon-btn, .action-btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 10px; cursor: pointer; min-height: 44px; }
         .action-btn { font-weight: 600; }
         select.profile-select { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 10px; min-height: 44px; min-width: 0; max-width: min(55vw, 320px); }
-        .status-pill { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border, #2a345a); font-size: .85rem; }
+  .status-pill { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border, #2a345a); font-size: .85rem; }
         .status-pill.saved { background: #12371f; color: #baf0c3; border-color: #2a5a3a; }
         .status-pill.dirty { background: #42201e; color: #ffd6d6; border-color: #5a2a2a; }
+  .server-pill { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border, #2a345a); font-size: .85rem; }
+  .server-pill.ok { background: #12371f; color: #baf0c3; border-color: #2a5a3a; }
+  .server-pill.warn { background: #5a4a2a; color: #ffe3b3; border-color: #7a6a3a; }
+  .server-pill.err { background: #42201e; color: #ffd6d6; border-color: #5a2a2a; }
         /* Visually hidden but accessible label */
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,1px,1px); white-space: nowrap; border: 0; }
         
@@ -731,6 +735,7 @@ class AppHeader extends HTMLElement {
           <button class="icon-btn new-profile-btn" aria-label="New profile" title="New profile">＋</button>
           <button class="icon-btn delete-profile-btn" aria-label="Delete profile" title="Delete profile">🗑️</button>
           <span class="status-pill" aria-live="polite">—</span>
+          <span class="server-pill" aria-live="polite" title="Server status">Server: …</span>
         </div>
         <h1 class="title">${title}</h1>
         <div class="actions right">
@@ -757,6 +762,7 @@ class AppHeader extends HTMLElement {
 
     // Initialize profiles UI
     try { ensureProfilesInitialized(); populateProfilesSelect(this); updateStatusPill(this); updateLockButtonUI(this); } catch(_) {}
+    try { initServerStatusPill(this); } catch(_) {}
   }
   _onTheme() { toggleTheme(); }
   _onHelp() { getHelpModal().open(); }
@@ -1428,7 +1434,11 @@ function loadProfilesData() {
   } catch (_) { return { activeId: 'default', profiles: {} }; }
 }
 function saveProfilesData(data) {
-  try { localStorage.setItem(DRAWER_PROFILES_KEY, JSON.stringify(data)); return true; } catch(_) { return false; }
+  try {
+    localStorage.setItem(DRAWER_PROFILES_KEY, JSON.stringify(data));
+    try { _setLocalMeta(DRAWER_PROFILES_KEY, { updatedAt: Date.now() }); _scheduleSyncPush(DRAWER_PROFILES_KEY); } catch(_) {}
+    return true;
+  } catch(_) { return false; }
 }
 function ensureProfilesInitialized() {
   const comp = getDrawerComponent();
@@ -1656,6 +1666,9 @@ window.addEventListener('DOMContentLoaded', () => {
       setTimeout(setBannerVar, 1000);
     }
   } catch (_) { /* ignore */ }
+
+  // Initialize backend synchronization
+  try { initOnlineSync(); } catch (_) {}
 });
 
 // Daily history — per profile, keyed by local YYYY-MM-DD
@@ -1671,6 +1684,11 @@ function loadDaysData() {
   try { const raw = localStorage.getItem(DRAWER_DAYS_KEY); const parsed = raw ? JSON.parse(raw) : {}; return parsed && typeof parsed==='object' ? parsed : {}; } catch(_) { return {}; }
 }
 function saveDaysData(data) { try { localStorage.setItem(DRAWER_DAYS_KEY, JSON.stringify(data)); return true; } catch(_) { return false; } }
+function _saveDaysDataAndSync(data) {
+  const ok = saveDaysData(data);
+  if (ok) { try { _setLocalMeta(DRAWER_DAYS_KEY, { updatedAt: Date.now() }); _scheduleSyncPush(DRAWER_DAYS_KEY); } catch(_) {} }
+  return ok;
+}
 function _getActiveDaysEntry(createIfMissing = true) {
   const data = loadDaysData(); const pid = getActiveProfileId();
   if (!data[pid] && createIfMissing) data[pid] = { lastVisitedDate: null, days: {} };
@@ -1693,7 +1711,7 @@ function saveTodayToDays() {
   entry.days[key] = { state: comp.getState(), savedAt: Date.now(), label: prev.label || '' };
   entry.lastVisitedDate = key;
   data[pid] = entry;
-  return saveDaysData(data);
+  return _saveDaysDataAndSync(data);
 }
 function saveSpecificDay(key) {
   const comp = getDrawerComponent(); if (!comp?.getState) return false;
@@ -1702,7 +1720,7 @@ function saveSpecificDay(key) {
   entry.days = entry.days || {};
   const prev = entry.days[k] || {};
   entry.days[k] = { state: comp.getState(), savedAt: Date.now(), label: prev.label || '' };
-  data[pid] = entry; return saveDaysData(data);
+  data[pid] = entry; return _saveDaysDataAndSync(data);
 }
 function restoreDay(key) {
   const comp = getDrawerComponent(); if (!comp?.setState) return false;
@@ -1710,13 +1728,13 @@ function restoreDay(key) {
   const rec = entry.days?.[key]; if (!rec || !rec.state) return false;
   try { comp.setState(rec.state); // Update lastVisited to this key so subsequent loads don't auto-clear immediately
     entry.lastVisitedDate = getTodayKey(); // still track today for auto-clear behavior
-    data[pid] = entry; saveDaysData(data);
+  data[pid] = entry; _saveDaysDataAndSync(data);
     return true; } catch(_) { return false; }
 }
 function deleteDay(key) {
   const { data, pid, entry } = _getActiveDaysEntry(false);
   if (!entry.days || !entry.days[key]) return false;
-  try { delete entry.days[key]; data[pid] = entry; return saveDaysData(data); } catch(_) { return false; }
+  try { delete entry.days[key]; data[pid] = entry; return _saveDaysDataAndSync(data); } catch(_) { return false; }
 }
 function setDayLabel(key, label) {
   try {
@@ -1724,7 +1742,7 @@ function setDayLabel(key, label) {
     if (!entry.days || !entry.days[key]) return false;
     entry.days[key].label = String(label || '');
     data[pid] = entry;
-    return saveDaysData(data);
+    return _saveDaysDataAndSync(data);
   } catch(_) { return false; }
 }
 function ensureDayResetIfNeeded(headerEl) {
@@ -1748,7 +1766,7 @@ function getActiveViewDateKey() {
   try {
     const { data, pid, entry } = _getActiveDaysEntry(true);
     entry._activeViewDateKey = entry._activeViewDateKey || getTodayKey();
-    data[pid] = entry; saveDaysData(data);
+    data[pid] = entry; _saveDaysDataAndSync(data);
     return entry._activeViewDateKey;
   } catch(_) { return getTodayKey(); }
 }
@@ -1756,7 +1774,7 @@ function setActiveViewDateKey(key) {
   try {
     const { data, pid, entry } = _getActiveDaysEntry(true);
     entry._activeViewDateKey = key || getTodayKey();
-    data[pid] = entry; saveDaysData(data);
+    data[pid] = entry; _saveDaysDataAndSync(data);
   } catch(_) { /* ignore */ }
 }
 function isDayEditUnlocked() {
@@ -1769,7 +1787,7 @@ function setDayEditUnlocked(flag) {
   try {
     const { data, pid, entry } = _getActiveDaysEntry(true);
     entry._editUnlocked = !!flag;
-    data[pid] = entry; saveDaysData(data);
+    data[pid] = entry; _saveDaysDataAndSync(data);
   } catch(_) { /* ignore */ }
 }
 function applyReadOnlyByActiveDate(headerEl) {
@@ -1812,3 +1830,182 @@ function updateLockButtonUI(headerEl) {
     }
   } catch(_) {}
 }
+
+// --- Server status pill ---
+// API base resolution: window.DCA_API_BASE or localStorage override; default to same-origin '/api'
+function getApiBase() {
+  try {
+    const winBase = (typeof window !== 'undefined' && window.DCA_API_BASE) ? String(window.DCA_API_BASE) : '';
+    const lsBase = (typeof localStorage !== 'undefined') ? (localStorage.getItem('dca.apiBase') || '') : '';
+    const base = (winBase || lsBase || '/api').trim();
+    return base || '/api';
+  } catch (_) { return '/api'; }
+}
+function apiUrl(path) {
+  const b = getApiBase().replace(/\/+$/, '');
+  const p = path.startsWith('/') ? path : `/${path}`;
+  return `${b}${p}`;
+}
+async function fetchServerHealth() {
+  try {
+    const res = await fetch(apiUrl('/health'), { cache: 'no-store' });
+    if (!res.ok) return { ok: false };
+    const data = await res.json();
+    return data;
+  } catch(_) { return { ok: false }; }
+}
+function applyServerStatusToPill(headerEl, health) {
+  try {
+    const pill = headerEl?.querySelector('.server-pill');
+    if (!pill) return;
+    const offline = !navigator.onLine;
+    // Default states
+    let cls = 'warn';
+    let txt = 'Server: n/a';
+    if (offline) { cls = 'warn'; txt = 'Server: offline'; }
+    else if (!health || health.ok !== true) { cls = 'err'; txt = 'Server: error'; }
+    else if (health.db && health.db.configured && health.db.connected) { cls = 'ok'; txt = 'Server: connected'; }
+    else if (health.db && health.db.configured && !health.db.connected) { cls = 'warn'; txt = 'Server: no-DB'; }
+    else { cls = 'warn'; txt = 'Server: not configured'; }
+    pill.classList.remove('ok','warn','err');
+    pill.classList.add(cls);
+    pill.textContent = txt;
+  } catch(_) { /* ignore */ }
+}
+function initServerStatusPill(headerEl) {
+  const tick = async () => {
+    const health = await fetchServerHealth();
+    applyServerStatusToPill(headerEl, health);
+  };
+  // Initial and periodic
+  tick();
+  const id = setInterval(tick, 20000);
+  // Update when online/offline switches
+  window.addEventListener('online', tick);
+  window.addEventListener('offline', () => applyServerStatusToPill(headerEl, null));
+  // Keep a ref if we need to clear later (not used now)
+  headerEl._serverPillTimer = id;
+}
+
+// --- Online sync with backend API (/api/kv/:key) ---
+const SYNC_KEYS = [DRAWER_PROFILES_KEY, DRAWER_DAYS_KEY];
+const META_SUFFIX = '__meta';
+
+function _getLocalMeta(key) {
+  try { const raw = localStorage.getItem(key + META_SUFFIX); return raw ? JSON.parse(raw) : null; } catch(_) { return null; }
+}
+function _setLocalMeta(key, meta) {
+  try { localStorage.setItem(key + META_SUFFIX, JSON.stringify(meta || {})); } catch(_) {}
+}
+function _getClientId() {
+  const CID_KEY = 'sync-client-id';
+  try {
+    let id = localStorage.getItem(CID_KEY);
+    if (id) return id;
+    const tpl = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx';
+    try {
+      if (window.crypto?.getRandomValues) {
+        const buf = new Uint8Array(16); window.crypto.getRandomValues(buf);
+        let i = 0;
+        id = tpl.replace(/[xy]/g, (c) => {
+          const r = buf[i++] % 16;
+          const v = c === 'x' ? r : (r & 0x3) | 0x8;
+          return v.toString(16);
+        });
+      } else {
+        id = tpl.replace(/[xy]/g, (c) => {
+          const r = Math.random() * 16 | 0;
+          const v = c === 'x' ? r : (r & 0x3) | 0x8;
+          return v.toString(16);
+        });
+      }
+    } catch(_) { id = `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
+    localStorage.setItem(CID_KEY, id);
+    return id;
+  } catch(_) { return 'anonymous'; }
+}
+
+async function _fetchRemoteKV(key) {
+  try {
+    const res = await fetch(apiUrl(`/kv/${encodeURIComponent(key)}`), { cache: 'no-store' });
+    if (res.status === 404) return { ok: true, missing: true };
+    if (!res.ok) return { ok: false };
+    const data = await res.json();
+    return { ok: true, value: data.value, updatedAt: Number(data.updatedAt || 0) };
+  } catch(_) { return { ok: false }; }
+}
+
+async function _pushRemoteKV(key, rawValue, updatedAt) {
+  try {
+    const res = await fetch(apiUrl(`/kv/${encodeURIComponent(key)}`), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value: rawValue, updatedAt: Number(updatedAt) || Date.now() })
+    });
+    if (!res.ok) return { ok: false };
+    const data = await res.json();
+    return { ok: true, updatedAt: Number(data.updatedAt || Date.now()) };
+  } catch(_) { return { ok: false }; }
+}
+
+async function _syncKeyOnce(key) {
+  try {
+    const localRaw = localStorage.getItem(key);
+    const localMeta = _getLocalMeta(key) || { updatedAt: 0 };
+    const remote = await _fetchRemoteKV(key);
+    if (!remote.ok) return false;
+    if (remote.missing) {
+      if (localRaw != null) {
+        const push = await _pushRemoteKV(key, localRaw, localMeta.updatedAt || Date.now());
+        if (push.ok) _setLocalMeta(key, { updatedAt: push.updatedAt });
+      }
+      return true;
+    }
+    const rAt = Number(remote.updatedAt || 0);
+    const lAt = Number(localMeta.updatedAt || 0);
+    if (localRaw == null) {
+      localStorage.setItem(key, remote.value);
+      _setLocalMeta(key, { updatedAt: rAt });
+      return true;
+    }
+    if (rAt > lAt) {
+      localStorage.setItem(key, remote.value);
+      _setLocalMeta(key, { updatedAt: rAt });
+    } else if (lAt > rAt) {
+      const push = await _pushRemoteKV(key, localRaw, lAt);
+      if (push.ok) _setLocalMeta(key, { updatedAt: push.updatedAt });
+    }
+    return true;
+  } catch(_) { return false; }
+}
+
+function _scheduleSyncPush(key) {
+  try {
+    if (!navigator.onLine) return;
+    _debouncedPushers = _debouncedPushers || {};
+    clearTimeout(_debouncedPushers[key]);
+    _debouncedPushers[key] = setTimeout(async () => {
+      try {
+        const raw = localStorage.getItem(key);
+        const meta = _getLocalMeta(key) || { updatedAt: Date.now() };
+        if (raw == null) return;
+        const push = await _pushRemoteKV(key, raw, meta.updatedAt || Date.now());
+        if (push.ok) _setLocalMeta(key, { updatedAt: push.updatedAt });
+      } catch(_) { /* ignore */ }
+    }, 400);
+  } catch(_) { /* ignore */ }
+}
+let _debouncedPushers = {};
+
+async function _syncAllKeys() {
+  for (const k of SYNC_KEYS) { try { await _syncKeyOnce(k); } catch(_) {} }
+}
+
+function initOnlineSync() {
+  try {
+    for (const k of SYNC_KEYS) { if (!_getLocalMeta(k)) _setLocalMeta(k, { updatedAt: 0 }); }
+    _syncAllKeys();
+    window.addEventListener('online', () => { _syncAllKeys(); });
+  } catch(_) { /* ignore */ }
+}
+

@@ -20,14 +20,17 @@ Status: Vanilla JS + Web Components (no framework)
 
 ## Quick start (Windows PowerShell)
 
-The app is static—no build step required. A dev server is included.
-
 ```powershell
 npm install
+# Start with backend API + static hosting (recommended)
 npm start
+
+# Or just run the static dev server
+npm run dev:static
 ```
 
-This runs `live-server` on `http://127.0.0.1:8080/` and opens `index.html` automatically. The service worker only works when served via HTTP(S) or `localhost`.
+By default `npm start` runs an Express server at `http://127.0.0.1:8080/` that serves the app and exposes a small API used for sync.
+The service worker only works when served via HTTP(S) or `localhost`.
 
 Alternative local servers:
 
@@ -98,6 +101,7 @@ Background & images:
 	- Currently set to `v10`. Changing this forces clients to fetch new assets after activation.
 - Query busting: `index.html` may add a version query (e.g., `src/main.js?v=5`). The SW handles this and serves the cached file correctly.
 - Scope-aware paths: the SW normalizes URLs to its scope so cached assets work even under a subpath.
+- API responses and config are not cached: the SW always fetches `/api/*` and `/config.js` from the network (JSON `503` when offline).
 - Manifest scope and paths are now relative (e.g., `./manifest.webmanifest`, `./src/...`) so deployment under a subpath (like GitHub Pages `/your-repo/`) works out of the box. If you customize the base path, ensure `start_url`/`scope` in the manifest still point to `./` for your chosen directory.
 
 ## Icons
@@ -142,4 +146,49 @@ ISC — see `LICENSE` (or the license field in `package.json`).
 ## Changelog
 
 See `CHANGELOG.md`.
+
+## Backend sync (optional)
+
+This app remains fully functional offline using `localStorage`. If you provide a MongoDB connection, it will also sync your data to a backend so multiple devices can keep a server copy.
+
+- Server: `server.js` (Express)
+	- Env vars:
+		- `PORT` (default `8080`)
+		- `MONGODB_URI` (required to enable API)
+		- `MONGODB_DB` (default `drawercount`)
+	- Endpoints:
+		- `GET /api/health`
+		- `GET /api/kv` (list all keys with values; shared/global scope)
+		- `GET /api/kv/:key` (shared/global scope)
+		- `PUT /api/kv/:key` (body: `{ value, updatedAt? }`, shared/global scope)
+	- Data scope:
+		- All data is stored in a global/shared scope so every client sees the same profiles and days.
+		- For migration, the server will fall back to the most recent legacy per-client value if a global value is missing.
+- Client: stores two keys in `localStorage` and syncs them when online
+	- `drawer-profiles-v1` and `drawer-days-v1`
+	- For each, a meta entry `key + "__meta"` holds `{ updatedAt }`
+	- Sync behavior: last-write-wins using `updatedAt` timestamps
+	- When offline, changes are saved locally and pushed on reconnect
+
+	API base (different origin/backend):
+	- If you host the backend separately (e.g., Render at `https://drawer-counter.onrender.app`), set the API base via environment variable:
+		- Server reads `API_BASE` and serves it at `/config.js`, which is loaded before the app.
+		- Example (PowerShell):
+			```powershell
+			$env:API_BASE = 'https://drawer-counter.onrender.app/api'; npm start
+			```
+		- On Render, set `API_BASE` in the service’s environment variables.
+		- You can still override locally at runtime if needed:
+			```js
+			localStorage.setItem('dca.apiBase', 'https://drawer-counter.onrender.app/api'); location.reload();
+			```
+		- Default is same-origin `'/api'` when no env or override is provided.
+
+Run locally with a Mongo connection (PowerShell):
+
+```powershell
+$env:MONGODB_URI = "mongodb+srv://<user>:<pass>@<cluster>/?retryWrites=true&w=majority"; npm start
+```
+
+If `MONGODB_URI` is not set, the API returns `503` and the app continues to operate offline against `localStorage`.
 

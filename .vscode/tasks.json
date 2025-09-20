@@ -1,0 +1,26 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Restart server",
+			"type": "shell",
+			"command": "powershell -NoProfile -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force; node server.js\"",
+			"isBackground": true,
+			"group": "build"
+		},
+		{
+			"label": "Start server on alt port",
+			"type": "shell",
+			"command": "powershell -NoProfile -Command \"$env:PORT=8090; node server.js\"",
+			"isBackground": true,
+			"group": "build"
+		},
+		{
+			"label": "Start server default",
+			"type": "shell",
+			"command": "node server.js",
+			"isBackground": true,
+			"group": "build"
+		}
+	]
+}
