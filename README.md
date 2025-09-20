@@ -22,6 +22,8 @@ Status: Vanilla JS + Web Components (no framework)
 
 ```powershell
 npm install
+# Optional: create a local .env from the example
+Copy-Item .env.example .env -ErrorAction SilentlyContinue
 # Start with backend API + static hosting (recommended)
 npm start
 
