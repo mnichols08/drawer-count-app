@@ -517,6 +517,7 @@ class AppHeader extends HTMLElement {
     this._onProfileChange = this._onProfileChange.bind(this);
     this._onNewProfile = this._onNewProfile.bind(this);
     this._onDeleteProfile = this._onDeleteProfile.bind(this);
+    this._onClear = this._onClear.bind(this);
   }
   connectedCallback() {
     const title = this.getAttribute('title') || 'Drawer Count';
@@ -553,6 +554,7 @@ class AppHeader extends HTMLElement {
         </div>
         <h1 class="title">${title}</h1>
         <div class="actions right">
+          <button class="icon-btn clear-btn" aria-label="Clear inputs" title="Clear inputs">🧹</button>
           <button class="icon-btn settings-btn" aria-label="Settings" title="Settings">⚙️</button>
           <button class="icon-btn theme-toggle" aria-label="Toggle theme" title="Toggle theme">${(document.documentElement.getAttribute('data-theme')||getPreferredTheme())==='dark'?'🌙':'☀️'}</button>
           <button class="icon-btn info-btn" aria-label="Help" title="Help">?</button>
@@ -561,10 +563,11 @@ class AppHeader extends HTMLElement {
     this.querySelector('.settings-btn')?.addEventListener('click', this._onSettings);
     this.querySelector('.theme-toggle')?.addEventListener('click', this._onTheme);
     this.querySelector('.info-btn')?.addEventListener('click', this._onHelp);
-  // actions moved into settings modal
+    // actions moved into settings modal
     this.querySelector('.profile-select')?.addEventListener('change', this._onProfileChange);
     this.querySelector('.new-profile-btn')?.addEventListener('click', this._onNewProfile);
     this.querySelector('.delete-profile-btn')?.addEventListener('click', this._onDeleteProfile);
+    this.querySelector('.clear-btn')?.addEventListener('click', this._onClear);
 
     // Initialize profiles UI
     try { ensureProfilesInitialized(); populateProfilesSelect(this); updateStatusPill(this); } catch(_) {}
@@ -576,6 +579,16 @@ class AppHeader extends HTMLElement {
   _onProfileChange(e) { try { const id = e.target?.value; if (!id) return; setActiveProfile(id); restoreActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Switched profile', { type:'info', duration: 1200}); } catch(_){} }
   async _onNewProfile() { try { const modal = getNewProfileModal(); const name = await modal.open(''); if (!name) return; const id = createProfile(name); setActiveProfile(id); saveToActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Profile created', { type: 'success', duration: 1800 }); } catch(_){} }
   async _onDeleteProfile() { try { const data = loadProfilesData(); const ids = Object.keys(data.profiles||{}); if (ids.length<=1) { toast('Cannot delete last profile', { type:'warning', duration: 2200}); return; } const active = data.activeId; const name = data.profiles[active]?.name || active; const modal = getDeleteProfileModal(); const ok = await modal.open(name); if (!ok) return; delete data.profiles[active]; const nextId = ids.find((x)=>x!==active) || 'default'; data.activeId = nextId; saveProfilesData(data); restoreActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Profile deleted', { type:'success', duration: 1800}); } catch(_){} }
+  _onClear() {
+    try {
+      const comp = getDrawerComponent();
+      comp?.reset?.();
+      updateStatusPill(this);
+      toast('Cleared', { type: 'info', duration: 1500 });
+      // focus first input inside component for convenience
+      setTimeout(() => { try { comp?.shadowRoot?.querySelector('input')?.focus(); } catch(_) {} }, 0);
+    } catch(_){}
+  }
 }
 customElements.define('app-header', AppHeader);
 

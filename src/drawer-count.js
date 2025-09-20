@@ -199,78 +199,78 @@ class DrawerCount extends HTMLElement {
         <div class="output" id="checkTotal">Check Total: $<balance>0.00</balance></div>
 
         <div class="input" id="drawer">
-          <input step=".01" type="number" placeholder="Cash Total" />
+          <input id="drawer-input" name="drawer" step=".01" type="number" placeholder="Cash Total" />
            Cash Total: $<drawer>0.00</drawer>
         </div>
         <div class="input" id="roa">
-          <input step=".01" type="number" placeholder="ROA Amount" />
+          <input id="roa-input" name="roa" step=".01" type="number" placeholder="ROA Amount" />
            ROA Amount: $<roa>0.00</roa>
         </div>
         <div class="input" id="slips">
-          <input step=".01" type="number" placeholder="Credit Cards" />
+          <input id="slips-input" name="slips" step=".01" type="number" placeholder="Credit Cards" />
           <button class="add-slip" title="Add Slip">+</button>
           <span>0.00</span> Slip
         </div>
         <div class="input" id="checks">
-          <input step=".01" type="number" placeholder="Checks" min="0" />
+          <input id="checks-input" name="checks" step=".01" type="number" placeholder="Checks" min="0" />
           <button class="add-check" title="Add Check">+</button>
           <span>0.00</span> Check
         </div>
 
         <div class="input" id="hundreds">
-          <input type="number" placeholder="Hundreds" min="0" max="20" />
+          <input id="hundreds-input" name="hundreds" type="number" placeholder="Hundreds" min="0" max="20" />
           <span class="cash">0.00</span> in Hundreds
         </div>
         <div class="input" id="fifties">
-          <input type="number" placeholder="Fifties" min="0" max="30" />
+          <input id="fifties-input" name="fifties" type="number" placeholder="Fifties" min="0" max="30" />
           <span class="cash">0.00</span> in Fifties
         </div>
         <div class="input" id="twenties">
-          <input type="number" placeholder="Twenties" min="0" max="40" />
+          <input id="twenties-input" name="twenties" type="number" placeholder="Twenties" min="0" max="40" />
           <span class="cash">0.00</span> in Twenties
         </div>
         <div class="input" id="tens">
-          <input type="number" placeholder="Tens" min="0" max="50" />
+          <input id="tens-input" name="tens" type="number" placeholder="Tens" min="0" max="50" />
           <span class="cash">0.00</span> in Tens
         </div>
         <div class="input" id="fives">
-          <input type="number" placeholder="Fives" min="0" max="75" />
+          <input id="fives-input" name="fives" type="number" placeholder="Fives" min="0" max="75" />
           <span class="cash">0.00</span> in Fives
         </div>
         <div class="input" id="dollars">
-          <input type="number" placeholder="Dollars" min="0" max="100" />
+          <input id="dollars-input" name="dollars" type="number" placeholder="Dollars" min="0" max="100" />
           <span class="cash">0.00</span> in Ones
         </div>
         <div class="input" id="quarters">
-          <input type="number" placeholder="Quarters" min="0" max="50" />
+          <input id="quarters-input" name="quarters" type="number" placeholder="Quarters" min="0" max="50" />
           <span class="cash">0.00</span> in Quarters
         </div>
         <div class="input" id="dimes">
-          <input type="number" placeholder="Dimes" min="0" max="50" />
+          <input id="dimes-input" name="dimes" type="number" placeholder="Dimes" min="0" max="50" />
           <span class="cash">0.00</span> in Dimes
         </div>
         <div class="input" id="nickels">
-          <input type="number" placeholder="Nickels" min="0" max="50" />
+          <input id="nickels-input" name="nickels" type="number" placeholder="Nickels" min="0" max="50" />
           <span class="cash">0.00</span> in Nickels
         </div>
         <div class="input" id="pennies">
-          <input type="number" placeholder="Pennies" min="0" max="50" />
+          <input id="pennies-input" name="pennies" type="number" placeholder="Pennies" min="0" max="50" />
           <span class="cash">0.00</span> in Pennies
         </div>
         <div class="input" id="quarterrolls">
-          <input type="number" placeholder="Quarter Rolls" min="0" max="4" />
+          <input id="quarterrolls-input" name="quarterrolls" type="number" placeholder="Quarter Rolls" min="0" max="4" />
           <span class="cash">0.00</span> in Quarter Rolls
         </div>
         <div class="input" id="dimerolls">
-          <input type="number" placeholder="Dime Rolls" min="0" max="4" />
+          <input id="dimerolls-input" name="dimerolls" type="number" placeholder="Dime Rolls" min="0" max="4" />
           <span class="cash">0.00</span> in Dime Rolls
         </div>
         <div class="input" id="nickelrolls">
-          <input type="number" placeholder="Nickel Rolls" min="0" max="4" />
+          <input id="nickelrolls-input" name="nickelrolls" type="number" placeholder="Nickel Rolls" min="0" max="4" />
           <span class="cash">0.00</span> in Nickel Rolls
         </div>
         <div class="input" id="pennyrolls">
-          <input type="number" placeholder="Penny Rolls" min="0" max="4" />
+          <input id="pennyrolls-input" name="pennyrolls" type="number" placeholder="Penny Rolls" min="0" max="4" />
           <span class="cash">0.00</span> in Penny Rolls
         </div>
       </div>
@@ -485,6 +485,8 @@ class DrawerCount extends HTMLElement {
     const input = document.createElement('input');
     input.type = 'number';
     input.placeholder = `Additional ${typeOf[0].toUpperCase()}${typeOf.slice(1)}`;
+    input.name = typeOf;
+    input.id = `${id}-input`;
 
     const btn = document.createElement('button');
     btn.className = 'rem';
