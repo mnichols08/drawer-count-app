@@ -6,6 +6,9 @@
   --card: #151c35;
   --border: #263056;
   --btn: #3a506b;
+  /* Global button variables (used by header buttons) */
+  --button-bg-color: var(--btn);
+  --button-color: var(--fg);
   --shadow: 0 12px 36px rgba(0,0,0,.35);
   /* Banner and kbd defaults (dark) */
   --banner-bg: #152041;
@@ -38,6 +41,9 @@ body {
   --card: #ffffff;
   --border: #b8c1e1;    /* darker border for clearer separation */
   --btn: #dbe4ff;       /* slightly darker button bg */
+  /* Header/primary buttons map to theme vars in light mode */
+  --button-bg-color: var(--btn);
+  --button-color: var(--fg);
   --shadow: 0 8px 28px rgba(10, 14, 35, 0.12);
   /* Light variants */
   --banner-bg: #e8f0ff;
@@ -57,7 +63,7 @@ body {
   padding: 0.7rem 0.9rem;
   border-bottom: 1px solid var(--border);
 }
-.icon-btn { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: .25rem .5rem; cursor: pointer; }
+.icon-btn { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: .35rem .6rem; cursor: pointer; min-height: 44px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .icon-btn:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
 .icon-btn:hover { filter: brightness(1.08); }
 .icon-btn:active { transform: translateY(1px); }
@@ -65,7 +71,8 @@ body {
 .container {
   display: grid;
   place-items: center;
-  padding: 2rem 1.5rem 3rem;
+  /* Mobile-first padding; scales up via media queries */
+  padding: 1rem 1rem 2rem;
 }
 
 .card {
@@ -74,6 +81,10 @@ body {
   border-radius: 14px;
   padding: 1.1rem 1.1rem 1.25rem;
   box-shadow: var(--shadow);
+  /* Mobile-first: take full width, constrain on larger screens */
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
 }
 
 /* Bridge theme variables into <drawer-count> shadow via host */
@@ -100,13 +111,15 @@ drawer-count {
 
 .controls {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.75rem;
+  /* Mobile-first: fewer columns for larger tap targets */
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.6rem;
 }
 
 .quick {
   display: grid;
-  grid-template-columns: 1fr auto;
+  /* Mobile-first: stack input and button */
+  grid-template-columns: 1fr;
   gap: 0.5rem;
   margin-top: 0.75rem;
 }
@@ -117,6 +130,8 @@ input[type="number"] {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 0.6rem 0.75rem;
+  min-height: 44px; /* mobile tap target */
+  font-size: 16px;  /* prevent iOS zoom */
 }
 :root[data-theme="light"] input[type="number"] { background: #f3f6ff; color: #0b132b; border-color: var(--border); }
 
@@ -132,6 +147,9 @@ input[type="number"] {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 0.6rem 0.8rem;
+  min-height: 44px; /* mobile tap target */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   cursor: pointer;
 }
 .btn:hover { filter: brightness(1.08); }
@@ -158,14 +176,15 @@ input[type="number"] {
 /* Floating offline pill */
 network-status {
   position: fixed;
-  right: 1rem;
-  bottom: 1rem;
+  /* Respect device safe areas (e.g., iPhone notch/home indicator) */
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
   z-index: 50;
   background: #1f2a52;
   color: var(--fg);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 6px 10px;
+  padding: 8px 12px;
   box-shadow: var(--shadow);
   font-size: .9rem;
   display: inline-flex;
@@ -184,3 +203,18 @@ network-status .dot {
 }
 network-status.online .dot { background: #10b981; border-color: rgba(16,185,129,.35); }
 network-status.offline .dot { background: #ef4444; border-color: rgba(239,68,68,.35); }
+
+/*
+  Responsive enhancements (progressive) 
+  -------------------------------------
+*/
+@media (min-width: 480px) {
+  .container { padding: 1.25rem 1.25rem 2.25rem; }
+  .controls { grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+  .quick { grid-template-columns: 1fr auto; }
+}
+
+@media (min-width: 768px) {
+  .container { padding: 2rem 1.5rem 3rem; }
+  .card { max-width: 720px; }
+}

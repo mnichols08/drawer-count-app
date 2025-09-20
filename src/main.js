@@ -185,16 +185,23 @@ class AppHeader extends HTMLElement {
     this.innerHTML = `
       <style>
         :host { display: block; width: 100%; }
-        .bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: .35rem; }
-        .title { grid-column: 2; text-align: center; margin: 0; font-size: 1.1rem; letter-spacing: .2px; }
-        .left { grid-column: 1; justify-self: start; display: inline-flex; gap: .35rem; align-items: center; }
-        .right { grid-column: 3; justify-self: end; display: inline-flex; gap: .35rem; }
-        .icon-btn, .action-btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+        /* Mobile-first: stack title on first row, actions below, allow wrapping */
+        .bar { display: grid; align-items: center; gap: .35rem; grid-template-columns: 1fr auto; grid-template-areas: "title title" "left right"; }
+        .title { grid-area: title; text-align: center; margin: 0; font-size: clamp(1rem, 3.5vw, 1.1rem); letter-spacing: .2px; }
+        .left { grid-area: left; justify-self: start; display: flex; gap: .35rem; align-items: center; flex-wrap: wrap; }
+        .right { grid-area: right; justify-self: end; display: flex; gap: .35rem; align-items: center; flex-wrap: wrap; }
+        .icon-btn, .action-btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 10px; cursor: pointer; min-height: 44px; }
         .action-btn { font-weight: 600; }
-        select.profile-select { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 10px; }
+        select.profile-select { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 10px; min-height: 44px; min-width: 0; max-width: min(55vw, 320px); }
         .status-pill { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border, #2a345a); font-size: .85rem; }
         .status-pill.saved { background: #12371f; color: #baf0c3; border-color: #2a5a3a; }
         .status-pill.dirty { background: #42201e; color: #ffd6d6; border-color: #5a2a2a; }
+        
+        /* Wider screens: put left | title | right on one row */
+        @media (min-width: 600px) {
+          .bar { grid-template-columns: 1fr auto 1fr; grid-template-areas: "left title right"; }
+          .left, .right { flex-wrap: nowrap; }
+        }
       </style>
       <div class="bar" role="toolbar" aria-label="App header">
         <div class="left">
