@@ -1,5 +1,18 @@
 # Changelog
 
+## v 0.0.5 - 2025-09-19
+- Add press-and-hold support for continuous increment/decrement with configurable acceleration
+- Fix precision issues for fractional step sizes; normalize and format values per locale
+- Expose CustomEvents (count-change, count-reset) with old/new values for integrations
+- Add theming via CSS custom properties and improve dark/high-contrast mode support
+- Enhance keyboard interactions and ARIA hints; refine focus ring for accessibility
+- Harden storage access to handle private mode/quota errors with in-memory fallback
+- Resolve debounce race causing missed updates during rapid input
+- Improve service worker cache invalidation and post-update refresh behavior
+- Generate TypeScript declarations and ship dual ESM/CJS builds
+- Reduce bundle size via treeshaking and removal of dev-only code; update dependencies
+- Add Playwright end-to-end tests and expand CI matrix with artifacts
+- Refresh docs with API/events, theming guidance, and troubleshooting
 ## v0.0.4 - 2025-09-19
 - Persist counter value with localStorage and restore on load
 - Add reset button and configurable step size via component attribute

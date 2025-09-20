@@ -15,13 +15,15 @@ class AppToaster extends HTMLElement {
           padding: 10px 12px; border-radius: 10px; border: 1px solid #2a345a;
           background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
           box-shadow: 0 10px 30px rgba(0,0,0,0.35);
-          display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px;
+          display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px;
           transform: translateY(8px); opacity: 0; transition: transform .15s ease, opacity .15s ease;
         }
         .toast.show { transform: translateY(0); opacity: 1; }
         .msg { font-size: 0.95rem; }
-        .btnx { background: transparent; color: inherit; border: none; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
-        .btnx:focus { outline: 2px solid var(--accent, #3a86ff); outline-offset: 2px; }
+        .btnx, .act { background: transparent; color: inherit; border: 1px solid var(--border, #2a345a); cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+        .btnx { border: none; padding: 4px 6px; }
+        .act:hover { filter: brightness(1.08); }
+        .btnx:focus, .act:focus { outline: 2px solid var(--accent, #3a86ff); outline-offset: 2px; }
         .info { }
         .success { border-color: #2a5a3a; box-shadow: 0 10px 30px rgba(20,80,40,0.45); }
         .warning { border-color: #5a4a2a; box-shadow: 0 10px 30px rgba(80,60,20,0.45); }
@@ -32,21 +34,30 @@ class AppToaster extends HTMLElement {
     this._stack = this._shadow.querySelector('.stack');
   }
   show(message, opts = {}) {
-    const { type = 'info', duration = 3000 } = opts;
+    const { type = 'info', duration = 3000, action } = opts;
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.setAttribute('role', 'status');
     toast.setAttribute('aria-live', 'polite');
     toast.innerHTML = `
       <div class="msg">${message}</div>
-      <button class="btnx" aria-label="Close">✕</button>
+      ${action && action.label ? '<button class="act" aria-label="Action"></button>' : ''}
+      <button class="btnx" aria-label="Close">\u2715</button>
     `;
-    const btn = toast.querySelector('button');
+    const btnClose = toast.querySelector('.btnx');
+    const btnAct = toast.querySelector('.act');
     const dispose = () => {
       toast.classList.remove('show');
       setTimeout(() => toast.remove(), 150);
     };
-    btn.addEventListener('click', dispose);
+    btnClose.addEventListener('click', dispose);
+    if (btnAct) {
+      btnAct.textContent = action.label;
+      btnAct.addEventListener('click', () => {
+        try { action.onClick?.(); } catch (_) {}
+        dispose();
+      });
+    }
     this._stack.appendChild(toast);
     requestAnimationFrame(() => toast.classList.add('show'));
     if (duration > 0) setTimeout(dispose, duration);
@@ -164,9 +175,17 @@ class AppHeader extends HTMLElement {
   connectedCallback() {
     const title = this.getAttribute('title') || 'Drawer Count';
     this.innerHTML = `
+      <style>
+        :host { display: block; width: 100%; }
+        .bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: .35rem; }
+        .title { grid-column: 2; text-align: center; margin: 0; font-size: 1.1rem; letter-spacing: .2px; }
+        .left { grid-column: 1; justify-self: start; }
+        .right { grid-column: 3; justify-self: end; display: inline-flex; gap: .35rem; }
+      </style>
       <div class="bar" role="toolbar" aria-label="App header">
-        <h1>${title}</h1>
-        <div class="actions">
+        <div class="left"></div>
+        <h1 class="title">${title}</h1>
+        <div class="actions right">
           <button class="icon-btn theme-toggle" aria-label="Toggle theme" title="Toggle theme">${(document.documentElement.getAttribute('data-theme')||getPreferredTheme())==='dark'?'🌙':'☀️'}</button>
           <button class="icon-btn info-btn" aria-label="Help" title="Help">?</button>
         </div>

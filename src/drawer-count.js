@@ -52,6 +52,7 @@ class DrawerCount extends HTMLElement {
       <style>
         :host { display: block; color: var(--main-color, #eee); }
         .wrap { display: grid; gap: .35rem; }
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,1px,1px); white-space: nowrap; border: 0; }
 
         /* Original component-local styles */
         .output { text-align: right; }
@@ -74,6 +75,7 @@ class DrawerCount extends HTMLElement {
       </style>
 
       <div class="wrap">
+        <div class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
         <div class="output" id="total">Count: $<total>0.00</total></div>
         <div class="output" id="cash">Remove: $<cash>0.00</cash></div>
         <div class="output" id="balance">Balance: $<balance>0.00</balance></div>
@@ -197,6 +199,41 @@ class DrawerCount extends HTMLElement {
     // Global shortcuts for adding/removing rows
     this._onKeyDownGlobal = (e) => {
       const isCtrlShift = (e.ctrlKey || e.metaKey) && e.shiftKey;
+      const showUndo = (typeLabel, html, anchorSelectorForType) => {
+        try {
+          const t = document.querySelector('app-toaster');
+          if (!t || !html) return;
+          t.show(`${typeLabel} removed`, {
+            type: 'info',
+            duration: 5000,
+            action: {
+              label: 'Undo',
+              onClick: () => {
+                // Re-insert before anchor per original logic
+                const anchor = this._root.querySelector(anchorSelectorForType);
+                const wrap = this._root.querySelector('.wrap');
+                if (!wrap) return;
+                const temp = document.createElement('div');
+                temp.innerHTML = html;
+                const node = temp.firstElementChild;
+                if (!node) return;
+                // Rewire events
+                node.addEventListener('input', this._onInputEvent);
+                node.addEventListener('keydown', (e) => {
+                  if (e.key === 'Enter' || e.keyCode === 13) this._newInput(node.classList.contains('slip') ? '#checks' : '#hundreds');
+                });
+                if (anchor && anchor.parentElement) anchor.before(node); else wrap.appendChild(node);
+                this._getTotal();
+                this._getBalance();
+                this._slipCheckCount();
+                // Focus restored node input and announce
+                this._focusInputIn(node);
+                this._announce('Row restored');
+              }
+            }
+          });
+        } catch (_) {}
+      };
       if (isCtrlShift && (e.key === 'S' || e.key === 's')) {
         e.preventDefault();
         this._newInput('#checks'); // add slip
@@ -208,8 +245,16 @@ class DrawerCount extends HTMLElement {
         // Remove the last dynamically-added row (slip or check)
         const rows = Array.from(this._root.querySelectorAll('.wrap .slip, .wrap .check'));
         const last = rows[rows.length - 1];
-        if (last && last.id) {
-          this.remInput(last.id);
+        if (last) {
+          const isSlip = last.classList.contains('slip');
+          const anchorSel = isSlip ? '#checks' : '#hundreds';
+          const html = last.outerHTML;
+          const id = last.id;
+          const prevIndex = rows.length - 1;
+          this.remInput(id);
+          this._focusAfterRemoval(prevIndex);
+          // show toast with undo
+          showUndo(isSlip ? 'Slip' : 'Check', html, anchorSel);
         }
       }
     };
@@ -221,10 +266,59 @@ class DrawerCount extends HTMLElement {
         const row = e.target && e.target.closest('.slip, .check');
         if (row && row.id) {
           e.preventDefault();
-          this.remInput(row.id);
+          const isSlip = row.classList.contains('slip');
+          const anchorSel = isSlip ? '#checks' : '#hundreds';
+          const html = row.outerHTML;
+          const id = row.id;
+          const rows = Array.from(this._root.querySelectorAll('.wrap .slip, .wrap .check'));
+          const idx = rows.indexOf(row);
+          this.remInput(id);
+          this._focusAfterRemoval(idx);
+          // toast with undo
+          const t = document.querySelector('app-toaster');
+          try {
+            t?.show(`${isSlip ? 'Slip' : 'Check'} removed`, {
+              type: 'info', duration: 5000, action: {
+                label: 'Undo', onClick: () => {
+                  const anchor = this._root.querySelector(anchorSel);
+                  const wrap = this._root.querySelector('.wrap');
+                  if (!wrap) return;
+                  const temp = document.createElement('div'); temp.innerHTML = html; const node = temp.firstElementChild; if (!node) return;
+                  node.addEventListener('input', this._onInputEvent);
+                  node.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.keyCode === 13) this._newInput(node.classList.contains('slip') ? '#checks' : '#hundreds'); });
+                  if (anchor && anchor.parentElement) anchor.before(node); else wrap.appendChild(node);
+                  this._getTotal(); this._getBalance(); this._slipCheckCount();
+                  this._focusInputIn(node);
+                  this._announce('Row restored');
+                }
+              }
+            });
+          } catch (_) {}
         }
       }
     });
+  }
+
+  _announce(message) {
+    try {
+      const live = this._root.querySelector('.sr-only[role="status"]');
+      if (live) { live.textContent = message; }
+    } catch (_) { /* ignore */ }
+  }
+
+  _focusInputIn(node) {
+    try { node?.querySelector('input')?.focus(); } catch (_) {}
+  }
+
+  _focusAfterRemoval(prevIndex) {
+    // Focus previous row's input if available, else next, else fallback to base inputs
+    const rows = Array.from(this._root.querySelectorAll('.wrap .slip, .wrap .check'));
+    const target = rows[Math.max(0, prevIndex - 1)] || rows[0];
+    if (target) { this._focusInputIn(target); return; }
+    // fallback to base inputs
+    const baseCheck = this._root.querySelector('#checks input');
+    const baseSlip = this._root.querySelector('#slips input');
+    (baseCheck || baseSlip || this._root.querySelector('input'))?.focus();
   }
 
   _onInputEvent(e) {
