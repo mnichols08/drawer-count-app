@@ -89,7 +89,7 @@ class AppInstallBanner extends HTMLElement {
     this._tryCloseTab = this._tryCloseTab.bind(this);
     this._deferredPrompt = null;
     this._installed = false;
-    this._dismissed = false;
+  this._dismissed = false;
     this._autoHideTimer = null;
   }
 
@@ -124,7 +124,7 @@ class AppInstallBanner extends HTMLElement {
     this._el.primary.addEventListener('click', () => {
       if (this._installed) this._onOpenClick(); else this._onInstallClick();
     });
-    this._el.dismiss.addEventListener('click', this._onDismiss);
+  this._el.dismiss.addEventListener('click', this._onDismiss);
 
     window.addEventListener('beforeinstallprompt', this._onBeforeInstallPrompt);
     window.addEventListener('appinstalled', this._onAppInstalled);
@@ -132,7 +132,7 @@ class AppInstallBanner extends HTMLElement {
       navigator.serviceWorker.addEventListener('message', this._onSwMessage);
     }
 
-    // Initial state
+  // Initial state
     this._installed = this._isAppInstalled();
     // Persist if currently in standalone
     if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
@@ -143,7 +143,9 @@ class AppInstallBanner extends HTMLElement {
       const mm = window.matchMedia('(display-mode: standalone)');
       mm?.addEventListener?.('change', (e) => { if (e.matches) { try { localStorage.setItem('pwa-installed','1'); } catch(_) {} this._installed = true; this._update(); } });
     }
-    this._update();
+  // Restore dismissal from storage (persist across sessions for less noise)
+  try { this._dismissed = localStorage.getItem('install-banner-dismissed') === '1'; } catch (_) {}
+  this._update();
   }
 
   disconnectedCallback() {
@@ -226,7 +228,7 @@ class AppInstallBanner extends HTMLElement {
   _update() {
     // Do not show inside standalone
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-    if (isStandalone || this._isDismissed()) { this._el.wrap.style.display = 'none'; this._clearAutoHide(); return; }
+  if (isStandalone || this._isDismissed()) { this._el.wrap.style.display = 'none'; this._clearAutoHide(); return; }
 
     if (this._installed) {
       this._showOpen();
@@ -261,6 +263,7 @@ class AppInstallBanner extends HTMLElement {
     this._dismissed = true;
     this._el.wrap.style.display = 'none';
     this._clearAutoHide();
+    try { localStorage.setItem('install-banner-dismissed', '1'); } catch (_) {}
   }
 
   _scheduleAutoHide() {
@@ -269,7 +272,7 @@ class AppInstallBanner extends HTMLElement {
       this._dismissed = true; // session-only
       this._el.wrap.style.display = 'none';
       this._clearAutoHide();
-    }, 60000); // 1 minute
+    }, 20000); // 20s
   }
 
   _clearAutoHide() {
@@ -292,7 +295,7 @@ class NetworkStatus extends HTMLElement {
   }
 
   connectedCallback() {
-    this._baseTitle = (document.title || 'Drawer Count').replace(/\s*•\s*Offline$/i, '');
+    this._baseTitle = (document.title || 'Drawer Count').replace(/\s*\u2022\s*Offline$/i, '');
     window.addEventListener('online', this._update);
     window.addEventListener('offline', this._update);
 
@@ -325,8 +328,19 @@ class NetworkStatus extends HTMLElement {
   _setStatus(offline) {
     if (this._offline === offline) return;
     this._offline = offline;
-    document.title = offline ? `${this._baseTitle} • Offline` : this._baseTitle;
-    this.textContent = `Status: ${offline ? 'Offline' : 'Online'}`;
+    // Subtle title hint only when offline
+    document.title = offline ? `${this._baseTitle} \u2022 Offline` : this._baseTitle;
+    // As a floating pill: only render text when offline and toggle class for CSS visibility
+    if (offline) {
+      this.textContent = 'Offline';
+      this.classList.add('offline');
+      this.setAttribute('aria-live', 'polite');
+      this.setAttribute('role', 'status');
+    } else {
+      this.textContent = '';
+      this.classList.remove('offline');
+      this.removeAttribute('role');
+    }
   }
 
   _onSwMessage(event) {

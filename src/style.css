@@ -1,19 +1,23 @@
 :root {
   --bg: #0b132b;
-  --fg: #e0e6ff;
+  --fg: #e7ecff;
   --muted: #9aa3b2;
-  --accent: #3a86ff;
-  --card: #1c2541;
+  --accent: #5aa0ff;
+  --card: #151c35;
+  --border: #263056;
   --btn: #3a506b;
+  --shadow: 0 12px 36px rgba(0,0,0,.35);
 }
 
 * { box-sizing: border-box; }
 html, body { height: 100%; }
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-  background: var(--bg);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  background: radial-gradient(1200px 800px at 10% -10%, #0f1a3a 0%, var(--bg) 35%) no-repeat, var(--bg);
   color: var(--fg);
+  line-height: 1.45;
+  letter-spacing: .2px;
 }
 
 .app-header {
@@ -21,23 +25,23 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid #2a345a;
+  padding: 0.9rem 1.1rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .container {
   display: grid;
   place-items: center;
-  padding: 1.5rem;
+  padding: 2rem 1.5rem 3rem;
 }
 
 .card {
   width: min(520px, 100%);
   background: var(--card);
-  border: 1px solid #2a345a;
-  border-radius: 12px;
-  padding: 1.25rem;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.1rem 1.1rem 1.25rem;
+  box-shadow: var(--shadow);
 }
 
 .count-display {
@@ -60,19 +64,19 @@ body {
 }
 
 input[type="number"] {
-  background: #121a33;
+  background: #0f1730;
   color: var(--fg);
-  border: 1px solid #2a345a;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
   padding: 0.6rem 0.75rem;
 }
 
 .btn {
   background: var(--btn);
   color: var(--fg);
-  border: 1px solid #2a345a;
-  border-radius: 8px;
-  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
   cursor: pointer;
 }
 .btn:hover { filter: brightness(1.08); }
@@ -94,4 +98,23 @@ input[type="number"] {
   background: #ffeeee;
   color: #220000;
   padding: 0.75rem;
+}
+
+/* Floating offline pill */
+network-status {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 50;
+  background: #1f2a52;
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 10px;
+  box-shadow: var(--shadow);
+  font-size: .9rem;
+  display: none; /* default hidden until offline */
+}
+network-status.offline {
+  display: inline-block;
 }

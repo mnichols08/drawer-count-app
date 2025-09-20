@@ -5,7 +5,9 @@
   "main": "index.html",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "live-server --port=8080 --open=index.html --watch=src"
+    "dev": "live-server --port=8080 --open=index.html --watch=src",
+    "start": "npm run dev",
+    "build": "echo \"No build step needed; this is a static app. Use 'npm run dev' for local preview.\""
   },
   "repository": {
     "type": "git",
