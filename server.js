@@ -8,6 +8,8 @@
 
 /* eslint-disable no-console */
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 const express = require('express');
 const cors = require('cors');
 const { MongoClient } = require('mongodb');
@@ -43,6 +45,51 @@ app.get('/api/health', async (_req, res) => {
 let mongoClient = null;
 let kvCollection = null;
 
+// Build MongoClient options from environment to support TLS configs on various providers
+let cachedTlsCAFilePath = null;
+function buildMongoClientOptions() {
+	const opts = { serverSelectionTimeoutMS: Number(process.env.MONGODB_SERVER_SELECTION_TIMEOUT_MS) || 5000 };
+
+	// Force TLS if requested (some providers require explicit tls=true with mongodb:// URIs)
+	if (String(process.env.MONGODB_TLS || '').toLowerCase() === 'true') {
+		opts.tls = true;
+	}
+
+	// Allow connecting to providers with self-signed or mismatch certs (use only if you understand the risk)
+	if (String(process.env.MONGODB_TLS_INSECURE || '').toLowerCase() === 'true') {
+		opts.tlsAllowInvalidCertificates = true;
+		opts.tlsAllowInvalidHostnames = true;
+	}
+
+	// Provide a CA chain if needed (e.g., AWS DocumentDB, some managed Mongo offerings)
+	const caFile = process.env.MONGODB_TLS_CA_FILE;
+	const caPem = process.env.MONGODB_TLS_CA_PEM; // raw PEM content
+	const caB64 = process.env.MONGODB_TLS_CA_BASE64; // base64-encoded PEM content
+	try {
+		if (!cachedTlsCAFilePath) {
+			if (caFile && fs.existsSync(caFile)) {
+				cachedTlsCAFilePath = caFile;
+			} else if (caPem && caPem.trim()) {
+				const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dca-'));
+				cachedTlsCAFilePath = path.join(dir, 'mongo-ca.pem');
+				fs.writeFileSync(cachedTlsCAFilePath, caPem, { encoding: 'utf8' });
+			} else if (caB64 && caB64.trim()) {
+				const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dca-'));
+				cachedTlsCAFilePath = path.join(dir, 'mongo-ca.pem');
+				const buf = Buffer.from(caB64, 'base64');
+				fs.writeFileSync(cachedTlsCAFilePath, buf);
+			}
+		}
+	} catch (e) {
+		console.warn('[api] Warning preparing TLS CA file:', e?.message || e);
+	}
+	if (cachedTlsCAFilePath) {
+		opts.tlsCAFile = cachedTlsCAFilePath;
+	}
+
+	return opts;
+}
+
 async function connectMongoOnce() {
 	if (kvCollection) return kvCollection;
 	if (!MONGODB_URI) {
@@ -50,7 +97,8 @@ async function connectMongoOnce() {
 		return null;
 	}
 	try {
-		mongoClient = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 5000 });
+		const mongoOpts = buildMongoClientOptions();
+		mongoClient = new MongoClient(MONGODB_URI, mongoOpts);
 		await mongoClient.connect();
 		const db = mongoClient.db(MONGODB_DB);
 		kvCollection = db.collection('kv');
