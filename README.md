@@ -64,3 +64,14 @@ An SVG favicon is included. For best results on various platforms, add PNG icons
 - If you update `sw.js`, reload and then close/reopen the page to activate the new service worker. You can also use the DevTools Application > Service Workers panel to update/skip waiting.
  - The `manifest.webmanifest` uses `launch_handler` and `capture_links` to prefer focusing an existing app client when opening from the website (supported in Chromium-based browsers).
 
+## Daily History
+
+- Save today's counts: open `Settings` (gear) → `Daily History` → `Save Today`.
+- Restore a prior day: choose a date from `Saved Days` → `Load`.
+- Delete a saved day: select a date → `Delete`.
+- Auto reset on a new day: when you return on a different day, inputs are cleared so you can start fresh (per profile).
+
+Notes:
+- Day saves are stored locally per device and per profile.
+- Dates use your device's local time in `YYYY-MM-DD` format.
+

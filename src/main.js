@@ -175,6 +175,11 @@ class SettingsModal extends HTMLElement {
     this._onThemeChange = this._onThemeChange.bind(this);
     this._onExport = this._onExport.bind(this);
     this._onImport = this._onImport.bind(this);
+    // Daily history handlers
+    this._onDaySave = this._onDaySave.bind(this);
+    this._onDayLoad = this._onDayLoad.bind(this);
+    this._onDayDelete = this._onDayDelete.bind(this);
+    this._populateDaysSelect = this._populateDaysSelect.bind(this);
   }
   connectedCallback() {
     this._render();
@@ -241,6 +246,18 @@ class SettingsModal extends HTMLElement {
               </div>
             </div>
           </div>
+          <div class="section">
+            <div class="row" style="align-items: start; gap: 12px;">
+              <div>Daily History</div>
+              <div style="display:flex; gap:8px; flex-wrap: wrap; align-items: center;">
+                <button class="btn day-save-btn" aria-label="Save today">Save Today</button>
+                <label for="saved-days" class="sr-only">Saved Days</label>
+                <select id="saved-days" class="day-select" aria-label="Saved Days" style="min-width: 180px; max-width: 60vw;"></select>
+                <button class="btn day-load-btn" aria-label="Load selected day">Load</button>
+                <button class="btn day-delete-btn" aria-label="Delete selected day">Delete</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -253,6 +270,10 @@ class SettingsModal extends HTMLElement {
       saveBtn: this._shadow.querySelector('.save-btn'),
       restoreBtn: this._shadow.querySelector('.restore-btn'),
       clearBtn: this._shadow.querySelector('.clear-btn'),
+      daySaveBtn: this._shadow.querySelector('.day-save-btn'),
+      daySelect: this._shadow.querySelector('.day-select'),
+      dayLoadBtn: this._shadow.querySelector('.day-load-btn'),
+      dayDeleteBtn: this._shadow.querySelector('.day-delete-btn'),
     };
     // Init radio state
     const chosen = mode || currentTheme;
@@ -270,8 +291,21 @@ class SettingsModal extends HTMLElement {
     this._els.clearBtn?.addEventListener('click', () => {
       try { const comp = getDrawerComponent(); comp?.reset?.(); const header = document.querySelector('app-header'); updateStatusPill(header); toast('Cleared', { type: 'info', duration: 1500 }); } catch(_){}
     });
+    // Daily history events
+    this._els.daySaveBtn?.addEventListener('click', this._onDaySave);
+    this._els.dayLoadBtn?.addEventListener('click', this._onDayLoad);
+    this._els.dayDeleteBtn?.addEventListener('click', this._onDayDelete);
+    this._els.daySelect?.addEventListener('change', () => {
+      const has = !!this._els.daySelect?.value;
+      if (this._els.dayLoadBtn) this._els.dayLoadBtn.disabled = !has;
+      if (this._els.dayDeleteBtn) this._els.dayDeleteBtn.disabled = !has;
+    });
+    // Initialize the days UI state
+    this._populateDaysSelect();
+    if (this._els.dayLoadBtn) this._els.dayLoadBtn.disabled = !this._els.daySelect?.value;
+    if (this._els.dayDeleteBtn) this._els.dayDeleteBtn.disabled = !this._els.daySelect?.value;
   }
-  open() { this.setAttribute('open', ''); }
+  open() { this.setAttribute('open', ''); try { this._populateDaysSelect(); } catch(_) {} }
   close() { this.removeAttribute('open'); }
   _onKeyDown(e) { if (e.key === 'Escape') this.close(); }
   _onThemeChange(e) {
@@ -283,6 +317,48 @@ class SettingsModal extends HTMLElement {
   }
   _onExport() { try { exportProfilesToFile(); } catch(_) { toast('Export failed', { type: 'error', duration: 2500 }); } }
   _onImport() { try { const header = document.querySelector('app-header'); openImportDialog(header); } catch(_) { toast('Import failed to start', { type: 'error', duration: 2500 }); } }
+  _populateDaysSelect() {
+    try {
+      const sel = this._els?.daySelect; if (!sel) return;
+      const list = listSavedDaysForActiveProfile();
+      sel.innerHTML = '';
+      if (!list.length) {
+        const opt = document.createElement('option'); opt.value = ''; opt.textContent = 'No saved days'; sel.appendChild(opt);
+      } else {
+        for (const d of list) {
+          const opt = document.createElement('option');
+          opt.value = d.date;
+          const dt = new Date(d.savedAt || Date.now());
+          const lbl = `${d.date} • ${dt.toLocaleTimeString()}`;
+          opt.textContent = lbl;
+          sel.appendChild(opt);
+        }
+      }
+    } catch(_) {}
+  }
+  _onDaySave() {
+    try {
+      const ok = saveTodayToDays();
+      this._populateDaysSelect();
+      toast(ok ? 'Saved today' : 'Save failed', { type: ok ? 'success' : 'error', duration: 1800 });
+    } catch(_) { toast('Save failed', { type: 'error', duration: 2000 }); }
+  }
+  _onDayLoad() {
+    try {
+      const sel = this._els?.daySelect; const key = sel?.value; if (!key) return;
+      const ok = restoreDay(key);
+      const header = document.querySelector('app-header'); updateStatusPill(header);
+      toast(ok ? `Loaded ${key}` : 'Load failed', { type: ok ? 'success' : 'error', duration: 1800 });
+    } catch(_) { toast('Load failed', { type: 'error', duration: 2000 }); }
+  }
+  _onDayDelete() {
+    try {
+      const sel = this._els?.daySelect; const key = sel?.value; if (!key) return;
+      const ok = deleteDay(key);
+      this._populateDaysSelect();
+      toast(ok ? 'Deleted day' : 'Delete failed', { type: ok ? 'success' : 'error', duration: 1800 });
+    } catch(_) { toast('Delete failed', { type: 'error', duration: 2000 }); }
+  }
 }
 customElements.define('settings-modal', SettingsModal);
 
@@ -576,7 +652,7 @@ class AppHeader extends HTMLElement {
   _onHelp() { getHelpModal().open(); }
   _onSettings() { getSettingsModal().open(); }
   // data actions now live in settings modal
-  _onProfileChange(e) { try { const id = e.target?.value; if (!id) return; setActiveProfile(id); restoreActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Switched profile', { type:'info', duration: 1200}); } catch(_){} }
+  _onProfileChange(e) { try { const id = e.target?.value; if (!id) return; setActiveProfile(id); restoreActiveProfile(); ensureDayResetIfNeeded(this); populateProfilesSelect(this); updateStatusPill(this); toast('Switched profile', { type:'info', duration: 1200}); } catch(_){} }
   async _onNewProfile() { try { const modal = getNewProfileModal(); const name = await modal.open(''); if (!name) return; const id = createProfile(name); setActiveProfile(id); saveToActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Profile created', { type: 'success', duration: 1800 }); } catch(_){} }
   async _onDeleteProfile() { try { const data = loadProfilesData(); const ids = Object.keys(data.profiles||{}); if (ids.length<=1) { toast('Cannot delete last profile', { type:'warning', duration: 2200}); return; } const active = data.activeId; const name = data.profiles[active]?.name || active; const modal = getDeleteProfileModal(); const ok = await modal.open(name); if (!ok) return; delete data.profiles[active]; const nextId = ids.find((x)=>x!==active) || 'default'; data.activeId = nextId; saveProfilesData(data); restoreActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Profile deleted', { type:'success', duration: 1800}); } catch(_){} }
   _onClear() {
@@ -1029,9 +1105,76 @@ window.addEventListener('DOMContentLoaded', () => {
   ensureProfilesInitialized();
   // Restore from active profile if exists
   restoreActiveProfile();
+  // If it's a new day, start fresh automatically
+  ensureDayResetIfNeeded(document.querySelector('app-header'));
   const header = document.querySelector('app-header');
   // Update initial status
   if (header) { populateProfilesSelect(header); updateStatusPill(header); }
   // Listen for changes to update status and auto-save
   comp.addEventListener('change', () => _debouncedSaveWithProfiles(header));
 });
+
+// Daily history — per profile, keyed by local YYYY-MM-DD
+const DRAWER_DAYS_KEY = 'drawer-days-v1';
+function _formatDateLocalYMD(d) {
+  const yr = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, '0');
+  const da = String(d.getDate()).padStart(2, '0');
+  return `${yr}-${mo}-${da}`;
+}
+function getTodayKey() { return _formatDateLocalYMD(new Date()); }
+function loadDaysData() {
+  try { const raw = localStorage.getItem(DRAWER_DAYS_KEY); const parsed = raw ? JSON.parse(raw) : {}; return parsed && typeof parsed==='object' ? parsed : {}; } catch(_) { return {}; }
+}
+function saveDaysData(data) { try { localStorage.setItem(DRAWER_DAYS_KEY, JSON.stringify(data)); return true; } catch(_) { return false; } }
+function _getActiveDaysEntry(createIfMissing = true) {
+  const data = loadDaysData(); const pid = getActiveProfileId();
+  if (!data[pid] && createIfMissing) data[pid] = { lastVisitedDate: null, days: {} };
+  return { data, pid, entry: data[pid] || { lastVisitedDate: null, days: {} } };
+}
+function listSavedDaysForActiveProfile() {
+  const { entry } = _getActiveDaysEntry(false);
+  const days = entry.days || {};
+  const arr = Object.keys(days).map((k) => ({ date: k, savedAt: days[k]?.savedAt || 0 }));
+  arr.sort((a,b) => (b.date.localeCompare(a.date)) || (b.savedAt - a.savedAt));
+  return arr;
+}
+function saveTodayToDays() {
+  const comp = getDrawerComponent(); if (!comp?.getState) return false;
+  const { data, pid, entry } = _getActiveDaysEntry(true);
+  const key = getTodayKey();
+  entry.days = entry.days || {};
+  entry.days[key] = { state: comp.getState(), savedAt: Date.now() };
+  entry.lastVisitedDate = key;
+  data[pid] = entry;
+  return saveDaysData(data);
+}
+function restoreDay(key) {
+  const comp = getDrawerComponent(); if (!comp?.setState) return false;
+  const { data, pid, entry } = _getActiveDaysEntry(false);
+  const rec = entry.days?.[key]; if (!rec || !rec.state) return false;
+  try { comp.setState(rec.state); // Update lastVisited to this key so subsequent loads don't auto-clear immediately
+    entry.lastVisitedDate = getTodayKey(); // still track today for auto-clear behavior
+    data[pid] = entry; saveDaysData(data);
+    return true; } catch(_) { return false; }
+}
+function deleteDay(key) {
+  const { data, pid, entry } = _getActiveDaysEntry(false);
+  if (!entry.days || !entry.days[key]) return false;
+  try { delete entry.days[key]; data[pid] = entry; return saveDaysData(data); } catch(_) { return false; }
+}
+function ensureDayResetIfNeeded(headerEl) {
+  try {
+    const { data, pid, entry } = _getActiveDaysEntry(true);
+    const today = getTodayKey();
+    if (entry.lastVisitedDate !== today) {
+      const comp = getDrawerComponent();
+      comp?.reset?.();
+      entry.lastVisitedDate = today;
+      data[pid] = entry;
+      saveDaysData(data);
+      if (headerEl) updateStatusPill(headerEl);
+      toast('New day detected. Starting fresh.', { type: 'info', duration: 2200 });
+    }
+  } catch(_) { /* ignore */ }
+}
