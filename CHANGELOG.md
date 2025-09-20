@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.0.8 - 2025-09-20
+- Add iOS installation instructions and adjust banner height handling
+
 ## v0.0.7 - 2025-09-20
 - Add daily history in `SettingsModal` (save, load, delete days)
 - Add read-only toggle and day renaming in `SettingsModal`

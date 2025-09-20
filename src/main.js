@@ -873,6 +873,7 @@ class AppInstallBanner extends HTMLElement {
     this._shadow = this.attachShadow({ mode: 'open' });
     this._onInstallClick = this._onInstallClick.bind(this);
     this._onOpenClick = this._onOpenClick.bind(this);
+    this._onIOSHelp = this._onIOSHelp.bind(this);
     this._onBeforeInstallPrompt = this._onBeforeInstallPrompt.bind(this);
     this._onAppInstalled = this._onAppInstalled.bind(this);
     this._onSwMessage = this._onSwMessage.bind(this);
@@ -883,6 +884,7 @@ class AppInstallBanner extends HTMLElement {
     this._installed = false;
   this._dismissed = false;
     this._autoHideTimer = null;
+    this._iosMode = false; // when true, show iOS instructions instead of prompt
   }
 
   connectedCallback() {
@@ -914,7 +916,9 @@ class AppInstallBanner extends HTMLElement {
       dismiss: this._shadow.querySelector('.dismiss'),
     };
     this._el.primary.addEventListener('click', () => {
-      if (this._installed) this._onOpenClick(); else this._onInstallClick();
+      if (this._installed) this._onOpenClick();
+      else if (this._iosMode) this._onIOSHelp();
+      else this._onInstallClick();
     });
   this._el.dismiss.addEventListener('click', this._onDismiss);
 
@@ -1026,6 +1030,8 @@ class AppInstallBanner extends HTMLElement {
       this._showOpen();
     } else if (this._deferredPrompt) {
       this._showInstall();
+    } else if (this._isIOS()) {
+      this._showIOS();
     } else {
       this._el.wrap.style.display = 'none';
       this._clearAutoHide();
@@ -1045,11 +1051,38 @@ class AppInstallBanner extends HTMLElement {
     this._el.primary.textContent = 'Open in App';
     this._el.primary.setAttribute('aria-label', 'Open in installed app');
     this._el.wrap.style.display = 'block';
+    this._iosMode = false;
     this._scheduleAutoHide();
   }
 
   _isDismissed() {
     return this._dismissed === true;
+  }
+  _isIOS() {
+    // iOS Safari doesn’t fire beforeinstallprompt; detect iPhone/iPad/iPod and iPadOS (Mac UA + touch)
+    const ua = navigator.userAgent || navigator.vendor || window.opera || '';
+    const isIOSUA = /iphone|ipad|ipod/i.test(ua);
+    const isIpadOSMasquerade = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    return isIOSUA || isIpadOSMasquerade;
+  }
+  _onIOSHelp() {
+    // Brief instructions via toast; keep it simple and non-blocking
+    try {
+      const isIpad = /ipad/i.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const device = isIpad ? 'iPad' : 'iPhone';
+      toast(`Install on ${device}: In Safari, tap Share (square with ↑), then "Add to Home Screen".`, { type: 'info', duration: 5000 });
+    } catch (_) {}
+  }
+  _showIOS() {
+    // Show instructions banner for iOS devices where install prompt isn’t available
+    const isIpad = /ipad/i.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const device = isIpad ? 'iPad' : 'iPhone';
+    this._el.msg.textContent = `Install this app: On your ${device}, tap the Share button, then "Add to Home Screen".`;
+    this._el.primary.textContent = 'How to Install';
+    this._el.primary.setAttribute('aria-label', `How to install on ${device}`);
+    this._el.wrap.style.display = 'block';
+    this._iosMode = true;
+    this._scheduleAutoHide();
   }
   _onDismiss() {
     this._dismissed = true;
@@ -1314,20 +1347,36 @@ window.addEventListener('DOMContentLoaded', () => {
   // Update CSS var for header height so content padding matches fixed header
   const root = document.documentElement;
   const hdr = document.querySelector('header.app-header');
+  const bannerHost = document.querySelector('app-install-banner');
   const setHeaderVar = () => {
     if (!hdr) return;
     const h = hdr.offsetHeight || 64;
     root.style.setProperty('--header-h', `${h}px`);
   };
+  const setBannerVar = () => {
+    // The banner element renders its visible area inside a wrapper; measuring host is ok as it's sticky and sized by content
+    if (!bannerHost) { root.style.setProperty('--banner-h', '0px'); return; }
+    // If the banner is hidden via display:none, offsetHeight will be 0
+    const h = bannerHost.offsetHeight || 0;
+    root.style.setProperty('--banner-h', `${h}px`);
+  };
   setHeaderVar();
+  setBannerVar();
   // Observe header size changes (e.g., responsive wraps)
   try {
     if (window.ResizeObserver && hdr) {
       const ro = new ResizeObserver(() => setHeaderVar());
       ro.observe(hdr);
+      // Observe banner visibility/size changes
+      if (bannerHost) {
+        const rb = new ResizeObserver(() => setBannerVar());
+        rb.observe(bannerHost);
+      }
     } else {
       window.addEventListener('resize', setHeaderVar);
+      window.addEventListener('resize', setBannerVar);
       setTimeout(setHeaderVar, 250); // after fonts/layout settle
+      setTimeout(setBannerVar, 260);
     }
   } catch(_) { /* no-op */ }
 
@@ -1353,6 +1402,18 @@ window.addEventListener('DOMContentLoaded', () => {
       saveSpecificDay(key);
     } catch(_) {}
   });
+
+  // Also listen for banner internal state changes via events/messages to recompute height quickly
+  try {
+    const banner = document.querySelector('app-install-banner');
+    if (banner) {
+      // MutationObserver to detect style/display toggles within shadow DOM host size
+      const mo = new MutationObserver(() => setBannerVar());
+      mo.observe(banner, { attributes: true, attributeFilter: ['style', 'class'] });
+      // Fallback: poll once after 1s in case of async show
+      setTimeout(setBannerVar, 1000);
+    }
+  } catch (_) { /* ignore */ }
 });
 
 // Daily history — per profile, keyed by local YYYY-MM-DD
