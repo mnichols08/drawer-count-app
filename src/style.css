@@ -6,6 +6,9 @@
   --card: #151c35;
   --border: #263056;
   --btn: #3a506b;
+  /* App-wide input vars (used by modals, etc.) */
+  --input-bg-color: #0f1730;
+  --input-fg-color: var(--fg);
   /* Global button variables (used by header buttons) */
   --button-bg-color: var(--btn);
   --button-color: var(--fg);
@@ -41,6 +44,9 @@ body {
   --card: #ffffff;
   --border: #b8c1e1;    /* darker border for clearer separation */
   --btn: #dbe4ff;       /* slightly darker button bg */
+  /* App-wide input vars (light) */
+  --input-bg-color: #f3f6ff;
+  --input-fg-color: #0b132b;
   /* Header/primary buttons map to theme vars in light mode */
   --button-bg-color: var(--btn);
   --button-color: var(--fg);

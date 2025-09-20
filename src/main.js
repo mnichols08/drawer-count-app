@@ -85,10 +85,10 @@ function getPreferredTheme() {
   } catch (_) {}
   return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
-function applyTheme(theme) {
+function applyTheme(theme, persist = true) {
   const t = theme === 'light' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', t);
-  try { localStorage.setItem(THEME_KEY, t); } catch (_) {}
+  if (persist) { try { localStorage.setItem(THEME_KEY, t); } catch (_) {} }
   // Update header icon if present
   const btn = document.querySelector('app-header .theme-toggle');
   if (btn) btn.textContent = t === 'dark' ? '🌙' : '☀️';
@@ -100,7 +100,8 @@ function toggleTheme() {
   const cur = document.documentElement.getAttribute('data-theme') || getPreferredTheme();
   applyTheme(cur === 'dark' ? 'light' : 'dark');
 }
-applyTheme(getPreferredTheme());
+// Apply without persisting so that lack of stored value means "System" mode
+applyTheme(getPreferredTheme(), false);
 
 // Web Component: <help-modal> simple modal dialog
 class HelpModal extends HTMLElement {
@@ -117,7 +118,7 @@ class HelpModal extends HTMLElement {
         :host([open]) { display: block; }
         .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(2px); z-index: 1000; }
         .dialog { position: fixed; inset: 10% auto auto 50%; transform: translateX(-50%);
-          max-width: min(640px, 92vw); background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
+         max-width: min(640px, 92vw); background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
           border: 1px solid var(--border, #2a345a); border-radius: 12px; padding: 14px; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
         .hd { display:flex; justify-content: space-between; align-items:center; gap: 8px; margin-bottom: 8px; }
         .hd h2 { margin: 0; font-size: 1.2rem; }
@@ -165,6 +166,133 @@ function getHelpModal() {
   return m;
 }
 
+// Web Component: <settings-modal> — app settings and data actions
+class SettingsModal extends HTMLElement {
+  constructor() {
+    super();
+    this._shadow = this.attachShadow({ mode: 'open' });
+    this._onKeyDown = this._onKeyDown.bind(this);
+    this._onThemeChange = this._onThemeChange.bind(this);
+    this._onExport = this._onExport.bind(this);
+    this._onImport = this._onImport.bind(this);
+  }
+  connectedCallback() {
+    this._render();
+    window.addEventListener('keydown', this._onKeyDown);
+  }
+  disconnectedCallback() {
+    window.removeEventListener('keydown', this._onKeyDown);
+  }
+  _render() {
+    const currentTheme = document.documentElement.getAttribute('data-theme') || getPreferredTheme();
+    // system if no explicit localStorage setting
+    let mode = 'system';
+    try { const stored = localStorage.getItem(THEME_KEY); if (stored === 'light' || stored === 'dark') mode = stored; } catch(_) {}
+    this._shadow.innerHTML = `
+      <style>
+        :host { display: none; }
+        :host([open]) { display: block; }
+        .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(2px); z-index: 1000; }
+        .dialog { position: fixed; inset: 12% auto auto 50%; transform: translateX(-50%);
+          max-width: min(560px, 92vw); max-height: min(85vh, 92vh); overflow-y: auto; overflow-x: hidden; background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
+          border: 1px solid var(--border, #2a345a); border-radius: 12px; padding: 14px; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
+        .hd { display:flex; justify-content: space-between; align-items:center; gap: 8px; margin-bottom: 10px; }
+        .hd h2 { margin: 0; font-size: 1.1rem; }
+        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+        .section { border-top: 1px solid var(--border, #2a345a); padding-top: 10px; margin-top: 10px; }
+        .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; flex-wrap: wrap; }
+        .radios { display: flex; gap: 12px; align-items: center; }
+        label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+        .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 8px 12px; cursor: pointer; min-height: 40px; font-weight: 600; }
+      </style>
+      <div class="backdrop" part="backdrop"></div>
+      <div class="dialog" role="dialog" aria-modal="true" aria-label="Settings">
+        <div class="hd">
+          <h2>Settings</h2>
+          <button class="close" aria-label="Close">Close</button>
+        </div>
+        <div class="content">
+          <div class="section">
+            <div class="row">
+              <div>Theme</div>
+              <div class="radios" role="radiogroup" aria-label="Theme">
+                <label><input type="radio" name="theme" value="system"> <span>System</span></label>
+                <label><input type="radio" name="theme" value="light"> <span>Light</span></label>
+                <label><input type="radio" name="theme" value="dark"> <span>Dark</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="section">
+            <div class="row">
+              <div>Data</div>
+              <div style="display:flex; gap:8px; flex-wrap: wrap;">
+                <button class="btn export-btn" aria-label="Export profiles">Export</button>
+                <button class="btn import-btn" aria-label="Import profiles">Import</button>
+              </div>
+            </div>
+          </div>
+          <div class="section">
+            <div class="row">
+              <div>Profiles</div>
+              <div style="display:flex; gap:8px; flex-wrap: wrap;">
+                <button class="btn save-btn" aria-label="Save active profile">Save</button>
+                <button class="btn restore-btn" aria-label="Restore active profile">Restore</button>
+                <button class="btn clear-btn" aria-label="Clear current drawer">Clear</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    this._els = {
+      backdrop: this._shadow.querySelector('.backdrop'),
+      close: this._shadow.querySelector('.close'),
+      radios: Array.from(this._shadow.querySelectorAll('input[name="theme"]')),
+      exportBtn: this._shadow.querySelector('.export-btn'),
+      importBtn: this._shadow.querySelector('.import-btn'),
+      saveBtn: this._shadow.querySelector('.save-btn'),
+      restoreBtn: this._shadow.querySelector('.restore-btn'),
+      clearBtn: this._shadow.querySelector('.clear-btn'),
+    };
+    // Init radio state
+    const chosen = mode || currentTheme;
+    this._els.radios.forEach((r) => { r.checked = r.value === chosen; r.addEventListener('change', this._onThemeChange); });
+    this._els.backdrop?.addEventListener('click', () => this.close());
+    this._els.close?.addEventListener('click', () => this.close());
+    this._els.exportBtn?.addEventListener('click', this._onExport);
+    this._els.importBtn?.addEventListener('click', this._onImport);
+    this._els.saveBtn?.addEventListener('click', () => {
+      try { saveToActiveProfile(); const header = document.querySelector('app-header'); updateStatusPill(header); toast('Profile saved', { type: 'success', duration: 2000 }); } catch (_) {}
+    });
+    this._els.restoreBtn?.addEventListener('click', () => {
+      try { const ok = restoreActiveProfile(); const header = document.querySelector('app-header'); updateStatusPill(header); toast(ok? 'Profile restored':'No saved state for profile', { type: ok?'success':'warning', duration: 2200 }); } catch (_) { toast('Restore failed', { type: 'error', duration: 2500 }); }
+    });
+    this._els.clearBtn?.addEventListener('click', () => {
+      try { const comp = getDrawerComponent(); comp?.reset?.(); const header = document.querySelector('app-header'); updateStatusPill(header); toast('Cleared', { type: 'info', duration: 1500 }); } catch(_){}
+    });
+  }
+  open() { this.setAttribute('open', ''); }
+  close() { this.removeAttribute('open'); }
+  _onKeyDown(e) { if (e.key === 'Escape') this.close(); }
+  _onThemeChange(e) {
+    const val = e.target?.value;
+    try {
+      if (val === 'system') { localStorage.removeItem(THEME_KEY); applyTheme(getPreferredTheme(), false); toast('Theme: System', { type:'info', duration: 1200}); }
+      else if (val === 'light' || val === 'dark') { applyTheme(val); toast(`Theme: ${val[0].toUpperCase()}${val.slice(1)}`, { type:'info', duration: 1200}); }
+    } catch (_) { /* ignore */ }
+  }
+  _onExport() { try { exportProfilesToFile(); } catch(_) { toast('Export failed', { type: 'error', duration: 2500 }); } }
+  _onImport() { try { const header = document.querySelector('app-header'); openImportDialog(header); } catch(_) { toast('Import failed to start', { type: 'error', duration: 2500 }); } }
+}
+customElements.define('settings-modal', SettingsModal);
+
+// Ensure a single settings modal exists in document
+function getSettingsModal() {
+  let m = document.querySelector('settings-modal');
+  if (!m) { m = document.createElement('settings-modal'); document.body.appendChild(m); }
+  return m;
+}
+
 // Web Component: <new-profile-modal> — prompt-like modal to create a profile
 class NewProfileModal extends HTMLElement {
   constructor() {
@@ -186,18 +314,29 @@ class NewProfileModal extends HTMLElement {
         :host { display: none; }
         :host([open]) { display: block; }
         .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(2px); z-index: 1000; }
-        .dialog { position: fixed; inset: 15% auto auto 50%; transform: translateX(-50%);
-          max-width: min(520px, 92vw); background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
+        .dialog { position: fixed; inset: 12% auto auto 50%; transform: translateX(-50%);
+         max-width: min(520px, 92vw); max-height: min(85vh, 92vh); overflow-y: auto; overflow-x: hidden;
+          background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
           border: 1px solid var(--border, #2a345a); border-radius: 12px; padding: 14px; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
         .hd { display:flex; justify-content: space-between; align-items:center; gap: 8px; margin-bottom: 10px; }
         .hd h2 { margin: 0; font-size: 1.1rem; }
         .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
         form { display: grid; gap: 10px; }
         label { font-size: .95rem; }
-        input[type="text"] { width: 100%; background: var(--input-bg, #0f1730); color: var(--fg, #e7ecff); border: 1px solid var(--border, #2a345a); border-radius: 10px; padding: 10px 12px; min-height: 44px; font-size: 16px; }
+        input[type="text"] {
+          width: 100%; max-width: 100%; box-sizing: border-box;
+          background: var(--input-bg-color);
+          color: var(--input-fg-color);
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 0.6rem 0.75rem;
+          min-height: 44px; /* mobile tap target */
+          font-size: 16px;  /* prevent iOS zoom */
+        }
         .actions { display:flex; gap: 8px; justify-content: flex-end; }
         .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 8px 12px; cursor: pointer; min-height: 40px; font-weight: 600; }
         .btn[disabled] { opacity: .6; cursor: not-allowed; }
+        @media (max-width: 480px) { .dialog { inset: 6% auto auto 50%; padding: 12px; } }
       </style>
       <div class="backdrop" part="backdrop"></div>
       <div class="dialog" role="dialog" aria-modal="true" aria-label="Create new profile">
@@ -274,11 +413,7 @@ class AppHeader extends HTMLElement {
     super();
     this._onTheme = this._onTheme.bind(this);
     this._onHelp = this._onHelp.bind(this);
-    this._onSave = this._onSave.bind(this);
-    this._onRestore = this._onRestore.bind(this);
-    this._onClear = this._onClear.bind(this);
-    this._onExport = this._onExport.bind(this);
-    this._onImport = this._onImport.bind(this);
+    this._onSettings = this._onSettings.bind(this);
     this._onProfileChange = this._onProfileChange.bind(this);
     this._onNewProfile = this._onNewProfile.bind(this);
     this._onDeleteProfile = this._onDeleteProfile.bind(this);
@@ -299,6 +434,8 @@ class AppHeader extends HTMLElement {
         .status-pill { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border, #2a345a); font-size: .85rem; }
         .status-pill.saved { background: #12371f; color: #baf0c3; border-color: #2a5a3a; }
         .status-pill.dirty { background: #42201e; color: #ffd6d6; border-color: #5a2a2a; }
+        /* Visually hidden but accessible label */
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,1px,1px); white-space: nowrap; border: 0; }
         
         /* Wider screens: put left | title | right on one row */
         @media (min-width: 600px) {
@@ -309,29 +446,22 @@ class AppHeader extends HTMLElement {
       <div class="bar" role="toolbar" aria-label="App header">
         <div class="left">
           <label for="profile" class="sr-only">Profile</label>
-          <select class="profile-select" name="profile" aria-label="Select profile"></select>
+          <select id="profile" class="profile-select" name="profile"></select>
           <button class="icon-btn new-profile-btn" aria-label="New profile" title="New profile">＋</button>
           <button class="icon-btn delete-profile-btn" aria-label="Delete profile" title="Delete profile">🗑️</button>
           <span class="status-pill" aria-live="polite">—</span>
         </div>
         <h1 class="title">${title}</h1>
         <div class="actions right">
+          <button class="icon-btn settings-btn" aria-label="Settings" title="Settings">⚙️</button>
           <button class="icon-btn theme-toggle" aria-label="Toggle theme" title="Toggle theme">${(document.documentElement.getAttribute('data-theme')||getPreferredTheme())==='dark'?'🌙':'☀️'}</button>
           <button class="icon-btn info-btn" aria-label="Help" title="Help">?</button>
-          <button class="action-btn save-btn" aria-label="Save drawer" title="Save drawer">Save</button>
-          <button class="action-btn restore-btn" aria-label="Restore drawer" title="Restore drawer">Restore</button>
-          <button class="action-btn clear-btn" aria-label="Clear drawer" title="Clear drawer">Clear</button>
-          <button class="action-btn export-btn" aria-label="Export profiles" title="Export profiles">Export</button>
-          <button class="action-btn import-btn" aria-label="Import profiles" title="Import profiles">Import</button>
         </div>
       </div>`;
+    this.querySelector('.settings-btn')?.addEventListener('click', this._onSettings);
     this.querySelector('.theme-toggle')?.addEventListener('click', this._onTheme);
     this.querySelector('.info-btn')?.addEventListener('click', this._onHelp);
-    this.querySelector('.save-btn')?.addEventListener('click', this._onSave);
-    this.querySelector('.restore-btn')?.addEventListener('click', this._onRestore);
-    this.querySelector('.clear-btn')?.addEventListener('click', this._onClear);
-    this.querySelector('.export-btn')?.addEventListener('click', this._onExport);
-    this.querySelector('.import-btn')?.addEventListener('click', this._onImport);
+  // actions moved into settings modal
     this.querySelector('.profile-select')?.addEventListener('change', this._onProfileChange);
     this.querySelector('.new-profile-btn')?.addEventListener('click', this._onNewProfile);
     this.querySelector('.delete-profile-btn')?.addEventListener('click', this._onDeleteProfile);
@@ -341,11 +471,8 @@ class AppHeader extends HTMLElement {
   }
   _onTheme() { toggleTheme(); }
   _onHelp() { getHelpModal().open(); }
-  _onSave() { try { saveToActiveProfile(); updateStatusPill(this); toast('Profile saved', { type: 'success', duration: 2000 }); } catch (_) {} }
-  _onRestore() { try { const ok = restoreActiveProfile(); updateStatusPill(this); toast(ok? 'Profile restored':'No saved state for profile', { type: ok?'success':'warning', duration: 2200 }); } catch (_) { toast('Restore failed', { type: 'error', duration: 2500 }); } }
-  _onClear() { try { const comp = getDrawerComponent(); comp?.reset?.(); updateStatusPill(this); toast('Cleared', { type: 'info', duration: 1500 }); } catch(_){} }
-  _onExport() { try { exportProfilesToFile(); } catch(_) { toast('Export failed', { type: 'error', duration: 2500 }); } }
-  _onImport() { try { openImportDialog(this); } catch(_) { toast('Import failed to start', { type: 'error', duration: 2500 }); } }
+  _onSettings() { getSettingsModal().open(); }
+  // data actions now live in settings modal
   _onProfileChange(e) { try { const id = e.target?.value; if (!id) return; setActiveProfile(id); restoreActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Switched profile', { type:'info', duration: 1200}); } catch(_){} }
   async _onNewProfile() { try { const modal = getNewProfileModal(); const name = await modal.open(''); if (!name) return; const id = createProfile(name); setActiveProfile(id); saveToActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Profile created', { type: 'success', duration: 1800 }); } catch(_){} }
   _onDeleteProfile() { try { const data = loadProfilesData(); const ids = Object.keys(data.profiles||{}); if (ids.length<=1) { toast('Cannot delete last profile', { type:'warning', duration: 2200}); return; } const active = data.activeId; const name = data.profiles[active]?.name || active; if (!confirm(`Delete profile "${name}"?`)) return; delete data.profiles[active]; const nextId = ids.find((x)=>x!==active) || 'default'; data.activeId = nextId; saveProfilesData(data); restoreActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Profile deleted', { type:'success', duration: 1800}); } catch(_){} }
