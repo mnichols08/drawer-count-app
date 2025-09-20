@@ -9,6 +9,7 @@ Status: Vanilla JS + Web Components (no framework)
 - Offline-first PWA (service worker with precache, runtime cache, offline fallback)
 - Installable (manifest + in-app install banner); focuses an existing app window when possible
 - Drawer calculator with dynamic rows for credit card slips and checks
+- Optional daily fields captured for later reporting (do not affect totals): Charges, Total Received, Net Sales, Gross Profit $/%, Number of Invoices, Number of Voids
 - Profiles: Save, Restore, and Clear the active profile
 - Daily History: Save by day, Load, Delete, and Rename entries; auto reset on a new day
 - Import/Export: Backup or restore your data as JSON
@@ -44,6 +45,10 @@ Alternative local servers:
 - Add credit card `Slips` and `Checks` (use the `+` buttons for extra rows; each row totals automatically).
 - Fill bill and coin counts; totals and `Balance` update live with color cues.
 - Open `Settings` (gear icon) for profiles, daily history, import/export, and theme.
+
+Optional Fields:
+- At the bottom of the calculator you'll find optional inputs: `Charges`, `Total Received`, `Net Sales`, `Gross Profit Amount ($)`, `Gross Profit Percentage (%)`, `Number of Invoices`, and `Number of Voids`.
+- These are stored with your daily history and profiles for future reporting or export, but they do not participate in any totals or balance calculations.
 
 Profiles:
 - `Save` stores the current drawer for the active profile; `Restore` loads it; `Clear` resets inputs.

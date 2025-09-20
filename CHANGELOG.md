@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.0.9 - 2025-09-20
+### Added
+- Optional Daily Fields modal (🧾 button in header) for entering: Charges, Total Received, Net Sales, Gross Profit Amount ($), Gross Profit Percentage (%), Number of Invoices, Number of Voids.
+- Optional values are saved per day and included in profiles/export but do not affect totals or balance.
+
+### Changed
+- Drawer state upgraded to version 2 with a new `optional` section; backward-compatible with normalization when comparing saved/unsaved status.
+- Inline optional section is now hidden in `DrawerCount` (kept for state hydration and autosave hooks).
+- Header UI updated with Optional Fields button; disabled when viewing locked (read-only) days.
+
+### Fixed
+- Prevent false "Unsaved changes" indicator by normalizing state (ignoring timestamps and defaulting missing optional fields) when computing header status.
+
+### PWA
+- Bump service worker cache version to `v9` to ensure clients fetch updated assets.
+
+
 ## v0.0.8 - 2025-09-20
 - Add iOS installation instructions and adjust banner height handling
 

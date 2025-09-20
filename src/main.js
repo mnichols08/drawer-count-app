@@ -605,6 +605,7 @@ class AppHeader extends HTMLElement {
     this._onTheme = this._onTheme.bind(this);
     this._onHelp = this._onHelp.bind(this);
     this._onSettings = this._onSettings.bind(this);
+    this._onOptional = this._onOptional.bind(this);
     this._onProfileChange = this._onProfileChange.bind(this);
     this._onNewProfile = this._onNewProfile.bind(this);
     this._onDeleteProfile = this._onDeleteProfile.bind(this);
@@ -647,6 +648,7 @@ class AppHeader extends HTMLElement {
         </div>
         <h1 class="title">${title}</h1>
         <div class="actions right">
+          <button class="icon-btn optional-btn" aria-label="Optional fields" title="Optional fields">🧾</button>
           <button class="icon-btn days-btn" aria-label="Daily history" title="Daily history">📅</button>
           <button class="icon-btn lock-btn" aria-label="Toggle edit lock" title="Toggle edit lock">🔒</button>
           <button class="icon-btn clear-btn" aria-label="Clear inputs" title="Clear inputs">🧹</button>
@@ -663,6 +665,7 @@ class AppHeader extends HTMLElement {
     this.querySelector('.new-profile-btn')?.addEventListener('click', this._onNewProfile);
     this.querySelector('.delete-profile-btn')?.addEventListener('click', this._onDeleteProfile);
     this.querySelector('.clear-btn')?.addEventListener('click', this._onClear);
+  this.querySelector('.optional-btn')?.addEventListener('click', this._onOptional);
   this.querySelector('.days-btn')?.addEventListener('click', this._onOpenDays);
   this.querySelector('.lock-btn')?.addEventListener('click', this._onToggleLock);
 
@@ -672,6 +675,7 @@ class AppHeader extends HTMLElement {
   _onTheme() { toggleTheme(); }
   _onHelp() { getHelpModal().open(); }
   _onSettings() { getSettingsModal().open(); }
+  _onOptional() { getOptionalFieldsModal().open(); }
   // data actions now live in settings modal
   _onProfileChange(e) { try { const id = e.target?.value; if (!id) return; setActiveProfile(id); restoreActiveProfile(); ensureDayResetIfNeeded(this); setActiveViewDateKey(getTodayKey()); applyReadOnlyByActiveDate(this); populateProfilesSelect(this); updateStatusPill(this); toast('Switched profile', { type:'info', duration: 1200}); } catch(_){} }
   async _onNewProfile() { try { const modal = getNewProfileModal(); const name = await modal.open(''); if (!name) return; const id = createProfile(name); setActiveProfile(id); saveToActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Profile created', { type: 'success', duration: 1800 }); } catch(_){} }
@@ -705,6 +709,128 @@ class AppHeader extends HTMLElement {
   }
 }
 customElements.define('app-header', AppHeader);
+
+// Web Component: <optional-fields-modal> — edit optional daily fields in a modal
+class OptionalFieldsModal extends HTMLElement {
+  constructor() {
+    super();
+    this._shadow = this.attachShadow({ mode: 'open' });
+    this._onKeyDown = this._onKeyDown.bind(this);
+    this._onSave = this._onSave.bind(this);
+  }
+  connectedCallback() { if (!this._rendered) this._render(); window.addEventListener('keydown', this._onKeyDown); }
+  disconnectedCallback() { window.removeEventListener('keydown', this._onKeyDown); }
+  _render() {
+    this._shadow.innerHTML = `
+      <style>
+        :host { display: none; }
+        :host([open]) { display: block; }
+        .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(2px); z-index: 1000; }
+        .dialog { position: fixed; inset: 10% auto auto 50%; transform: translateX(-50%);
+          max-width: min(560px, 92vw); background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
+          border: 1px solid var(--border, #2a345a); border-radius: 12px; padding: 14px; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
+        .hd { display:flex; justify-content: space-between; align-items:center; gap: 8px; margin-bottom: 10px; }
+        .hd h2 { margin: 0; font-size: 1.1rem; }
+        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+        .grid { display: grid; gap: .5rem; }
+        .row { display: grid; grid-template-columns: 1fr auto; gap: .5rem; align-items: center; }
+        label { font-size: .95rem; }
+        input { min-width: 140px; justify-self: end; background: var(--input-bg-color, #0000000f); color: var(--fg, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 8px; }
+        .actions { display:flex; justify-content: end; gap: 8px; margin-top: 10px; }
+        .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 8px 12px; cursor: pointer; min-height: 40px; font-weight: 600; }
+        .note { color: var(--muted, #9aa3b2); font-size: .9rem; margin: 4px 0 8px; }
+      </style>
+      <div class="backdrop"></div>
+      <div class="dialog" role="dialog" aria-modal="true" aria-label="Optional fields">
+        <div class="hd">
+          <h2>Optional Daily Fields</h2>
+          <button class="close" aria-label="Close">Close</button>
+        </div>
+        <div class="note">These values are saved with the day but do not affect totals.</div>
+        <div class="grid">
+          <div class="row"><label for="m-charges">Charges</label><input id="m-charges" type="number" step="0.01" inputmode="decimal" /></div>
+          <div class="row"><label for="m-total-received">Total Received</label><input id="m-total-received" type="number" step="0.01" inputmode="decimal" /></div>
+          <div class="row"><label for="m-net-sales">Net Sales</label><input id="m-net-sales" type="number" step="0.01" inputmode="decimal" /></div>
+          <div class="row"><label for="m-gp-amount">Gross Profit Amount ($)</label><input id="m-gp-amount" type="number" step="0.01" inputmode="decimal" /></div>
+          <div class="row"><label for="m-gp-percent">Gross Profit Percentage (%)</label><input id="m-gp-percent" type="number" step="0.01" inputmode="decimal" /></div>
+          <div class="row"><label for="m-num-invoices">Number of Invoices</label><input id="m-num-invoices" type="number" step="1" min="0" inputmode="numeric" /></div>
+          <div class="row"><label for="m-num-voids">Number of Voids</label><input id="m-num-voids" type="number" step="1" min="0" inputmode="numeric" /></div>
+        </div>
+        <div class="actions">
+          <button class="btn cancel-btn" aria-label="Cancel">Cancel</button>
+          <button class="btn save-btn" aria-label="Save">Save</button>
+        </div>
+      </div>
+    `;
+    this._els = {
+      backdrop: this._shadow.querySelector('.backdrop'),
+      close: this._shadow.querySelector('.close'),
+      save: this._shadow.querySelector('.save-btn'),
+      cancel: this._shadow.querySelector('.cancel-btn'),
+      charges: this._shadow.querySelector('#m-charges'),
+      totalReceived: this._shadow.querySelector('#m-total-received'),
+      netSales: this._shadow.querySelector('#m-net-sales'),
+      gpAmount: this._shadow.querySelector('#m-gp-amount'),
+      gpPercent: this._shadow.querySelector('#m-gp-percent'),
+      numInvoices: this._shadow.querySelector('#m-num-invoices'),
+      numVoids: this._shadow.querySelector('#m-num-voids')
+    };
+    this._els.backdrop?.addEventListener('click', () => this.close());
+    this._els.close?.addEventListener('click', () => this.close());
+    this._els.cancel?.addEventListener('click', () => this.close());
+    this._els.save?.addEventListener('click', this._onSave);
+    this._rendered = true;
+  }
+  open() {
+    // Populate from drawer component's hidden inputs/state
+    try {
+      const comp = getDrawerComponent();
+      const sr = comp?.shadowRoot;
+      const getVal = (sel) => Number(sr?.querySelector(sel)?.value || 0);
+      this._els.charges.value = getVal('#opt-charges') || 0;
+      this._els.totalReceived.value = getVal('#opt-total-received') || 0;
+      this._els.netSales.value = getVal('#opt-net-sales') || 0;
+      this._els.gpAmount.value = getVal('#opt-gp-amount') || 0;
+      this._els.gpPercent.value = getVal('#opt-gp-percent') || 0;
+      this._els.numInvoices.value = getVal('#opt-num-invoices') || 0;
+      this._els.numVoids.value = getVal('#opt-num-voids') || 0;
+      // Respect read-only state
+      const ro = !!sr?.querySelector('input')?.disabled && !isDayEditUnlocked();
+      const disabled = ro;
+      [this._els.charges, this._els.totalReceived, this._els.netSales, this._els.gpAmount, this._els.gpPercent, this._els.numInvoices, this._els.numVoids, this._els.save]
+        .forEach((el) => { if (el) el.disabled = disabled; });
+    } catch(_) {}
+    this.setAttribute('open', '');
+  }
+  close() { this.removeAttribute('open'); }
+  _onKeyDown(e) { if (e.key === 'Escape' && this.hasAttribute('open')) this.close(); }
+  _onSave() {
+    try {
+      const comp = getDrawerComponent(); const sr = comp?.shadowRoot; if (!sr) return;
+      const set = (sel, v) => { const el = sr.querySelector(sel); if (el) { el.value = Number(v) || 0; el.dispatchEvent(new Event('input', { bubbles: true })); } };
+      set('#opt-charges', this._els.charges.value);
+      set('#opt-total-received', this._els.totalReceived.value);
+      set('#opt-net-sales', this._els.netSales.value);
+      set('#opt-gp-amount', this._els.gpAmount.value);
+      set('#opt-gp-percent', this._els.gpPercent.value);
+      set('#opt-num-invoices', this._els.numInvoices.value);
+      set('#opt-num-voids', this._els.numVoids.value);
+      // Auto-save snapshot for active day
+      try { const key = getActiveViewDateKey(); saveSpecificDay(key); } catch(_) {}
+      // Update status pill
+      try { const header = document.querySelector('app-header'); updateStatusPill(header); } catch(_) {}
+      toast('Optional fields saved', { type: 'success', duration: 1600 });
+    } catch(_) { toast('Save failed', { type: 'error', duration: 2000 }); }
+    this.close();
+  }
+}
+customElements.define('optional-fields-modal', OptionalFieldsModal);
+
+function getOptionalFieldsModal() {
+  let m = document.querySelector('optional-fields-modal');
+  if (!m) { m = document.createElement('optional-fields-modal'); document.body.appendChild(m); }
+  return m;
+}
 
 // Web Component: <day-picker-modal> — calendar UI for picking saved days
 class DayPickerModal extends HTMLElement {
@@ -1265,8 +1391,33 @@ function updateStatusPill(headerEl) {
     const comp = getDrawerComponent(); if (!comp?.getState) return;
     const cur = comp.getState();
     const data = loadProfilesData(); const prof = data.profiles[data.activeId];
-    const saved = JSON.stringify((prof && prof.state) || null);
-    const now = JSON.stringify(cur);
+    // Normalize states so structural/version differences (e.g., new optional fields) don't show as dirty
+    const normalize = (s) => {
+      if (!s || typeof s !== 'object') return null;
+      const z = 0;
+      const base = s.base || {};
+      const extra = s.extra || { slips: [], checks: [] };
+      const optional = s.optional || {
+        charges: z, totalReceived: z, netSales: z,
+        grossProfitAmount: z, grossProfitPercent: z,
+        numInvoices: z, numVoids: z
+      };
+      return {
+        version: 2,
+        timestamp: 0, // ignore timestamp in equality
+        base: {
+          drawer: base.drawer || z, roa: base.roa || z, slips: base.slips || z, checks: base.checks || z,
+          hundreds: base.hundreds || z, fifties: base.fifties || z, twenties: base.twenties || z, tens: base.tens || z,
+          fives: base.fives || z, dollars: base.dollars || z, quarters: base.quarters || z, dimes: base.dimes || z,
+          nickels: base.nickels || z, pennies: base.pennies || z, quarterrolls: base.quarterrolls || z,
+          dimerolls: base.dimerolls || z, nickelrolls: base.nickelrolls || z, pennyrolls: base.pennyrolls || z
+        },
+        extra: { slips: Array.isArray(extra.slips) ? extra.slips : [], checks: Array.isArray(extra.checks) ? extra.checks : [] },
+        optional
+      };
+    };
+    const saved = JSON.stringify(normalize((prof && prof.state) || null));
+    const now = JSON.stringify(normalize(cur));
     const isSaved = saved === now;
     pill.textContent = isSaved ? `Saved${prof?.updatedAt ? ' • ' + new Date(prof.updatedAt).toLocaleTimeString() : ''}` : 'Unsaved changes';
     pill.classList.toggle('saved', isSaved);
@@ -1544,6 +1695,7 @@ function updateLockButtonUI(headerEl) {
   try {
     const header = headerEl || document.querySelector('app-header');
     const btn = header?.querySelector('.lock-btn');
+    const optBtn = header?.querySelector('.optional-btn');
     const today = getTodayKey();
     const key = getActiveViewDateKey();
     const ro = key !== today && !isDayEditUnlocked();
@@ -1551,6 +1703,10 @@ function updateLockButtonUI(headerEl) {
       btn.textContent = ro ? '🔒' : '🔓';
       btn.title = ro ? 'Toggle edit lock (locked)' : 'Toggle edit lock (unlocked)';
       btn.disabled = (key === today); // today always editable
+    }
+    if (optBtn) {
+      optBtn.disabled = ro; // disable optional editing when read-only
+      optBtn.title = ro ? 'Optional fields (read-only)' : 'Optional fields';
     }
   } catch(_) {}
 }
