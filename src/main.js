@@ -207,7 +207,7 @@ class NewProfileModal extends HTMLElement {
         </div>
         <form>
           <label for="np-name">Profile name</label>
-          <input id="np-name" name="name" type="text" autocomplete="off" placeholder="e.g., Evening Shift" />
+          <input id="np-name" name="name" type="text" autocomplete="off" placeholder="e.g., Name" />
           <div class="actions">
             <button type="button" class="btn btn-cancel">Cancel</button>
             <button type="submit" class="btn btn-submit" disabled>Create</button>
