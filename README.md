@@ -183,6 +183,7 @@ This app remains fully functional offline using `localStorage`. If you provide a
 			localStorage.setItem('dca.apiBase', 'https://drawer-counter.onrender.app/api'); location.reload();
 			```
 		- Default is same-origin `'/api'` when no env or override is provided.
+			- Additionally, the app has a built-in production fallback: when not on `localhost`, it defaults to `https://drawer-counter.onrender.app/api` unless overridden by `API_BASE` or the localStorage override.
 
 Run locally with a Mongo connection (PowerShell):
 

@@ -1832,33 +1832,87 @@ function updateLockButtonUI(headerEl) {
 }
 
 // --- Server status pill ---
-// API base resolution: window.DCA_API_BASE or localStorage override; default to same-origin '/api'
+// API base resolution: window.DCA_API_BASE or localStorage override; default
+// - localhost: '/api' (proxied by local server)
+// - production (non-localhost): hard-coded Render domain
 function getApiBase() {
   try {
     const winBase = (typeof window !== 'undefined' && window.DCA_API_BASE) ? String(window.DCA_API_BASE) : '';
     const lsBase = (typeof localStorage !== 'undefined') ? (localStorage.getItem('dca.apiBase') || '') : '';
-    const base = (winBase || lsBase || '/api').trim();
-    return base || '/api';
+    const isLocal = typeof location !== 'undefined' && /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(location.hostname);
+    const defaultBase = isLocal ? '/api' : 'https://drawer-counter.onrender.app/api';
+    const base = (winBase || lsBase || defaultBase).trim();
+    return base || defaultBase;
   } catch (_) { return '/api'; }
 }
 function apiUrl(path) {
-  const b = getApiBase().replace(/\/+$/, '');
+  const resolved = (typeof window !== 'undefined' && window.DCA_API_BASE_RESOLVED) ? String(window.DCA_API_BASE_RESOLVED) : '';
+  const b = (resolved || getApiBase()).replace(/\/+$/, '');
   const p = path.startsWith('/') ? path : `/${path}`;
   return `${b}${p}`;
 }
 async function fetchServerHealth() {
   try {
-    const res = await fetch(apiUrl('/health'), { cache: 'no-store' });
-    if (!res.ok) return { ok: false };
-    const data = await res.json();
-    return data;
-  } catch(_) { return { ok: false }; }
+    const primary = getApiBase();
+    const primaryUrl = apiUrl('/health'); // resolves to '<apiBase>/health' e.g., '/api/health'
+    const candidates = [primary];
+    // Derive a fallback between .onrender.app <-> .onrender.com when using our hard-coded default
+    try {
+      if (/^https?:\/\//i.test(primary) && /\.onrender\.(app|com)/i.test(primary)) {
+        const alt = primary.includes('.onrender.app')
+          ? primary.replace('.onrender.app', '.onrender.com')
+          : primary.replace('.onrender.com', '.onrender.app');
+        if (alt !== primary) candidates.push(alt);
+      }
+    } catch(_) {}
+    let lastErr = null;
+    // First, try the explicit primary URL ('/api/health' via apiUrl)
+    try {
+      const res = await fetch(primaryUrl, { cache: 'no-store' });
+      if (!res.ok) {
+        try { console.warn('[health] HTTP', res.status, res.statusText, 'url=', res.url); } catch(_) {}
+      } else {
+        const data = await res.json();
+        return data;
+      }
+    } catch (e) {
+      lastErr = e;
+      try { console.warn('[health] fetch error for primary', primaryUrl, e); } catch(_) {}
+    }
+
+    // Next, try fallback candidates with toggled Render domains
+    for (const base of candidates) {
+      try {
+        const url = `${base.replace(/\/+$/, '')}/health`;
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) {
+          try { console.warn('[health] HTTP', res.status, res.statusText, 'url=', res.url); } catch(_) {}
+          lastErr = new Error(`HTTP ${res.status}`);
+          continue;
+        }
+        const data = await res.json();
+        // Remember working base if it differs from primary
+        if (typeof window !== 'undefined' && base !== primary) {
+          try { window.DCA_API_BASE_RESOLVED = base; console.info('[health] using API base', base); } catch(_) {}
+        }
+        return data;
+      } catch (e) {
+        lastErr = e;
+        try { console.warn('[health] fetch error for', base, e); } catch(_) {}
+      }
+    }
+    return { ok: false, error: lastErr ? String(lastErr) : 'unknown' };
+  } catch(err) {
+    try { console.warn('[health] fatal error', err); } catch(_) {}
+    return { ok: false };
+  }
 }
 function applyServerStatusToPill(headerEl, health) {
   try {
     const pill = headerEl?.querySelector('.server-pill');
     if (!pill) return;
     const offline = !navigator.onLine;
+    const base = getApiBase();
     // Default states
     let cls = 'warn';
     let txt = 'Server: n/a';
@@ -1870,6 +1924,7 @@ function applyServerStatusToPill(headerEl, health) {
     pill.classList.remove('ok','warn','err');
     pill.classList.add(cls);
     pill.textContent = txt;
+    pill.title = `API: ${base}`;
   } catch(_) { /* ignore */ }
 }
 function initServerStatusPill(headerEl) {
