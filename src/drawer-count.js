@@ -53,9 +53,10 @@ class DrawerCount extends HTMLElement {
   getState() {
     const $ = (sel) => this._root.querySelector(sel);
     const getInputVal = (sel) => Number($(sel)?.querySelector('input')?.value || 0);
+    const getOptVal = (sel) => Number(this._root.querySelector(sel)?.value || 0);
     // Base inputs
     const state = {
-      version: 1,
+      version: 2,
       timestamp: Date.now(),
       base: {
         drawer: getInputVal('#drawer'),
@@ -80,6 +81,15 @@ class DrawerCount extends HTMLElement {
       extra: {
         slips: [],
         checks: []
+      },
+      optional: {
+        charges: getOptVal('#opt-charges'),
+        totalReceived: getOptVal('#opt-total-received'),
+        netSales: getOptVal('#opt-net-sales'),
+        grossProfitAmount: getOptVal('#opt-gp-amount'),
+        grossProfitPercent: getOptVal('#opt-gp-percent'),
+        numInvoices: getOptVal('#opt-num-invoices'),
+        numVoids: getOptVal('#opt-num-voids')
       }
     };
     // Dynamic rows
@@ -99,6 +109,10 @@ class DrawerCount extends HTMLElement {
       const b = state.base || {};
       const setVal = (sel, v) => {
         const el = this._root.querySelector(sel + ' input');
+        if (el) { el.value = (Number(v) || 0); el.dispatchEvent(new Event('input', { bubbles: true })); }
+      };
+      const setOpt = (sel, v) => {
+        const el = this._root.querySelector(sel);
         if (el) { el.value = (Number(v) || 0); el.dispatchEvent(new Event('input', { bubbles: true })); }
       };
       // Set base inputs
@@ -138,6 +152,16 @@ class DrawerCount extends HTMLElement {
       (Array.isArray(ex.slips) ? ex.slips : []).forEach((v) => add('slip', v));
       (Array.isArray(ex.checks) ? ex.checks : []).forEach((v) => add('check', v));
 
+      // Optional fields
+      const o = state.optional || {};
+      setOpt('#opt-charges', o.charges);
+      setOpt('#opt-total-received', o.totalReceived);
+      setOpt('#opt-net-sales', o.netSales);
+      setOpt('#opt-gp-amount', o.grossProfitAmount);
+      setOpt('#opt-gp-percent', o.grossProfitPercent);
+      setOpt('#opt-num-invoices', o.numInvoices);
+      setOpt('#opt-num-voids', o.numVoids);
+
       // Final recompute and announce
       this._getTotal();
       this._getBalance();
@@ -153,7 +177,7 @@ class DrawerCount extends HTMLElement {
   reset() {
     const zero = 0;
     const state = {
-      version: 1,
+      version: 2,
       timestamp: Date.now(),
       base: {
         drawer: zero, roa: zero, slips: zero, checks: zero,
@@ -161,7 +185,12 @@ class DrawerCount extends HTMLElement {
         fives: zero, dollars: zero, quarters: zero, dimes: zero, nickels: zero, pennies: zero,
         quarterrolls: zero, dimerolls: zero, nickelrolls: zero, pennyrolls: zero
       },
-      extra: { slips: [], checks: [] }
+      extra: { slips: [], checks: [] },
+      optional: {
+        charges: zero, totalReceived: zero, netSales: zero,
+        grossProfitAmount: zero, grossProfitPercent: zero,
+        numInvoices: zero, numVoids: zero
+      }
     };
     this.setState(state);
   }
@@ -208,6 +237,15 @@ class DrawerCount extends HTMLElement {
           #drawer input, #roa input, #drawer label, #roa label,
           div:not(#total,#cash,#balance,#cardTotal,#checkTotal,#drawer,#roa) { display: none; }
         }
+
+        /* Optional fields section (informational only) */
+  .optional-section { display: none; margin-top: .6rem; padding-top: .4rem; border-top: 1px solid var(--border, #2a345a); }
+        .optional-title { font-size: 0.95rem; color: var(--muted, #9aa3b2); margin: .2rem 0 .4rem; }
+        .opt-grid { display: grid; gap: .35rem; grid-template-columns: 1fr; }
+        .opt-row { display: grid; grid-template-columns: 1fr auto; gap: .5rem; align-items: center; }
+        .opt-row label { color: var(--fg, #e0e6ff); font-size: .95rem; }
+        .opt-row input { min-width: 120px; justify-self: end; }
+        .optional-section span:before { content: none; }
       </style>
 
       <div class="wrap">
@@ -311,6 +349,41 @@ class DrawerCount extends HTMLElement {
           <input id="pennyrolls-input" name="pennyrolls" type="number" placeholder="Penny Rolls" min="0" max="4" />
           <span class="cash">0.00</span> in Penny Rolls
         </div>
+
+        <!-- Optional, informational-only daily fields (do NOT impact totals) -->
+        <div class="optional-section" id="optional">
+          <div class="optional-title">Optional Daily Fields (not included in totals)</div>
+          <div class="opt-grid">
+            <div class="opt-row">
+              <label for="opt-charges">Charges</label>
+              <input id="opt-charges" name="opt-charges" type="number" step="0.01" placeholder="0.00" inputmode="decimal" />
+            </div>
+            <div class="opt-row">
+              <label for="opt-total-received">Total Received</label>
+              <input id="opt-total-received" name="opt-total-received" type="number" step="0.01" placeholder="0.00" inputmode="decimal" />
+            </div>
+            <div class="opt-row">
+              <label for="opt-net-sales">Net Sales</label>
+              <input id="opt-net-sales" name="opt-net-sales" type="number" step="0.01" placeholder="0.00" inputmode="decimal" />
+            </div>
+            <div class="opt-row">
+              <label for="opt-gp-amount">Gross Profit Amount ($)</label>
+              <input id="opt-gp-amount" name="opt-gp-amount" type="number" step="0.01" placeholder="0.00" inputmode="decimal" />
+            </div>
+            <div class="opt-row">
+              <label for="opt-gp-percent">Gross Profit Percentage (%)</label>
+              <input id="opt-gp-percent" name="opt-gp-percent" type="number" step="0.01" placeholder="0.00" inputmode="decimal" />
+            </div>
+            <div class="opt-row">
+              <label for="opt-num-invoices">Number of Invoices</label>
+              <input id="opt-num-invoices" name="opt-num-invoices" type="number" step="1" min="0" placeholder="0" inputmode="numeric" />
+            </div>
+            <div class="opt-row">
+              <label for="opt-num-voids">Number of Voids</label>
+              <input id="opt-num-voids" name="opt-num-voids" type="number" step="1" min="0" placeholder="0" inputmode="numeric" />
+            </div>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -347,6 +420,18 @@ class DrawerCount extends HTMLElement {
     this._getTotal();
     this._getBalance();
     this._slipCheckCount();
+
+    // Optional fields should trigger save/change events but not recompute totals
+    const optIds = [
+      '#opt-charges', '#opt-total-received', '#opt-net-sales',
+      '#opt-gp-amount', '#opt-gp-percent', '#opt-num-invoices', '#opt-num-voids'
+    ];
+    optIds.forEach((sel) => {
+      const el = this._root.querySelector(sel);
+      el?.addEventListener('input', () => {
+        this.dispatchEvent(new CustomEvent('change', { detail: this.getCount(), bubbles: true, composed: true }));
+      });
+    });
   }
 
   _bindShortcuts() {

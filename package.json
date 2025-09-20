@@ -1,6 +1,6 @@
 {
   "name": "drawer-count-app",
-  "version": "0.0.8",
+  "version": "0.0.10",
   "description": "A minimal, installable PWA to help myself and coworkers count drawers at the end of the day.",
   "main": "index.html",
   "scripts": {
@@ -10,7 +10,8 @@
     "build": "echo \"No build step needed; this is a static app. Use 'npm run dev' for local preview.\"",
     "icons": "node ./scripts/generate-icons.js",
     "bump-sw": "node ./scripts/bump-sw-cache.js",
-    "predeploy": "npm run bump-sw"
+    "optimize-images": "node ./scripts/optimize-images.js",
+    "predeploy": "npm run bump-sw && npm run optimize-images"
   },
   "repository": {
     "type": "git",
@@ -29,6 +30,7 @@
   "homepage": "https://github.com/mnichols08/drawer-count-app#readme",
   "devDependencies": {
     "live-server": "^1.2.2",
-    "favicons": "^7.2.0"
+    "favicons": "^7.2.0",
+    "sharp": "^0.33.5"
   }
 }

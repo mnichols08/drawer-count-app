@@ -95,12 +95,94 @@ function applyTheme(theme, persist = true) {
   // Update theme-color meta for consistent PWA UI
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', t === 'dark' ? '#0b132b' : '#f7f9ff');
+  // Sync body background overlay with current theme
+  try { updateBodyBackground(t); } catch (_) {}
 }
 function toggleTheme() {
   const cur = document.documentElement.getAttribute('data-theme') || getPreferredTheme();
   applyTheme(cur === 'dark' ? 'light' : 'dark');
 }
-// Apply without persisting so that lack of stored value means "System" mode
+// --- Random background image handling ---
+// Available hero images (add filenames placed in ./src/images/)
+const BG_IMAGES = [
+  '1g-eclipse-bg',
+  'crownvic-bg',
+  'eclipse-challenge-bg',
+  'vw-bg',
+];
+const BG_IMAGE_BASE = './src/images/';
+let CURRENT_BG_URL = null;
+let SUPPORTS_WEBP = null;
+let BG_LAYER_EL = null;
+
+function detectWebpSupport() {
+  if (SUPPORTS_WEBP !== null) return SUPPORTS_WEBP;
+  try {
+    const c = document.createElement('canvas');
+    if (!!(c.getContext && c.getContext('2d'))) {
+      SUPPORTS_WEBP = c.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+    } else {
+      SUPPORTS_WEBP = false;
+    }
+  } catch (_) { SUPPORTS_WEBP = false; }
+  return SUPPORTS_WEBP;
+}
+
+function pickRandomBackgroundUrl() {
+  try {
+    const list = Array.isArray(BG_IMAGES) && BG_IMAGES.length ? BG_IMAGES : ['1g-eclipse-bg.png'];
+    const idx = Math.floor(Math.random() * list.length);
+    const base = list[idx] || list[0];
+    const useWebp = detectWebpSupport();
+    return `${BG_IMAGE_BASE}${base}${useWebp ? '.webp' : '.png'}`;
+  } catch (_) {
+    const useWebp = detectWebpSupport();
+    return `${BG_IMAGE_BASE}1g-eclipse-bg${useWebp ? '.webp' : '.png'}`;
+  }
+}
+
+function updateBodyBackground(theme) {
+  const t = theme === 'light' ? 'light' : 'dark';
+  if (!CURRENT_BG_URL) CURRENT_BG_URL = pickRandomBackgroundUrl();
+  const overlay = t === 'light'
+    ? 'linear-gradient(rgba(255,255,255,0.7), rgba(255,255,255,0.7))'
+    : 'linear-gradient(rgba(7, 10, 26, 0.50), rgba(7, 10, 26, 0.50))';
+  // Ensure bg layer exists
+  if (!BG_LAYER_EL) {
+    BG_LAYER_EL = document.getElementById('bg-layer');
+    if (!BG_LAYER_EL) {
+      BG_LAYER_EL = document.createElement('div');
+      BG_LAYER_EL.id = 'bg-layer';
+      document.body.prepend(BG_LAYER_EL);
+    }
+  }
+
+  // Preload image to avoid flashing, then apply and fade in
+  const img = new Image();
+  img.onload = () => {
+    BG_LAYER_EL.style.backgroundImage = `url("${CURRENT_BG_URL}")`;
+    // Trigger fade-in
+    requestAnimationFrame(() => BG_LAYER_EL.classList.add('show'));
+  };
+  img.onerror = () => {
+    // Fallback: set directly without fade to avoid blank bg
+    BG_LAYER_EL.style.backgroundImage = `url("${CURRENT_BG_URL}")`;
+    BG_LAYER_EL.classList.add('show');
+  };
+  // Start (re)loading
+  BG_LAYER_EL.classList.remove('show');
+  img.src = CURRENT_BG_URL;
+
+  // Apply overlay to body (top layer)
+  document.body.style.backgroundImage = `${overlay}`;
+  document.body.style.backgroundRepeat = 'no-repeat';
+  document.body.style.backgroundPosition = 'left 5vh';
+  document.body.style.backgroundSize = 'cover';
+  document.body.style.backgroundAttachment = 'fixed';
+}
+
+// Apply theme (without persisting) so that lack of stored value means "System" mode
+// Also initializes a random background image on first run.
 applyTheme(getPreferredTheme(), false);
 
 // Web Component: <help-modal> simple modal dialog
@@ -352,8 +434,12 @@ class SettingsModal extends HTMLElement {
   _onDayLoad() {
     try {
       const key = this._els?.daySelect?.value; if (!key) return;
+      // Set the active view date to the selected key before restoring
+      setActiveViewDateKey(key);
       const ok = restoreDay(key);
-      const header = document.querySelector('app-header'); updateStatusPill(header);
+      const header = document.querySelector('app-header');
+      updateStatusPill(header);
+      applyReadOnlyByActiveDate(header); // ensure lock state and UI are in sync
       toast(ok ? `Loaded ${key}` : 'Load failed', { type: ok ? 'success' : 'error', duration: 1800 });
     } catch(_) { toast('Load failed', { type: 'error', duration: 2000 }); }
   }
@@ -605,6 +691,7 @@ class AppHeader extends HTMLElement {
     this._onTheme = this._onTheme.bind(this);
     this._onHelp = this._onHelp.bind(this);
     this._onSettings = this._onSettings.bind(this);
+    this._onOptional = this._onOptional.bind(this);
     this._onProfileChange = this._onProfileChange.bind(this);
     this._onNewProfile = this._onNewProfile.bind(this);
     this._onDeleteProfile = this._onDeleteProfile.bind(this);
@@ -647,6 +734,7 @@ class AppHeader extends HTMLElement {
         </div>
         <h1 class="title">${title}</h1>
         <div class="actions right">
+          <button class="icon-btn optional-btn" aria-label="Optional fields" title="Optional fields">🧾</button>
           <button class="icon-btn days-btn" aria-label="Daily history" title="Daily history">📅</button>
           <button class="icon-btn lock-btn" aria-label="Toggle edit lock" title="Toggle edit lock">🔒</button>
           <button class="icon-btn clear-btn" aria-label="Clear inputs" title="Clear inputs">🧹</button>
@@ -663,19 +751,21 @@ class AppHeader extends HTMLElement {
     this.querySelector('.new-profile-btn')?.addEventListener('click', this._onNewProfile);
     this.querySelector('.delete-profile-btn')?.addEventListener('click', this._onDeleteProfile);
     this.querySelector('.clear-btn')?.addEventListener('click', this._onClear);
+  this.querySelector('.optional-btn')?.addEventListener('click', this._onOptional);
   this.querySelector('.days-btn')?.addEventListener('click', this._onOpenDays);
   this.querySelector('.lock-btn')?.addEventListener('click', this._onToggleLock);
 
     // Initialize profiles UI
-    try { ensureProfilesInitialized(); populateProfilesSelect(this); updateStatusPill(this); } catch(_) {}
+    try { ensureProfilesInitialized(); populateProfilesSelect(this); updateStatusPill(this); updateLockButtonUI(this); } catch(_) {}
   }
   _onTheme() { toggleTheme(); }
   _onHelp() { getHelpModal().open(); }
   _onSettings() { getSettingsModal().open(); }
+  _onOptional() { getOptionalFieldsModal().open(); }
   // data actions now live in settings modal
   _onProfileChange(e) { try { const id = e.target?.value; if (!id) return; setActiveProfile(id); restoreActiveProfile(); ensureDayResetIfNeeded(this); setActiveViewDateKey(getTodayKey()); applyReadOnlyByActiveDate(this); populateProfilesSelect(this); updateStatusPill(this); toast('Switched profile', { type:'info', duration: 1200}); } catch(_){} }
-  async _onNewProfile() { try { const modal = getNewProfileModal(); const name = await modal.open(''); if (!name) return; const id = createProfile(name); setActiveProfile(id); saveToActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Profile created', { type: 'success', duration: 1800 }); } catch(_){} }
-  async _onDeleteProfile() { try { const data = loadProfilesData(); const ids = Object.keys(data.profiles||{}); if (ids.length<=1) { toast('Cannot delete last profile', { type:'warning', duration: 2200}); return; } const active = data.activeId; const name = data.profiles[active]?.name || active; const modal = getDeleteProfileModal(); const ok = await modal.open(name); if (!ok) return; delete data.profiles[active]; const nextId = ids.find((x)=>x!==active) || 'default'; data.activeId = nextId; saveProfilesData(data); restoreActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Profile deleted', { type:'success', duration: 1800}); } catch(_){} }
+  async _onNewProfile() { try { const modal = getNewProfileModal(); const name = await modal.open(''); if (!name) return; const id = createProfile(name); setActiveProfile(id); saveToActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); applyReadOnlyByActiveDate(this); toast('Profile created', { type: 'success', duration: 1800 }); } catch(_){} }
+  async _onDeleteProfile() { try { const data = loadProfilesData(); const ids = Object.keys(data.profiles||{}); if (ids.length<=1) { toast('Cannot delete last profile', { type:'warning', duration: 2200}); return; } const active = data.activeId; const name = data.profiles[active]?.name || active; const modal = getDeleteProfileModal(); const ok = await modal.open(name); if (!ok) return; delete data.profiles[active]; const nextId = ids.find((x)=>x!==active) || 'default'; data.activeId = nextId; saveProfilesData(data); restoreActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); applyReadOnlyByActiveDate(this); toast('Profile deleted', { type:'success', duration: 1800}); } catch(_){} }
   _onClear() {
     try {
       const comp = getDrawerComponent();
@@ -705,6 +795,128 @@ class AppHeader extends HTMLElement {
   }
 }
 customElements.define('app-header', AppHeader);
+
+// Web Component: <optional-fields-modal> — edit optional daily fields in a modal
+class OptionalFieldsModal extends HTMLElement {
+  constructor() {
+    super();
+    this._shadow = this.attachShadow({ mode: 'open' });
+    this._onKeyDown = this._onKeyDown.bind(this);
+    this._onSave = this._onSave.bind(this);
+  }
+  connectedCallback() { if (!this._rendered) this._render(); window.addEventListener('keydown', this._onKeyDown); }
+  disconnectedCallback() { window.removeEventListener('keydown', this._onKeyDown); }
+  _render() {
+    this._shadow.innerHTML = `
+      <style>
+        :host { display: none; }
+        :host([open]) { display: block; }
+        .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(2px); z-index: 1000; }
+        .dialog { position: fixed; inset: 10% auto auto 50%; transform: translateX(-50%);
+          max-width: min(560px, 92vw); background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
+          border: 1px solid var(--border, #2a345a); border-radius: 12px; padding: 14px; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
+        .hd { display:flex; justify-content: space-between; align-items:center; gap: 8px; margin-bottom: 10px; }
+        .hd h2 { margin: 0; font-size: 1.1rem; }
+        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+        .grid { display: grid; gap: .5rem; }
+        .row { display: grid; grid-template-columns: 1fr auto; gap: .5rem; align-items: center; }
+        label { font-size: .95rem; }
+        input { min-width: 140px; justify-self: end; background: var(--input-bg-color, #0000000f); color: var(--fg, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 8px; }
+        .actions { display:flex; justify-content: end; gap: 8px; margin-top: 10px; }
+        .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 8px 12px; cursor: pointer; min-height: 40px; font-weight: 600; }
+        .note { color: var(--muted, #9aa3b2); font-size: .9rem; margin: 4px 0 8px; }
+      </style>
+      <div class="backdrop"></div>
+      <div class="dialog" role="dialog" aria-modal="true" aria-label="Optional fields">
+        <div class="hd">
+          <h2>Optional Daily Fields</h2>
+          <button class="close" aria-label="Close">Close</button>
+        </div>
+        <div class="note">These values are saved with the day but do not affect totals.</div>
+        <div class="grid">
+          <div class="row"><label for="m-charges">Charges</label><input id="m-charges" type="number" step="0.01" inputmode="decimal" /></div>
+          <div class="row"><label for="m-total-received">Total Received</label><input id="m-total-received" type="number" step="0.01" inputmode="decimal" /></div>
+          <div class="row"><label for="m-net-sales">Net Sales</label><input id="m-net-sales" type="number" step="0.01" inputmode="decimal" /></div>
+          <div class="row"><label for="m-gp-amount">Gross Profit Amount ($)</label><input id="m-gp-amount" type="number" step="0.01" inputmode="decimal" /></div>
+          <div class="row"><label for="m-gp-percent">Gross Profit Percentage (%)</label><input id="m-gp-percent" type="number" step="0.01" inputmode="decimal" /></div>
+          <div class="row"><label for="m-num-invoices">Number of Invoices</label><input id="m-num-invoices" type="number" step="1" min="0" inputmode="numeric" /></div>
+          <div class="row"><label for="m-num-voids">Number of Voids</label><input id="m-num-voids" type="number" step="1" min="0" inputmode="numeric" /></div>
+        </div>
+        <div class="actions">
+          <button class="btn cancel-btn" aria-label="Cancel">Cancel</button>
+          <button class="btn save-btn" aria-label="Save">Save</button>
+        </div>
+      </div>
+    `;
+    this._els = {
+      backdrop: this._shadow.querySelector('.backdrop'),
+      close: this._shadow.querySelector('.close'),
+      save: this._shadow.querySelector('.save-btn'),
+      cancel: this._shadow.querySelector('.cancel-btn'),
+      charges: this._shadow.querySelector('#m-charges'),
+      totalReceived: this._shadow.querySelector('#m-total-received'),
+      netSales: this._shadow.querySelector('#m-net-sales'),
+      gpAmount: this._shadow.querySelector('#m-gp-amount'),
+      gpPercent: this._shadow.querySelector('#m-gp-percent'),
+      numInvoices: this._shadow.querySelector('#m-num-invoices'),
+      numVoids: this._shadow.querySelector('#m-num-voids')
+    };
+    this._els.backdrop?.addEventListener('click', () => this.close());
+    this._els.close?.addEventListener('click', () => this.close());
+    this._els.cancel?.addEventListener('click', () => this.close());
+    this._els.save?.addEventListener('click', this._onSave);
+    this._rendered = true;
+  }
+  open() {
+    // Populate from drawer component's hidden inputs/state
+    try {
+      const comp = getDrawerComponent();
+      const sr = comp?.shadowRoot;
+      const getVal = (sel) => Number(sr?.querySelector(sel)?.value || 0);
+      this._els.charges.value = getVal('#opt-charges') || 0;
+      this._els.totalReceived.value = getVal('#opt-total-received') || 0;
+      this._els.netSales.value = getVal('#opt-net-sales') || 0;
+      this._els.gpAmount.value = getVal('#opt-gp-amount') || 0;
+      this._els.gpPercent.value = getVal('#opt-gp-percent') || 0;
+      this._els.numInvoices.value = getVal('#opt-num-invoices') || 0;
+      this._els.numVoids.value = getVal('#opt-num-voids') || 0;
+      // Respect read-only state
+      const ro = !!sr?.querySelector('input')?.disabled && !isDayEditUnlocked();
+      const disabled = ro;
+      [this._els.charges, this._els.totalReceived, this._els.netSales, this._els.gpAmount, this._els.gpPercent, this._els.numInvoices, this._els.numVoids, this._els.save]
+        .forEach((el) => { if (el) el.disabled = disabled; });
+    } catch(_) {}
+    this.setAttribute('open', '');
+  }
+  close() { this.removeAttribute('open'); }
+  _onKeyDown(e) { if (e.key === 'Escape' && this.hasAttribute('open')) this.close(); }
+  _onSave() {
+    try {
+      const comp = getDrawerComponent(); const sr = comp?.shadowRoot; if (!sr) return;
+      const set = (sel, v) => { const el = sr.querySelector(sel); if (el) { el.value = Number(v) || 0; el.dispatchEvent(new Event('input', { bubbles: true })); } };
+      set('#opt-charges', this._els.charges.value);
+      set('#opt-total-received', this._els.totalReceived.value);
+      set('#opt-net-sales', this._els.netSales.value);
+      set('#opt-gp-amount', this._els.gpAmount.value);
+      set('#opt-gp-percent', this._els.gpPercent.value);
+      set('#opt-num-invoices', this._els.numInvoices.value);
+      set('#opt-num-voids', this._els.numVoids.value);
+      // Auto-save snapshot for active day
+      try { const key = getActiveViewDateKey(); saveSpecificDay(key); } catch(_) {}
+      // Update status pill
+      try { const header = document.querySelector('app-header'); updateStatusPill(header); } catch(_) {}
+      toast('Optional fields saved', { type: 'success', duration: 1600 });
+    } catch(_) { toast('Save failed', { type: 'error', duration: 2000 }); }
+    this.close();
+  }
+}
+customElements.define('optional-fields-modal', OptionalFieldsModal);
+
+function getOptionalFieldsModal() {
+  let m = document.querySelector('optional-fields-modal');
+  if (!m) { m = document.createElement('optional-fields-modal'); document.body.appendChild(m); }
+  return m;
+}
 
 // Web Component: <day-picker-modal> — calendar UI for picking saved days
 class DayPickerModal extends HTMLElement {
@@ -773,7 +985,10 @@ class DayPickerModal extends HTMLElement {
     }
     setActiveViewDateKey(key);
     const ok = restoreDay(key);
-    const header = document.querySelector('app-header'); updateStatusPill(header);
+    const header = document.querySelector('app-header');
+    updateStatusPill(header);
+    // Apply readonly rules and update lock button/icon/tooltip for the newly selected day
+    applyReadOnlyByActiveDate(header);
     toast(ok ? `Loaded ${key}` : 'Load failed', { type: ok ? 'success' : 'error', duration: 1800 });
     this.close();
   }
@@ -873,6 +1088,7 @@ class AppInstallBanner extends HTMLElement {
     this._shadow = this.attachShadow({ mode: 'open' });
     this._onInstallClick = this._onInstallClick.bind(this);
     this._onOpenClick = this._onOpenClick.bind(this);
+    this._onIOSHelp = this._onIOSHelp.bind(this);
     this._onBeforeInstallPrompt = this._onBeforeInstallPrompt.bind(this);
     this._onAppInstalled = this._onAppInstalled.bind(this);
     this._onSwMessage = this._onSwMessage.bind(this);
@@ -883,6 +1099,7 @@ class AppInstallBanner extends HTMLElement {
     this._installed = false;
   this._dismissed = false;
     this._autoHideTimer = null;
+    this._iosMode = false; // when true, show iOS instructions instead of prompt
   }
 
   connectedCallback() {
@@ -914,7 +1131,9 @@ class AppInstallBanner extends HTMLElement {
       dismiss: this._shadow.querySelector('.dismiss'),
     };
     this._el.primary.addEventListener('click', () => {
-      if (this._installed) this._onOpenClick(); else this._onInstallClick();
+      if (this._installed) this._onOpenClick();
+      else if (this._iosMode) this._onIOSHelp();
+      else this._onInstallClick();
     });
   this._el.dismiss.addEventListener('click', this._onDismiss);
 
@@ -1026,6 +1245,8 @@ class AppInstallBanner extends HTMLElement {
       this._showOpen();
     } else if (this._deferredPrompt) {
       this._showInstall();
+    } else if (this._isIOS()) {
+      this._showIOS();
     } else {
       this._el.wrap.style.display = 'none';
       this._clearAutoHide();
@@ -1045,11 +1266,38 @@ class AppInstallBanner extends HTMLElement {
     this._el.primary.textContent = 'Open in App';
     this._el.primary.setAttribute('aria-label', 'Open in installed app');
     this._el.wrap.style.display = 'block';
+    this._iosMode = false;
     this._scheduleAutoHide();
   }
 
   _isDismissed() {
     return this._dismissed === true;
+  }
+  _isIOS() {
+    // iOS Safari doesn’t fire beforeinstallprompt; detect iPhone/iPad/iPod and iPadOS (Mac UA + touch)
+    const ua = navigator.userAgent || navigator.vendor || window.opera || '';
+    const isIOSUA = /iphone|ipad|ipod/i.test(ua);
+    const isIpadOSMasquerade = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    return isIOSUA || isIpadOSMasquerade;
+  }
+  _onIOSHelp() {
+    // Brief instructions via toast; keep it simple and non-blocking
+    try {
+      const isIpad = /ipad/i.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const device = isIpad ? 'iPad' : 'iPhone';
+      toast(`Install on ${device}: In Safari, tap Share (square with ↑), then "Add to Home Screen".`, { type: 'info', duration: 5000 });
+    } catch (_) {}
+  }
+  _showIOS() {
+    // Show instructions banner for iOS devices where install prompt isn’t available
+    const isIpad = /ipad/i.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const device = isIpad ? 'iPad' : 'iPhone';
+    this._el.msg.textContent = `Install this app: On your ${device}, tap the Share button, then "Add to Home Screen".`;
+    this._el.primary.textContent = 'How to Install';
+    this._el.primary.setAttribute('aria-label', `How to install on ${device}`);
+    this._el.wrap.style.display = 'block';
+    this._iosMode = true;
+    this._scheduleAutoHide();
   }
   _onDismiss() {
     this._dismissed = true;
@@ -1232,8 +1480,33 @@ function updateStatusPill(headerEl) {
     const comp = getDrawerComponent(); if (!comp?.getState) return;
     const cur = comp.getState();
     const data = loadProfilesData(); const prof = data.profiles[data.activeId];
-    const saved = JSON.stringify((prof && prof.state) || null);
-    const now = JSON.stringify(cur);
+    // Normalize states so structural/version differences (e.g., new optional fields) don't show as dirty
+    const normalize = (s) => {
+      if (!s || typeof s !== 'object') return null;
+      const z = 0;
+      const base = s.base || {};
+      const extra = s.extra || { slips: [], checks: [] };
+      const optional = s.optional || {
+        charges: z, totalReceived: z, netSales: z,
+        grossProfitAmount: z, grossProfitPercent: z,
+        numInvoices: z, numVoids: z
+      };
+      return {
+        version: 2,
+        timestamp: 0, // ignore timestamp in equality
+        base: {
+          drawer: base.drawer || z, roa: base.roa || z, slips: base.slips || z, checks: base.checks || z,
+          hundreds: base.hundreds || z, fifties: base.fifties || z, twenties: base.twenties || z, tens: base.tens || z,
+          fives: base.fives || z, dollars: base.dollars || z, quarters: base.quarters || z, dimes: base.dimes || z,
+          nickels: base.nickels || z, pennies: base.pennies || z, quarterrolls: base.quarterrolls || z,
+          dimerolls: base.dimerolls || z, nickelrolls: base.nickelrolls || z, pennyrolls: base.pennyrolls || z
+        },
+        extra: { slips: Array.isArray(extra.slips) ? extra.slips : [], checks: Array.isArray(extra.checks) ? extra.checks : [] },
+        optional
+      };
+    };
+    const saved = JSON.stringify(normalize((prof && prof.state) || null));
+    const now = JSON.stringify(normalize(cur));
     const isSaved = saved === now;
     pill.textContent = isSaved ? `Saved${prof?.updatedAt ? ' • ' + new Date(prof.updatedAt).toLocaleTimeString() : ''}` : 'Unsaved changes';
     pill.classList.toggle('saved', isSaved);
@@ -1280,9 +1553,10 @@ function openImportDialog(headerEl) {
           dMerged[pid] = curEntry;
         }
         saveDaysData(dMerged);
-        populateProfilesSelect(headerEl);
-        restoreActiveProfile();
-        updateStatusPill(headerEl);
+  populateProfilesSelect(headerEl);
+  restoreActiveProfile();
+  updateStatusPill(headerEl);
+  applyReadOnlyByActiveDate(headerEl);
         toast('Imported data', { type: 'success', duration: 2000 });
       } else if (imported.profiles) {
         // Backward-compat: old profiles-only format
@@ -1290,9 +1564,10 @@ function openImportDialog(headerEl) {
         current.profiles = { ...current.profiles, ...imported.profiles };
         if (imported.activeId) current.activeId = imported.activeId;
         saveProfilesData(current);
-        populateProfilesSelect(headerEl);
-        restoreActiveProfile();
-        updateStatusPill(headerEl);
+  populateProfilesSelect(headerEl);
+  restoreActiveProfile();
+  updateStatusPill(headerEl);
+  applyReadOnlyByActiveDate(headerEl);
         toast('Imported profiles', { type: 'success', duration: 2000 });
       } else {
         toast('Invalid import file', { type: 'error', duration: 2500 });
@@ -1314,20 +1589,36 @@ window.addEventListener('DOMContentLoaded', () => {
   // Update CSS var for header height so content padding matches fixed header
   const root = document.documentElement;
   const hdr = document.querySelector('header.app-header');
+  const bannerHost = document.querySelector('app-install-banner');
   const setHeaderVar = () => {
     if (!hdr) return;
     const h = hdr.offsetHeight || 64;
     root.style.setProperty('--header-h', `${h}px`);
   };
+  const setBannerVar = () => {
+    // The banner element renders its visible area inside a wrapper; measuring host is ok as it's sticky and sized by content
+    if (!bannerHost) { root.style.setProperty('--banner-h', '0px'); return; }
+    // If the banner is hidden via display:none, offsetHeight will be 0
+    const h = bannerHost.offsetHeight || 0;
+    root.style.setProperty('--banner-h', `${h}px`);
+  };
   setHeaderVar();
+  setBannerVar();
   // Observe header size changes (e.g., responsive wraps)
   try {
     if (window.ResizeObserver && hdr) {
       const ro = new ResizeObserver(() => setHeaderVar());
       ro.observe(hdr);
+      // Observe banner visibility/size changes
+      if (bannerHost) {
+        const rb = new ResizeObserver(() => setBannerVar());
+        rb.observe(bannerHost);
+      }
     } else {
       window.addEventListener('resize', setHeaderVar);
+      window.addEventListener('resize', setBannerVar);
       setTimeout(setHeaderVar, 250); // after fonts/layout settle
+      setTimeout(setBannerVar, 260);
     }
   } catch(_) { /* no-op */ }
 
@@ -1353,6 +1644,18 @@ window.addEventListener('DOMContentLoaded', () => {
       saveSpecificDay(key);
     } catch(_) {}
   });
+
+  // Also listen for banner internal state changes via events/messages to recompute height quickly
+  try {
+    const banner = document.querySelector('app-install-banner');
+    if (banner) {
+      // MutationObserver to detect style/display toggles within shadow DOM host size
+      const mo = new MutationObserver(() => setBannerVar());
+      mo.observe(banner, { attributes: true, attributeFilter: ['style', 'class'] });
+      // Fallback: poll once after 1s in case of async show
+      setTimeout(setBannerVar, 1000);
+    }
+  } catch (_) { /* ignore */ }
 });
 
 // Daily history — per profile, keyed by local YYYY-MM-DD
@@ -1483,13 +1786,29 @@ function updateLockButtonUI(headerEl) {
   try {
     const header = headerEl || document.querySelector('app-header');
     const btn = header?.querySelector('.lock-btn');
+    const optBtn = header?.querySelector('.optional-btn');
     const today = getTodayKey();
     const key = getActiveViewDateKey();
     const ro = key !== today && !isDayEditUnlocked();
     if (btn) {
+      const isToday = (key === today);
       btn.textContent = ro ? '🔒' : '🔓';
-      btn.title = ro ? 'Toggle edit lock (locked)' : 'Toggle edit lock (unlocked)';
-      btn.disabled = (key === today); // today always editable
+      // Today is always editable; show informative tooltip, and disable the control
+      if (isToday) {
+        btn.title = 'Today is always editable';
+        btn.setAttribute('aria-label', 'Today is always editable');
+      } else {
+        const stateTxt = ro ? 'locked' : 'unlocked';
+        const tip = `Toggle edit lock (${stateTxt})`;
+        btn.title = tip;
+        btn.setAttribute('aria-label', tip);
+      }
+      btn.disabled = isToday; // today always editable
+    }
+    if (optBtn) {
+      optBtn.disabled = ro; // disable optional editing when read-only
+      optBtn.title = ro ? 'Optional fields (read-only)' : 'Optional fields';
+      optBtn.setAttribute('aria-label', optBtn.title);
     }
   } catch(_) {}
 }

@@ -9,12 +9,14 @@ Status: Vanilla JS + Web Components (no framework)
 - Offline-first PWA (service worker with precache, runtime cache, offline fallback)
 - Installable (manifest + in-app install banner); focuses an existing app window when possible
 - Drawer calculator with dynamic rows for credit card slips and checks
+- Optional daily fields captured for later reporting (do not affect totals): Charges, Total Received, Net Sales, Gross Profit $/%, Number of Invoices, Number of Voids
 - Profiles: Save, Restore, and Clear the active profile
 - Daily History: Save by day, Load, Delete, and Rename entries; auto reset on a new day
 - Import/Export: Backup or restore your data as JSON
 - Theme: Light/Dark/System with live `theme-color` updates
 - Network status pill and toast notifications
 - Keyboard shortcuts for faster entry
+ - Visual polish: random background image with smooth fade-in; light/dark overlays for readability
 
 ## Quick start (Windows PowerShell)
 
@@ -45,6 +47,10 @@ Alternative local servers:
 - Fill bill and coin counts; totals and `Balance` update live with color cues.
 - Open `Settings` (gear icon) for profiles, daily history, import/export, and theme.
 
+Optional Fields:
+- At the bottom of the calculator you'll find optional inputs: `Charges`, `Total Received`, `Net Sales`, `Gross Profit Amount ($)`, `Gross Profit Percentage (%)`, `Number of Invoices`, and `Number of Voids`.
+- These are stored with your daily history and profiles for future reporting or export, but they do not participate in any totals or balance calculations.
+
 Profiles:
 - `Save` stores the current drawer for the active profile; `Restore` loads it; `Clear` resets inputs.
 - Changes are also auto-saved locally as you type.
@@ -66,23 +72,30 @@ Install/Open as app:
 - In Chrome/Edge, use the in-app `Install` button (when shown) or your browser’s menu.
 - After installing, visiting the website shows an `Open in App` button that focuses the installed window (supported in Chromium via `launch_handler`/`capture_links`).
 
+Background & images:
+- A random background image is selected from `src/images/` on each load.
+- Images are served as `.webp` (with alpha) when supported, and fall back to optimized `.png` otherwise.
+- The image gently fades in on load; the light/dark overlay remains crisp when you toggle themes.
+
 ## Project structure
 
 - `index.html` – app shell and UI composition
 - `src/style.css` – base styles and theming (light/dark)
 - `src/main.js` – app shell components (header, install banner, network status, modals), persistence, theme, SW registration
 - `src/drawer-count.js` – `DrawerCount` web component (drawer calculator UI + logic)
+- `src/images/` – background images (optimized `.png` plus generated `.webp`)
 - `sw.js` – service worker (precache + runtime caching + offline fallback; scope-aware)
 - `offline.html` – offline fallback page for navigations
 - `manifest.webmanifest` – PWA manifest (standalone display, focus-existing)
 - `src/icons/favicon.svg` – placeholder icon (add PNGs for better platform support)
+ - `scripts/optimize-images.js` – utility to recompress PNGs and generate WebP with alpha
 
 ## PWA & service worker notes
 
 - HTTPS/localhost required: service workers and install only work over HTTPS or `http://localhost`.
 - Updates: after changing `sw.js`, reload and close/reopen the page to activate. In DevTools → Application → Service Workers you can `Update`/`Skip waiting`.
 - Cache versioning: bump `CACHE_VERSION` in `sw.js` when you need to invalidate old caches.
-	- Currently set to `v7`. Changing this forces clients to fetch new assets after activation.
+	- Currently set to `v10`. Changing this forces clients to fetch new assets after activation.
 - Query busting: `index.html` may add a version query (e.g., `src/main.js?v=5`). The SW handles this and serves the cached file correctly.
 - Scope-aware paths: the SW normalizes URLs to its scope so cached assets work even under a subpath.
 - Manifest scope and paths are now relative (e.g., `./manifest.webmanifest`, `./src/...`) so deployment under a subpath (like GitHub Pages `/your-repo/`) works out of the box. If you customize the base path, ensure `start_url`/`scope` in the manifest still point to `./` for your chosen directory.
@@ -106,8 +119,21 @@ Any static host will work. Recommended:
 Before deploying, optionally bump the service worker cache to ensure clients pick up new assets:
 
 ```powershell
-npm run bump-sw
+npm run predeploy
 ```
+
+Image optimization (optional but recommended):
+- Optimize background PNGs and generate `.webp` variants with alpha using the provided script:
+
+```powershell
+npm run optimize-images
+```
+
+Adding new background images:
+- Place new `.png` files in `src/images/`.
+- Add the file’s base name (without extension) to the `BG_IMAGES` list in `src/main.js`.
+- Run `npm run optimize-images` to generate `.webp` versions and recompress the PNGs.
+- Add the new image filenames (both `.png` and `.webp`) to the precache array in `sw.js` so they’re available offline.
 
 ## License
 

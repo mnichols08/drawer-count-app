@@ -1,5 +1,43 @@
 # Changelog
 
+## v0.0.11 - 2025-09-20
+### Added
+- Random background image chosen from `src/images/` on load.
+- Smooth fade-in animation for background image via a dedicated background layer.
+
+### Performance
+- Image optimization pipeline using `sharp`: recompress PNGs (preserve alpha) and generate `.webp` variants with transparency.
+- Runtime prefers `.webp` when supported, falls back to optimized `.png`.
+
+### PWA
+- Bump service worker cache version to `v10` and precache both `.png` and `.webp` background assets for offline use.
+
+### Scripts & Docs
+- New `npm run optimize-images` script and docs for adding/optimizing background images.
+- `predeploy` now runs `bump-sw` and `optimize-images`.
+
+## v0.0.10 - 2025-09-20
+- Adds a background image and transluceny to UI so that it remains visible.
+## v0.0.9 - 2025-09-20
+### Added
+- Optional Daily Fields modal (🧾 button in header) for entering: Charges, Total Received, Net Sales, Gross Profit Amount ($), Gross Profit Percentage (%), Number of Invoices, Number of Voids.
+- Optional values are saved per day and included in profiles/export but do not affect totals or balance.
+
+### Changed
+- Drawer state upgraded to version 2 with a new `optional` section; backward-compatible with normalization when comparing saved/unsaved status.
+- Inline optional section is now hidden in `DrawerCount` (kept for state hydration and autosave hooks).
+- Header UI updated with Optional Fields button; disabled when viewing locked (read-only) days.
+
+### Fixed
+- Prevent false "Unsaved changes" indicator by normalizing state (ignoring timestamps and defaulting missing optional fields) when computing header status.
+
+### PWA
+- Bump service worker cache version to `v9` to ensure clients fetch updated assets.
+
+
+## v0.0.8 - 2025-09-20
+- Add iOS installation instructions and adjust banner height handling
+
 ## v0.0.7 - 2025-09-20
 - Add daily history in `SettingsModal` (save, load, delete days)
 - Add read-only toggle and day renaming in `SettingsModal`

@@ -7,6 +7,7 @@
   --border: #263056;
   --btn: #3a506b;
   --header-h: 64px; /* default; updated by JS at runtime */
+  --banner-h: 0px;  /* height of install banner; updated by JS at runtime */
   /* App-wide input vars (used by modals, etc.) */
   --input-bg-color: #0f1730;
   --input-fg-color: var(--fg);
@@ -30,10 +31,35 @@ html, body { height: 100%; }
 body {
   margin: 0;
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-  background: radial-gradient(1200px 800px at 10% -10%, #0f1a3a 0%, var(--bg) 35%) no-repeat, var(--bg);
+  /* Layered background: fixed translucent overlay + fixed hero image + solid fallback */
+  background-color: var(--bg);
+  /* Image/overlay are applied by JS for random optimized backgrounds */
+  /* Keep positioning defaults to match JS-applied image */
+  background-repeat: no-repeat, no-repeat;
+  background-position: left 5vh, left 5vh;
+  background-size: cover, contain;
+  /* Fix both layers so translucency doesn't scroll away */
+  background-attachment: fixed, fixed;
   color: var(--fg);
   line-height: 1.45;
   letter-spacing: .2px;
+}
+
+/* Dedicated background image layer so we can fade in smoothly */
+#bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -1; /* behind everything */
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-position: left 5vh;
+  background-size: contain;
+  background-attachment: fixed;
+  opacity: 0;
+  transition: opacity 300ms ease-in;
+}
+#bg-layer.show {
+  opacity: 1;
 }
 
 /* Light theme (top-level) */
@@ -63,12 +89,20 @@ body {
   --kbd-border: #b8c1e1;
 }
 
-/* Light mode: remove dramatic background gradient */
-:root[data-theme="light"] body { background: var(--bg); }
+/* Light mode: keep the hero image, soften with a light translucent overlay for readability */
+:root[data-theme="light"] body {
+  background-color: var(--bg);
+  /* Image/overlay are applied by JS for random optimized backgrounds */
+  background-repeat: no-repeat, no-repeat;
+  background-position: left 5vh, left 5vh;
+  background-size: cover, contain;
+  /* Fix overlay and image to avoid overlay scrolling off-screen */
+  background-attachment: fixed, fixed;
+}
 
 .app-header {
   position: fixed;
-  top: 0;
+  top: var(--banner-h, 0px); /* slide below banner when visible */
   left: 0;
   right: 0;
   z-index: 10; /* below install banner (20), above content */
@@ -76,6 +110,7 @@ body {
   padding: calc(0.7rem + env(safe-area-inset-top)) max(0.9rem, env(safe-area-inset-right)) 0.7rem max(0.9rem, env(safe-area-inset-left));
   border-bottom: 1px solid var(--border);
   background: var(--bg);
+  transition: top 160ms ease; /* subtle animation when banner shows/hides */
 }
 .icon-btn { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: .35rem .6rem; cursor: pointer; min-height: 44px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .icon-btn:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -86,11 +121,15 @@ body {
   display: grid;
   place-items: center;
   /* Mobile-first padding; scales up via media queries */
-  padding: calc(1rem + var(--header-h)) 1rem 2rem; /* add top space equal to header height */
+  padding: calc(1rem + var(--header-h) + var(--banner-h)) 1rem 2rem; /* add top space equal to header + banner height */
 }
 
 .card {
-  background: var(--card);
+  /* Translucent card to let the background image subtly show through */
+  background: rgba(21, 28, 53, 0.72);
+  /* Frosted-glass effect where supported */
+  backdrop-filter: saturate(120%) blur(6px);
+  -webkit-backdrop-filter: saturate(120%) blur(6px);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 1.1rem 1.1rem 1.25rem;
@@ -99,6 +138,11 @@ body {
   width: 100%;
   max-width: 640px;
   margin: 0 auto;
+}
+
+/* Light theme translucency for card */
+:root[data-theme="light"] .card {
+  background: rgba(255, 255, 255, 0.85);
 }
 
 /* Bridge theme variables into <drawer-count> shadow via host */
@@ -223,12 +267,12 @@ network-status.offline .dot { background: #ef4444; border-color: rgba(239,68,68,
   -------------------------------------
 */
 @media (min-width: 480px) {
-  .container { padding: calc(1.25rem + var(--header-h)) 1.25rem 2.25rem; }
+  .container { padding: calc(1.25rem + var(--header-h) + var(--banner-h)) 1.25rem 2.25rem; }
   .controls { grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
   .quick { grid-template-columns: 1fr auto; }
 }
 
 @media (min-width: 768px) {
-  .container { padding: calc(2rem + var(--header-h)) 1.5rem 3rem; }
+  .container { padding: calc(2rem + var(--header-h) + var(--banner-h)) 1.5rem 3rem; }
   .card { max-width: 720px; }
 }
