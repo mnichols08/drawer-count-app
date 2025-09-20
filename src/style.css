@@ -142,7 +142,7 @@ body {
 
 /* Light theme translucency for card */
 :root[data-theme="light"] .card {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.25);
 }
 
 /* Bridge theme variables into <drawer-count> shadow via host */

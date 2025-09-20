@@ -90,8 +90,10 @@ function applyTheme(theme, persist = true) {
   document.documentElement.setAttribute('data-theme', t);
   if (persist) { try { localStorage.setItem(THEME_KEY, t); } catch (_) {} }
   // Update header icon if present
-  const btn = document.querySelector('app-header .theme-toggle');
-  if (btn) btn.textContent = t === 'dark' ? '🌙' : '☀️';
+  try {
+    document.querySelectorAll('app-header .theme-toggle')
+      .forEach((btn) => { btn.textContent = t === 'dark' ? '🌙' : '☀️'; });
+  } catch (_) {}
   // Update theme-color meta for consistent PWA UI
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', t === 'dark' ? '#0b132b' : '#f7f9ff');
@@ -698,6 +700,9 @@ class AppHeader extends HTMLElement {
     this._onClear = this._onClear.bind(this);
     this._onOpenDays = this._onOpenDays.bind(this);
     this._onToggleLock = this._onToggleLock.bind(this);
+    this._onMenuToggle = this._onMenuToggle.bind(this);
+    this._onWindowKey = this._onWindowKey.bind(this);
+    this._onOutsideClick = this._onOutsideClick.bind(this);
   }
   connectedCallback() {
     const title = this.getAttribute('title') || 'Drawer Count';
@@ -705,7 +710,7 @@ class AppHeader extends HTMLElement {
       <style>
         :host { display: block; width: 100%; }
         /* Mobile-first: stack title on first row, actions below, allow wrapping */
-        .bar { display: grid; align-items: center; gap: .35rem; grid-template-columns: 1fr auto; grid-template-areas: "title title" "left right"; }
+        .bar { display: grid; align-items: center; gap: .35rem; grid-template-columns: 1fr auto; grid-template-areas: "title title" "left right"; position: relative; }
         .title { grid-area: title; text-align: center; margin: 0; font-size: clamp(1rem, 3.5vw, 1.1rem); letter-spacing: .2px; }
         .left { grid-area: left; justify-self: start; display: flex; gap: .35rem; align-items: center; flex-wrap: wrap; }
         .right { grid-area: right; justify-self: end; display: flex; gap: .35rem; align-items: center; flex-wrap: wrap; }
@@ -718,11 +723,35 @@ class AppHeader extends HTMLElement {
   /* server status pill moved out of header */
         /* Visually hidden but accessible label */
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,1px,1px); white-space: nowrap; border: 0; }
+
+        /* Hamburger + menu (mobile) */
+        .menu-toggle { display: inline-flex; align-items: center; justify-content: center; background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 10px; cursor: pointer; min-height: 44px; }
+        .menu-toggle[aria-expanded="true"] { filter: brightness(1.08); }
+        .nav-menu { position: absolute; right: 0; top: 100%; margin-top: 8px; background: var(--card, #1c2541); color: var(--fg, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 12px; padding: 8px; z-index: 50; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); min-width: 220px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; opacity: 0; transform: translateY(-6px) scale(0.98); visibility: hidden; pointer-events: none; transition: opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms; }
+  .nav-menu.open { opacity: 1; transform: translateY(0) scale(1); visibility: visible; pointer-events: auto; transition-delay: 0s; }
+        .nav-menu .row { display: contents; }
+        .nav-menu .icon-btn { width: 100%; min-height: 40px; }
+
+        /* Backdrop for focus when menu open with fade */
+        .menu-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.25); backdrop-filter: blur(1px); z-index: 40; opacity: 0; visibility: hidden; transition: opacity 140ms ease, visibility 0s linear 140ms; }
+        .menu-backdrop.show { opacity: 1; visibility: visible; transition-delay: 0s; }
+
+        /* Very small screens: single column for larger tap targets */
+        @media (max-width: 380px) {
+          .nav-menu { grid-template-columns: 1fr; min-width: 180px; }
+        }
+
+        /* On small screens, hide the inline right actions and show hamburger */
+        .right.inline-actions { display: none; }
+        .right.menu-area { display: inline-flex; }
         
         /* Wider screens: put left | title | right on one row */
         @media (min-width: 600px) {
           .bar { grid-template-columns: 1fr auto 1fr; grid-template-areas: "left title right"; }
           .left, .right { flex-wrap: nowrap; }
+          .right.inline-actions { display: flex; }
+          .right.menu-area { display: none; }
+          .nav-menu { display: none !important; }
         }
       </style>
       <div class="bar" role="toolbar" aria-label="App header">
@@ -734,7 +763,7 @@ class AppHeader extends HTMLElement {
           <span class="status-pill" aria-live="polite">—</span>
         </div>
         <h1 class="title">${title}</h1>
-        <div class="actions right">
+        <div class="actions right inline-actions">
           <button class="icon-btn optional-btn" aria-label="Optional fields" title="Optional fields">🧾</button>
           <button class="icon-btn days-btn" aria-label="Daily history" title="Daily history">📅</button>
           <button class="icon-btn lock-btn" aria-label="Toggle edit lock" title="Toggle edit lock">🔒</button>
@@ -743,18 +772,39 @@ class AppHeader extends HTMLElement {
           <button class="icon-btn theme-toggle" aria-label="Toggle theme" title="Toggle theme">${(document.documentElement.getAttribute('data-theme')||getPreferredTheme())==='dark'?'🌙':'☀️'}</button>
           <button class="icon-btn info-btn" aria-label="Help" title="Help">?</button>
         </div>
+        <div class="right menu-area">
+          <button class="menu-toggle" aria-label="Menu" aria-expanded="false" aria-haspopup="true">☰</button>
+          <div class="nav-menu" role="menu">
+            <div class="row">
+              <button class="icon-btn optional-btn" role="menuitem" aria-label="Optional fields" title="Optional fields">🧾</button>
+              <button class="icon-btn days-btn" role="menuitem" aria-label="Daily history" title="Daily history">📅</button>
+              <button class="icon-btn lock-btn" role="menuitem" aria-label="Toggle edit lock" title="Toggle edit lock">🔒</button>
+              <button class="icon-btn clear-btn" role="menuitem" aria-label="Clear inputs" title="Clear inputs">🧹</button>
+              <button class="icon-btn settings-btn" role="menuitem" aria-label="Settings" title="Settings">⚙️</button>
+              <button class="icon-btn theme-toggle" role="menuitem" aria-label="Toggle theme" title="Toggle theme">${(document.documentElement.getAttribute('data-theme')||getPreferredTheme())==='dark'?'🌙':'☀️'}</button>
+              <button class="icon-btn info-btn" role="menuitem" aria-label="Help" title="Help">?</button>
+            </div>
+          </div>
+          <div class="menu-backdrop" aria-hidden="true"></div>
+        </div>
       </div>`;
-    this.querySelector('.settings-btn')?.addEventListener('click', this._onSettings);
-    this.querySelector('.theme-toggle')?.addEventListener('click', this._onTheme);
-    this.querySelector('.info-btn')?.addEventListener('click', this._onHelp);
+    // Bind events for actions (both inline and in menu)
+    this.querySelectorAll('.settings-btn')?.forEach((el) => el.addEventListener('click', this._onSettings));
+    this.querySelectorAll('.theme-toggle')?.forEach((el) => el.addEventListener('click', this._onTheme));
+    this.querySelectorAll('.info-btn')?.forEach((el) => el.addEventListener('click', this._onHelp));
     // actions moved into settings modal
     this.querySelector('.profile-select')?.addEventListener('change', this._onProfileChange);
     this.querySelector('.new-profile-btn')?.addEventListener('click', this._onNewProfile);
     this.querySelector('.delete-profile-btn')?.addEventListener('click', this._onDeleteProfile);
-    this.querySelector('.clear-btn')?.addEventListener('click', this._onClear);
-  this.querySelector('.optional-btn')?.addEventListener('click', this._onOptional);
-  this.querySelector('.days-btn')?.addEventListener('click', this._onOpenDays);
-  this.querySelector('.lock-btn')?.addEventListener('click', this._onToggleLock);
+    this.querySelectorAll('.clear-btn')?.forEach((el) => el.addEventListener('click', this._onClear));
+    this.querySelectorAll('.optional-btn')?.forEach((el) => el.addEventListener('click', this._onOptional));
+    this.querySelectorAll('.days-btn')?.forEach((el) => el.addEventListener('click', this._onOpenDays));
+    this.querySelectorAll('.lock-btn')?.forEach((el) => el.addEventListener('click', this._onToggleLock));
+    // Menu interactions
+    this.querySelector('.menu-toggle')?.addEventListener('click', this._onMenuToggle);
+  window.addEventListener('keydown', this._onWindowKey);
+  window.addEventListener('click', this._onOutsideClick, true);
+  this.querySelector('.menu-backdrop')?.addEventListener('click', () => this._closeMenu());
 
     // Initialize profiles UI
   try { ensureProfilesInitialized(); populateProfilesSelect(this); updateStatusPill(this); updateLockButtonUI(this); } catch(_) {}
@@ -792,6 +842,64 @@ class AppHeader extends HTMLElement {
       applyReadOnlyByActiveDate(this);
       updateLockButtonUI(this);
       toast(isDayEditUnlocked() ? 'Editing unlocked for this day' : 'Editing locked for this day', { type: 'info', duration: 1600 });
+    } catch(_) {}
+  }
+  _closeMenu() {
+    try {
+      const menu = this.querySelector('.nav-menu');
+      const btn = this.querySelector('.menu-toggle');
+      if (menu && menu.classList.contains('open')) {
+        menu.classList.remove('open');
+        btn?.setAttribute('aria-expanded', 'false');
+      }
+    } catch(_) {}
+  }
+  disconnectedCallback() {
+    // Clean up global listeners added for menu
+    window.removeEventListener('keydown', this._onWindowKey);
+    window.removeEventListener('click', this._onOutsideClick, true);
+  }
+  _onMenuToggle(e) {
+    try {
+      const btn = this.querySelector('.menu-toggle');
+      const menu = this.querySelector('.nav-menu');
+      if (!btn || !menu) return;
+  const open = menu.classList.toggle('open');
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  const backdrop = this.querySelector('.menu-backdrop');
+  if (backdrop) backdrop.classList.toggle('show', open);
+      if (open) {
+        // focus first item for accessibility
+        setTimeout(() => { try { menu.querySelector('button')?.focus(); } catch(_) {} }, 0);
+      }
+      e?.stopPropagation?.();
+    } catch(_) {}
+  }
+  _onWindowKey(e) {
+    if (e.key === 'Escape') {
+      const menu = this.querySelector('.nav-menu');
+      const btn = this.querySelector('.menu-toggle');
+      if (menu && menu.classList.contains('open')) {
+        menu.classList.remove('open');
+        btn?.setAttribute('aria-expanded', 'false');
+        this.querySelector('.menu-backdrop')?.classList.remove('show');
+      }
+    }
+  }
+  _onOutsideClick(e) {
+    try {
+      const menu = this.querySelector('.nav-menu');
+      const btn = this.querySelector('.menu-toggle');
+      if (!menu || !btn) return;
+      if (!menu.classList.contains('open')) return;
+      const path = e.composedPath ? e.composedPath() : [];
+      const backdrop = this.querySelector('.menu-backdrop');
+      const clickedInside = path.includes(menu) || path.includes(btn) || path.includes(backdrop);
+      if (!clickedInside) {
+        menu.classList.remove('open');
+        btn.setAttribute('aria-expanded', 'false');
+        this.querySelector('.menu-backdrop')?.classList.remove('show');
+      }
     } catch(_) {}
   }
 }
@@ -1454,6 +1562,8 @@ if ('serviceWorker' in navigator) {
 
 // Drawer persistence — profiles
 const DRAWER_PROFILES_KEY = 'drawer-profiles-v1';
+// Daily history storage key (used by sync section below; must be defined before use)
+const DRAWER_DAYS_KEY = 'drawer-days-v1';
 function getDrawerComponent() { return document.querySelector('drawer-count'); }
 function loadProfilesData() {
   try {
@@ -1779,15 +1889,14 @@ function applyReadOnlyByActiveDate(headerEl) {
 function updateLockButtonUI(headerEl) {
   try {
     const header = headerEl || document.querySelector('app-header');
-    const btn = header?.querySelector('.lock-btn');
-    const optBtn = header?.querySelector('.optional-btn');
+    const btns = header ? Array.from(header.querySelectorAll('.lock-btn')) : [];
+    const optBtns = header ? Array.from(header.querySelectorAll('.optional-btn')) : [];
     const today = getTodayKey();
     const key = getActiveViewDateKey();
     const ro = key !== today && !isDayEditUnlocked();
-    if (btn) {
+    btns.forEach((btn) => {
       const isToday = (key === today);
       btn.textContent = ro ? '🔒' : '🔓';
-      // Today is always editable; show informative tooltip, and disable the control
       if (isToday) {
         btn.title = 'Today is always editable';
         btn.setAttribute('aria-label', 'Today is always editable');
@@ -1797,13 +1906,13 @@ function updateLockButtonUI(headerEl) {
         btn.title = tip;
         btn.setAttribute('aria-label', tip);
       }
-      btn.disabled = isToday; // today always editable
-    }
-    if (optBtn) {
-      optBtn.disabled = ro; // disable optional editing when read-only
+      btn.disabled = isToday;
+    });
+    optBtns.forEach((optBtn) => {
+      optBtn.disabled = ro;
       optBtn.title = ro ? 'Optional fields (read-only)' : 'Optional fields';
       optBtn.setAttribute('aria-label', optBtn.title);
-    }
+    });
   } catch(_) {}
 }
 
@@ -2006,4 +2115,75 @@ function initOnlineSync() {
     window.addEventListener('online', () => { _syncAllKeys(); });
   } catch(_) { /* ignore */ }
 }
+
+// ------------------------------
+// Daily history persistence (per profile)
+// ------------------------------
+// Shapes:
+// - Stored under DRAWER_DAYS_KEY in localStorage as an object keyed by profileId
+//   { [profileId]: { lastVisitedDate: 'YYYY-MM-DD' | null,
+//                    _activeViewDateKey?: string,
+//                    _editUnlocked?: boolean,
+//                    days: { [dateKey]: { state, savedAt: number, label?: string } } } }
+
+function loadDaysData() {
+  try {
+    const raw = localStorage.getItem(DRAWER_DAYS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return (parsed && typeof parsed === 'object') ? parsed : {};
+  } catch (_) { return {}; }
+}
+
+function saveDaysData(data) {
+  try {
+    localStorage.setItem(DRAWER_DAYS_KEY, JSON.stringify(data || {}));
+    try { _setLocalMeta(DRAWER_DAYS_KEY, { updatedAt: Date.now() }); _scheduleSyncPush(DRAWER_DAYS_KEY); } catch (_) {}
+    return true;
+  } catch (_) { return false; }
+}
+
+function _saveDaysDataAndSync(data) {
+  return saveDaysData(data);
+}
+
+function getTodayKey() {
+  try {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  } catch (_) { return '1970-01-01'; }
+}
+
+function _getActiveDaysEntry(createIfMissing = true) {
+  const data = loadDaysData();
+  const pid = getActiveProfileId();
+  let entry = data[pid];
+  if (!entry && createIfMissing) {
+    entry = { lastVisitedDate: null, days: {}, _activeViewDateKey: getTodayKey(), _editUnlocked: false };
+    data[pid] = entry;
+    saveDaysData(data);
+  }
+  // Always return a sane shape even when not created
+  return { data, pid, entry: entry || { lastVisitedDate: null, days: {}, _activeViewDateKey: getTodayKey(), _editUnlocked: false } };
+}
+
+function listSavedDaysForActiveProfile() {
+  try {
+    const { entry } = _getActiveDaysEntry(false);
+    const days = entry?.days || {};
+    // Map to comparable array, sort by savedAt desc then date desc
+    const list = Object.keys(days).map((k) => ({ date: k, savedAt: Number(days[k]?.savedAt || 0) }));
+    list.sort((a, b) => (b.savedAt - a.savedAt) || (a.date < b.date ? 1 : -1));
+    return list;
+  } catch (_) { return []; }
+}
+
+// Alias for older calls expecting a separate function name
+function saveSpecificDay(key) { return saveDay(key); }
+
+// Kick off initial online sync shortly after load
+try { window.addEventListener('load', () => { try { initOnlineSync(); } catch (_) {} }); } catch (_) {}
 
