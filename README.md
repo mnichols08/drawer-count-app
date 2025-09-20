@@ -193,3 +193,38 @@ $env:MONGODB_URI = "mongodb+srv://<user>:<pass>@<cluster>/?retryWrites=true&w=ma
 
 If `MONGODB_URI` is not set, the API returns `503` and the app continues to operate offline against `localStorage`.
 
+## Deploying backend on Render (MongoDB Atlas)
+
+If you host the Express server on Render and your database is MongoDB Atlas, use these settings.
+
+Environment variables (Render → your service → Environment):
+
+- `MONGODB_URI` = your Atlas SRV URI, for example:
+	- `mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/drawercount?retryWrites=true&w=majority`
+- `MONGODB_DB` = `drawercount`
+- `MONGODB_TLS` = `true`
+- Optional: `API_BASE` = your Render service URL + `/api` (e.g., `https://your-service.onrender.com/api`)
+
+Notes for Atlas:
+- Atlas uses public certificate authorities; you do NOT need to provide a custom CA for Atlas. Leave the `MONGODB_TLS_CA_*` variables unset.
+- Prefer the `mongodb+srv://` URI. If you must use `mongodb://` hosts, ensure `tls=true` is present in the URI or keep `MONGODB_TLS=true` set.
+- Do not use `MONGODB_TLS_INSECURE` in production. It’s only for short-term diagnostics.
+
+Render service basics:
+- Service type: a standard Node web service works fine.
+- Start command: `npm start` (which runs `node server.js`).
+
+Atlas network access:
+- In Atlas → Network Access, allow your Render service’s outbound IPs, or temporarily allow `0.0.0.0/0` to validate connectivity.
+- Ensure your Atlas database user has access to the `drawercount` database referenced by the URI.
+
+Verify after deploy:
+- Check logs for: `Server listening on http://localhost:PORT`.
+- Open: `https://your-service.onrender.com/api/health` → expect `{ ok: true, db: { configured: true, connected: true } }`.
+- The app should load at the root URL, and API calls to `/api/*` should succeed.
+
+Troubleshooting TLS errors:
+- If you see TLS handshake errors, first confirm `MONGODB_TLS=true` and that you’re using the Atlas SRV URI.
+- Avoid setting any custom CA variables with Atlas. They’re not required and can cause negotiation issues.
+- As a temporary diagnostic, you can set `MONGODB_TLS_INSECURE=true`. If this fixes it, revert it and keep `MONGODB_TLS=true` with the SRV URI.
+
