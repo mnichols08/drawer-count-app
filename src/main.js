@@ -134,7 +134,7 @@ class HelpModal extends HTMLElement {
           <button class="close" aria-label="Close">Close</button>
         </div>
         <div class="content">
-          <p>Drawer Count helps quickly total cash drawers with slips, checks, and bill/coin counts. It works offline and can be installed as an app.</p>
+          <p>Drawer Count helps quickly total cash drawers with slips, checks, and bill/coin counts. It works offline and can be installed as an app. To use, get your cash sales and ROA amounts from the "Review Today's Sales" screen in TAMS, and input them into the appropriate fields. Then simply input the amounts from your credit card slips, checks received, and cash.</p>
           <p><strong>Keyboard Shortcuts</strong></p>
           <ul>
             <li><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">S</span> &rarr; Add Slip</li>
