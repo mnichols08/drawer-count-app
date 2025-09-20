@@ -1,77 +1,106 @@
 # Drawer Count App
 
-A minimal, installable PWA to help count drawers at the end of the day.
+A minimal, installable PWA to help count drawers at the end of the day. Works offline, supports profiles, daily history, and import/export.
 
-Status: Initial scaffold (vanilla, no framework)
+Status: Vanilla JS + Web Components (no framework)
 
 ## Features
 
-- Offline-first PWA (service worker + cache)
-- Installable (manifest + install prompt)
-- Simple counter: increment, decrement, reset, and quick set
-- Save and Restore drawers manually
-- Auto-saves changes locally via `localStorage`
+- Offline-first PWA (service worker with precache, runtime cache, offline fallback)
+- Installable (manifest + in-app install banner); focuses an existing app window when possible
+- Drawer calculator with dynamic rows for credit card slips and checks
+- Profiles: Save, Restore, and Clear the active profile
+- Daily History: Save by day, Load, Delete, and Rename entries; auto reset on a new day
+- Import/Export: Backup or restore your data as JSON
+- Theme: Light/Dark/System with live `theme-color` updates
+- Network status pill and toast notifications
+- Keyboard shortcuts for faster entry
+
+## Quick start (Windows PowerShell)
+
+The app is static—no build step required. A dev server is included.
+
+```powershell
+npm install
+npm start
+```
+
+This runs `live-server` on `http://127.0.0.1:8080/` and opens `index.html` automatically. The service worker only works when served via HTTP(S) or `localhost`.
+
+Alternative local servers:
+
+- Node (no global install):
+	```powershell
+	npx http-server -p 8080 -c-1
+	```
+- Python:
+	```powershell
+	python -m http.server 8080
+	```
+
+## Using the app
+
+- Enter `Cash Total` and `ROA Amount` from your POS reports.
+- Add credit card `Slips` and `Checks` (use the `+` buttons for extra rows; each row totals automatically).
+- Fill bill and coin counts; totals and `Balance` update live with color cues.
+- Open `Settings` (gear icon) for profiles, daily history, import/export, and theme.
+
+Profiles:
+- `Save` stores the current drawer for the active profile; `Restore` loads it; `Clear` resets inputs.
+- Changes are also auto-saved locally as you type.
+
+Daily History:
+- Save, Load, Delete, and Rename day entries; dates are stored per device/profile using local time `YYYY-MM-DD`.
+- On a new day, inputs auto-reset so you can start fresh.
+
+Import/Export:
+- Export your profiles/history to a JSON file and import them later on the same or another device.
+
+Keyboard Shortcuts:
+- `Ctrl`+`Shift`+`S` → Add Slip
+- `Ctrl`+`Shift`+`C` → Add Check
+- `Ctrl`+`Shift`+`Backspace` → Remove last added row
+- `Alt`+`Backspace` (focused in a row) → Remove that row
+
+Install/Open as app:
+- In Chrome/Edge, use the in-app `Install` button (when shown) or your browser’s menu.
+- After installing, visiting the website shows an `Open in App` button that focuses the installed window (supported in Chromium via `launch_handler`/`capture_links`).
 
 ## Project structure
 
-- `index.html` – app shell and UI
-- `src/style.css` – base styles
-- `src/main.js` – app logic, persistence, SW registration
-- `src/drawer-count.js` - Custom Drawer Count App
-- `sw.js` – service worker (precache + runtime caching + offline fallback)
-- `offline.html` – displayed when offline and navigation fails
-- `manifest.webmanifest` – web app manifest
-- `src/icons/favicon.svg` – placeholder icon (add PNGs later if desired)
+- `index.html` – app shell and UI composition
+- `src/style.css` – base styles and theming (light/dark)
+- `src/main.js` – app shell components (header, install banner, network status, modals), persistence, theme, SW registration
+- `src/drawer-count.js` – `DrawerCount` web component (drawer calculator UI + logic)
+- `sw.js` – service worker (precache + runtime caching + offline fallback; scope-aware)
+- `offline.html` – offline fallback page for navigations
+- `manifest.webmanifest` – PWA manifest (standalone display, focus-existing)
+- `src/icons/favicon.svg` – placeholder icon (add PNGs for better platform support)
 
-## Run locally (static server)
+## PWA & service worker notes
 
-This repo doesn't require a build tool. Use any static HTTP server. On Windows PowerShell, two options:
-
-1) Node http-server (if you have Node):
-
-```powershell
-npm i -g http-server
-http-server -p 5173 -c-1
-```
-
-2) Python (if you have Python installed):
-
-```powershell
-python -m http.server 5174
-```
-
-Then open `http://localhost:5174/`. The service worker only works when served via HTTP(S), not from the `file://` protocol.
-
-## Install or open the app
-## Save and Restore
-
-- Click `Save` in the header to store your current drawer (including all slips/checks and bill/coin counts).
-- Click `Restore` to load the last saved drawer.
-- Changes are auto-saved as you type; `Save` provides a confirmation toast on demand.
-
-
-- Load the site in Chrome/Edge.
-- When not installed, an `Install` button appears in the header (or use the browser menu to install).
-- After installation, returning to the website will show an `Open in App` button instead. Clicking it focuses an existing app window or opens a new one.
-- If you open the installed app window itself (display-mode standalone), the button is hidden.
+- HTTPS/localhost required: service workers and install only work over HTTPS or `http://localhost`.
+- Updates: after changing `sw.js`, reload and close/reopen the page to activate. In DevTools → Application → Service Workers you can `Update`/`Skip waiting`.
+- Cache versioning: bump `CACHE_VERSION` in `sw.js` when you need to invalidate old caches.
+- Query busting: `index.html` may add a version query (e.g., `src/main.js?v=5`). The SW handles this and serves the cached file correctly.
+- Scope-aware paths: the SW normalizes URLs to its scope so cached assets work even under a subpath.
+- Manifest scope: current `manifest.webmanifest` and HTML use absolute paths (e.g., `/manifest.webmanifest`). If you deploy under a subpath (e.g., GitHub Pages `/your-repo/`), change these to relative paths and set `start_url`/`scope` accordingly.
 
 ## Icons
 
-An SVG favicon is included. For best results on various platforms, add PNG icons (192x192, 512x512) under `src/icons/` and reference them from `manifest.webmanifest`.
+An SVG favicon is included. For best results across platforms, add PNG icons (e.g., `192x192`, `512x512`) under `src/icons/` and reference them in `manifest.webmanifest` with appropriate `purpose` values.
 
-## Notes
+## Deployment
 
-- If you update `sw.js`, reload and then close/reopen the page to activate the new service worker. You can also use the DevTools Application > Service Workers panel to update/skip waiting.
- - The `manifest.webmanifest` uses `launch_handler` and `capture_links` to prefer focusing an existing app client when opening from the website (supported in Chromium-based browsers).
+Any static host will work. Recommended:
+- Serve at the site root so the absolute links in `index.html`/`manifest` resolve. If deploying at a subpath, convert absolute URLs to relative and update the manifest `start_url`/`scope`.
+- Ensure responses are served with correct MIME types (e.g., `application/manifest+json` for the manifest, `text/javascript` for `.js`).
 
-## Daily History
+## License
 
-- Save today's counts: open `Settings` (gear) → `Daily History` → `Save Today`.
-- Restore a prior day: choose a date from `Saved Days` → `Load`.
-- Delete a saved day: select a date → `Delete`.
-- Auto reset on a new day: when you return on a different day, inputs are cleared so you can start fresh (per profile).
+ISC — see `LICENSE` (or the license field in `package.json`).
 
-Notes:
-- Day saves are stored locally per device and per profile.
-- Dates use your device's local time in `YYYY-MM-DD` format.
+## Changelog
+
+See `CHANGELOG.md`.
 
