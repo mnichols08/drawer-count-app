@@ -47,6 +47,122 @@ class DrawerCount extends HTMLElement {
     return { count, remove, balance, roa, slips, checks, hundreds, fifties, twenties, tens, fives, ones, quarters, dimes, nickels, pennies, qRolls, dRolls, nRolls, pRolls, timestamp };
   }
 
+  // Public API: serialize full component state (raw input values including dynamic rows)
+  getState() {
+    const $ = (sel) => this._root.querySelector(sel);
+    const getInputVal = (sel) => Number($(sel)?.querySelector('input')?.value || 0);
+    // Base inputs
+    const state = {
+      version: 1,
+      timestamp: Date.now(),
+      base: {
+        drawer: getInputVal('#drawer'),
+        roa: getInputVal('#roa'),
+        slips: getInputVal('#slips'),
+        checks: getInputVal('#checks'),
+        hundreds: getInputVal('#hundreds'),
+        fifties: getInputVal('#fifties'),
+        twenties: getInputVal('#twenties'),
+        tens: getInputVal('#tens'),
+        fives: getInputVal('#fives'),
+        dollars: getInputVal('#dollars'),
+        quarters: getInputVal('#quarters'),
+        dimes: getInputVal('#dimes'),
+        nickels: getInputVal('#nickels'),
+        pennies: getInputVal('#pennies'),
+        quarterrolls: getInputVal('#quarterrolls'),
+        dimerolls: getInputVal('#dimerolls'),
+        nickelrolls: getInputVal('#nickelrolls'),
+        pennyrolls: getInputVal('#pennyrolls')
+      },
+      extra: {
+        slips: [],
+        checks: []
+      }
+    };
+    // Dynamic rows
+    const extras = Array.from(this._root.querySelectorAll('.wrap .slip, .wrap .check'));
+    for (const row of extras) {
+      const isSlip = row.classList.contains('slip');
+      const val = Number(row.querySelector('input')?.value || 0);
+      (isSlip ? state.extra.slips : state.extra.checks).push(val);
+    }
+    return state;
+  }
+
+  // Public API: hydrate from serialized state created by getState()
+  setState(state) {
+    try {
+      if (!state || typeof state !== 'object') return;
+      const b = state.base || {};
+      const setVal = (sel, v) => {
+        const el = this._root.querySelector(sel + ' input');
+        if (el) { el.value = (Number(v) || 0); el.dispatchEvent(new Event('input', { bubbles: true })); }
+      };
+      // Set base inputs
+      setVal('#drawer', b.drawer);
+      setVal('#roa', b.roa);
+      setVal('#slips', b.slips);
+      setVal('#checks', b.checks);
+      setVal('#hundreds', b.hundreds);
+      setVal('#fifties', b.fifties);
+      setVal('#twenties', b.twenties);
+      setVal('#tens', b.tens);
+      setVal('#fives', b.fives);
+      setVal('#dollars', b.dollars);
+      setVal('#quarters', b.quarters);
+      setVal('#dimes', b.dimes);
+      setVal('#nickels', b.nickels);
+      setVal('#pennies', b.pennies);
+      setVal('#quarterrolls', b.quarterrolls);
+      setVal('#dimerolls', b.dimerolls);
+      setVal('#nickelrolls', b.nickelrolls);
+      setVal('#pennyrolls', b.pennyrolls);
+
+      // Clear any existing dynamic rows
+      Array.from(this._root.querySelectorAll('.wrap .slip, .wrap .check')).forEach((n) => n.remove());
+
+      // Recreate extra rows
+      const ex = state.extra || { slips: [], checks: [] };
+      const add = (type, value) => {
+        const anchorSel = type === 'slip' ? '#checks' : '#hundreds';
+        this._newInput(anchorSel); // creates last new row of that type before anchor
+        // set value on the last created node of that type
+        const rows = Array.from(this._root.querySelectorAll('.wrap .' + type));
+        const last = rows[rows.length - 1];
+        const inp = last?.querySelector('input');
+        if (inp) { inp.value = Number(value) || 0; inp.dispatchEvent(new Event('input', { bubbles: true })); }
+      };
+      (Array.isArray(ex.slips) ? ex.slips : []).forEach((v) => add('slip', v));
+      (Array.isArray(ex.checks) ? ex.checks : []).forEach((v) => add('check', v));
+
+      // Final recompute and announce
+      this._getTotal();
+      this._getBalance();
+      this._slipCheckCount();
+      this._announce('Drawer restored');
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  // Public API: reset all inputs and dynamic rows to zero/empty
+  reset() {
+    const zero = 0;
+    const state = {
+      version: 1,
+      timestamp: Date.now(),
+      base: {
+        drawer: zero, roa: zero, slips: zero, checks: zero,
+        hundreds: zero, fifties: zero, twenties: zero, tens: zero,
+        fives: zero, dollars: zero, quarters: zero, dimes: zero, nickels: zero, pennies: zero,
+        quarterrolls: zero, dimerolls: zero, nickelrolls: zero, pennyrolls: zero
+      },
+      extra: { slips: [], checks: [] }
+    };
+    this.setState(state);
+  }
+
   _render() {
     this._root.innerHTML = `
       <style>

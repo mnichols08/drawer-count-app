@@ -1,6 +1,10 @@
 # Changelog
 
-## v 0.0.5 - 2025-09-19
+## v0.0.6 - 2025-09-20
+- Save/Restore drawer state (manual buttons in header) with auto-save to `localStorage`.
+- Restores dynamic slip/check rows and all base inputs.
+
+## v0.0.5 - 2025-09-19
 - Add press-and-hold support for continuous increment/decrement with configurable acceleration
 - Fix precision issues for fractional step sizes; normalize and format values per locale
 - Expose CustomEvents (count-change, count-reset) with old/new values for integrations

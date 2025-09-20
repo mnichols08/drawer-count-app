@@ -171,6 +171,14 @@ class AppHeader extends HTMLElement {
     super();
     this._onTheme = this._onTheme.bind(this);
     this._onHelp = this._onHelp.bind(this);
+    this._onSave = this._onSave.bind(this);
+    this._onRestore = this._onRestore.bind(this);
+    this._onClear = this._onClear.bind(this);
+    this._onExport = this._onExport.bind(this);
+    this._onImport = this._onImport.bind(this);
+    this._onProfileChange = this._onProfileChange.bind(this);
+    this._onNewProfile = this._onNewProfile.bind(this);
+    this._onDeleteProfile = this._onDeleteProfile.bind(this);
   }
   connectedCallback() {
     const title = this.getAttribute('title') || 'Drawer Count';
@@ -179,22 +187,58 @@ class AppHeader extends HTMLElement {
         :host { display: block; width: 100%; }
         .bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: .35rem; }
         .title { grid-column: 2; text-align: center; margin: 0; font-size: 1.1rem; letter-spacing: .2px; }
-        .left { grid-column: 1; justify-self: start; }
+        .left { grid-column: 1; justify-self: start; display: inline-flex; gap: .35rem; align-items: center; }
         .right { grid-column: 3; justify-self: end; display: inline-flex; gap: .35rem; }
+        .icon-btn, .action-btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+        .action-btn { font-weight: 600; }
+        select.profile-select { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 10px; }
+        .status-pill { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border, #2a345a); font-size: .85rem; }
+        .status-pill.saved { background: #12371f; color: #baf0c3; border-color: #2a5a3a; }
+        .status-pill.dirty { background: #42201e; color: #ffd6d6; border-color: #5a2a2a; }
       </style>
       <div class="bar" role="toolbar" aria-label="App header">
-        <div class="left"></div>
+        <div class="left">
+          <label for="profile" class="sr-only">Profile</label>
+          <select class="profile-select" name="profile" aria-label="Select profile"></select>
+          <button class="icon-btn new-profile-btn" aria-label="New profile" title="New profile">＋</button>
+          <button class="icon-btn delete-profile-btn" aria-label="Delete profile" title="Delete profile">🗑️</button>
+          <span class="status-pill" aria-live="polite">—</span>
+        </div>
         <h1 class="title">${title}</h1>
         <div class="actions right">
           <button class="icon-btn theme-toggle" aria-label="Toggle theme" title="Toggle theme">${(document.documentElement.getAttribute('data-theme')||getPreferredTheme())==='dark'?'🌙':'☀️'}</button>
           <button class="icon-btn info-btn" aria-label="Help" title="Help">?</button>
+          <button class="action-btn save-btn" aria-label="Save drawer" title="Save drawer">Save</button>
+          <button class="action-btn restore-btn" aria-label="Restore drawer" title="Restore drawer">Restore</button>
+          <button class="action-btn clear-btn" aria-label="Clear drawer" title="Clear drawer">Clear</button>
+          <button class="action-btn export-btn" aria-label="Export profiles" title="Export profiles">Export</button>
+          <button class="action-btn import-btn" aria-label="Import profiles" title="Import profiles">Import</button>
         </div>
       </div>`;
     this.querySelector('.theme-toggle')?.addEventListener('click', this._onTheme);
     this.querySelector('.info-btn')?.addEventListener('click', this._onHelp);
+    this.querySelector('.save-btn')?.addEventListener('click', this._onSave);
+    this.querySelector('.restore-btn')?.addEventListener('click', this._onRestore);
+    this.querySelector('.clear-btn')?.addEventListener('click', this._onClear);
+    this.querySelector('.export-btn')?.addEventListener('click', this._onExport);
+    this.querySelector('.import-btn')?.addEventListener('click', this._onImport);
+    this.querySelector('.profile-select')?.addEventListener('change', this._onProfileChange);
+    this.querySelector('.new-profile-btn')?.addEventListener('click', this._onNewProfile);
+    this.querySelector('.delete-profile-btn')?.addEventListener('click', this._onDeleteProfile);
+
+    // Initialize profiles UI
+    try { ensureProfilesInitialized(); populateProfilesSelect(this); updateStatusPill(this); } catch(_) {}
   }
   _onTheme() { toggleTheme(); }
   _onHelp() { getHelpModal().open(); }
+  _onSave() { try { saveToActiveProfile(); updateStatusPill(this); toast('Profile saved', { type: 'success', duration: 2000 }); } catch (_) {} }
+  _onRestore() { try { const ok = restoreActiveProfile(); updateStatusPill(this); toast(ok? 'Profile restored':'No saved state for profile', { type: ok?'success':'warning', duration: 2200 }); } catch (_) { toast('Restore failed', { type: 'error', duration: 2500 }); } }
+  _onClear() { try { const comp = getDrawerComponent(); comp?.reset?.(); updateStatusPill(this); toast('Cleared', { type: 'info', duration: 1500 }); } catch(_){} }
+  _onExport() { try { exportProfilesToFile(); } catch(_) { toast('Export failed', { type: 'error', duration: 2500 }); } }
+  _onImport() { try { openImportDialog(this); } catch(_) { toast('Import failed to start', { type: 'error', duration: 2500 }); } }
+  _onProfileChange(e) { try { const id = e.target?.value; if (!id) return; setActiveProfile(id); restoreActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Switched profile', { type:'info', duration: 1200}); } catch(_){} }
+  _onNewProfile() { try { const name = prompt('New profile name?'); if (!name) return; const id = createProfile(name); setActiveProfile(id); saveToActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Profile created', { type: 'success', duration: 1800 }); } catch(_){} }
+  _onDeleteProfile() { try { const data = loadProfilesData(); const ids = Object.keys(data.profiles||{}); if (ids.length<=1) { toast('Cannot delete last profile', { type:'warning', duration: 2200}); return; } const active = data.activeId; const name = data.profiles[active]?.name || active; if (!confirm(`Delete profile "${name}"?`)) return; delete data.profiles[active]; const nextId = ids.find((x)=>x!==active) || 'default'; data.activeId = nextId; saveProfilesData(data); restoreActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Profile deleted', { type:'success', duration: 1800}); } catch(_){} }
 }
 customElements.define('app-header', AppHeader);
 
@@ -496,3 +540,128 @@ if ('serviceWorker' in navigator) {
       .catch((err) => console.error('SW registration failed', err));
   });
 }
+
+// Drawer persistence — profiles
+const DRAWER_PROFILES_KEY = 'drawer-profiles-v1';
+function getDrawerComponent() { return document.querySelector('drawer-count'); }
+function loadProfilesData() {
+  try {
+    const raw = localStorage.getItem(DRAWER_PROFILES_KEY);
+    if (!raw) return { activeId: 'default', profiles: {} };
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return { activeId: 'default', profiles: {} };
+    parsed.profiles = parsed.profiles || {};
+    parsed.activeId = parsed.activeId || 'default';
+    return parsed;
+  } catch (_) { return { activeId: 'default', profiles: {} }; }
+}
+function saveProfilesData(data) {
+  try { localStorage.setItem(DRAWER_PROFILES_KEY, JSON.stringify(data)); return true; } catch(_) { return false; }
+}
+function ensureProfilesInitialized() {
+  const comp = getDrawerComponent();
+  let data = loadProfilesData();
+  if (!data.profiles || Object.keys(data.profiles).length === 0) {
+    data = { activeId: 'default', profiles: { default: { id: 'default', name: 'Default', state: comp?.getState?.() || null, updatedAt: Date.now() } } };
+    saveProfilesData(data);
+  }
+  if (!data.profiles[data.activeId]) {
+    data.activeId = Object.keys(data.profiles)[0];
+    saveProfilesData(data);
+  }
+}
+function getActiveProfileId() { return loadProfilesData().activeId; }
+function setActiveProfile(id) { const data = loadProfilesData(); if (!data.profiles[id]) return; data.activeId = id; saveProfilesData(data); }
+function saveToActiveProfile() {
+  const comp = getDrawerComponent(); if (!comp?.getState) return false;
+  const data = loadProfilesData(); const id = data.activeId; if (!id) return false;
+  const state = comp.getState();
+  data.profiles[id] = { id, name: data.profiles[id]?.name || id, state, updatedAt: Date.now() };
+  return saveProfilesData(data);
+}
+function restoreActiveProfile() {
+  const comp = getDrawerComponent(); if (!comp?.setState) return false;
+  const data = loadProfilesData(); const id = data.activeId; const prof = data.profiles[id]; if (!prof || !prof.state) return false;
+  try { comp.setState(prof.state); return true; } catch(_) { return false; }
+}
+function createProfile(name) {
+  const data = loadProfilesData();
+  const idBase = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g,'') || 'profile';
+  let id = idBase; let i = 1; while (data.profiles[id]) { id = `${idBase}-${i++}`; }
+  data.profiles[id] = { id, name, state: null, updatedAt: Date.now() };
+  saveProfilesData(data);
+  return id;
+}
+function populateProfilesSelect(headerEl) {
+  try {
+    const sel = headerEl.querySelector('.profile-select'); if (!sel) return;
+    const data = loadProfilesData(); const { profiles, activeId } = data;
+    sel.innerHTML = '';
+    Object.values(profiles).forEach((p) => {
+      const opt = document.createElement('option'); opt.value = p.id; opt.textContent = p.name || p.id; if (p.id === activeId) opt.selected = true; sel.appendChild(opt);
+    });
+  } catch(_){}
+}
+function updateStatusPill(headerEl) {
+  try {
+    const pill = headerEl.querySelector('.status-pill'); if (!pill) return;
+    const comp = getDrawerComponent(); if (!comp?.getState) return;
+    const cur = comp.getState();
+    const data = loadProfilesData(); const prof = data.profiles[data.activeId];
+    const saved = JSON.stringify((prof && prof.state) || null);
+    const now = JSON.stringify(cur);
+    const isSaved = saved === now;
+    pill.textContent = isSaved ? `Saved${prof?.updatedAt ? ' • ' + new Date(prof.updatedAt).toLocaleTimeString() : ''}` : 'Unsaved changes';
+    pill.classList.toggle('saved', isSaved);
+    pill.classList.toggle('dirty', !isSaved);
+  } catch(_){}
+}
+function exportProfilesToFile() {
+  const data = loadProfilesData();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'drawer-profiles.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  toast('Exported profiles', { type: 'success', duration: 1800 });
+}
+function openImportDialog(headerEl) {
+  let inp = document.getElementById('import-profiles-input');
+  if (!inp) { inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/json'; inp.id = 'import-profiles-input'; inp.style.display = 'none'; document.body.appendChild(inp); }
+  inp.onchange = async () => {
+    try {
+      const file = inp.files && inp.files[0]; if (!file) return;
+      const text = await file.text();
+      const imported = JSON.parse(text);
+      if (!imported || typeof imported !== 'object' || !imported.profiles) { toast('Invalid import file', { type: 'error', duration: 2500 }); return; }
+      const current = loadProfilesData();
+      // Merge: imported profiles override on id conflicts
+      current.profiles = { ...current.profiles, ...imported.profiles };
+      if (imported.activeId) current.activeId = imported.activeId;
+      saveProfilesData(current);
+      populateProfilesSelect(headerEl);
+      restoreActiveProfile();
+      updateStatusPill(headerEl);
+      toast('Imported profiles', { type: 'success', duration: 2000 });
+    } catch(_) { toast('Import failed', { type: 'error', duration: 2500 }); }
+    finally { inp.value = ''; }
+  };
+  inp.click();
+}
+
+// Auto-save on changes (debounced) per active profile
+let _saveTimer = null;
+function _debouncedSaveWithProfiles(headerEl) {
+  if (_saveTimer) clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => { saveToActiveProfile(); if (headerEl) updateStatusPill(headerEl); }, 500);
+}
+window.addEventListener('DOMContentLoaded', () => {
+  const comp = getDrawerComponent();
+  if (!comp) return;
+  ensureProfilesInitialized();
+  // Restore from active profile if exists
+  restoreActiveProfile();
+  const header = document.querySelector('app-header');
+  // Update initial status
+  if (header) { populateProfilesSelect(header); updateStatusPill(header); }
+  // Listen for changes to update status and auto-save
+  comp.addEventListener('change', () => _debouncedSaveWithProfiles(header));
+});

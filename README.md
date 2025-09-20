@@ -9,7 +9,8 @@ Status: Initial scaffold (vanilla, no framework)
 - Offline-first PWA (service worker + cache)
 - Installable (manifest + install prompt)
 - Simple counter: increment, decrement, reset, and quick set
-- Persists the count locally via `localStorage`
+- Save and Restore drawers manually
+- Auto-saves changes locally via `localStorage`
 
 ## Project structure
 
@@ -42,6 +43,12 @@ python -m http.server 5174
 Then open `http://localhost:5174/`. The service worker only works when served via HTTP(S), not from the `file://` protocol.
 
 ## Install or open the app
+## Save and Restore
+
+- Click `Save` in the header to store your current drawer (including all slips/checks and bill/coin counts).
+- Click `Restore` to load the last saved drawer.
+- Changes are auto-saved as you type; `Save` provides a confirmation toast on demand.
+
 
 - Load the site in Chrome/Edge.
 - When not installed, an `Install` button appears in the header (or use the browser menu to install).
