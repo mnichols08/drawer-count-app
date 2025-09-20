@@ -1,0 +1,28 @@
+{
+  "name": "drawer-count-app",
+  "version": "0.0.2",
+  "description": "A minimal, installable PWA to help myself and coworkers count drawers at the end of the day.",
+  "main": "index.html",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "live-server --port=8080 --open=src/index.html --watch=src"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mnichols08/drawer-count-app.git"
+  },
+  "keywords": [
+    "pwa",
+    "drawer-count",
+    "calculator"
+  ],
+  "author": "Mikey Nichols",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mnichols08/drawer-count-app/issues"
+  },
+  "homepage": "https://github.com/mnichols08/drawer-count-app#readme",
+  "devDependencies": {
+    "live-server": "^1.2.2"
+  }
+}
