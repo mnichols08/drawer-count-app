@@ -1,0 +1,97 @@
+:root {
+  --bg: #0b132b;
+  --fg: #e0e6ff;
+  --muted: #9aa3b2;
+  --accent: #3a86ff;
+  --card: #1c2541;
+  --btn: #3a506b;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #2a345a;
+}
+
+.container {
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+}
+
+.card {
+  width: min(520px, 100%);
+  background: var(--card);
+  border: 1px solid #2a345a;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+}
+
+.count-display {
+  font-size: clamp(3rem, 10vw, 5rem);
+  text-align: center;
+  margin: 0.5rem 0 1rem 0;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+.quick {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+input[type="number"] {
+  background: #121a33;
+  color: var(--fg);
+  border: 1px solid #2a345a;
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+}
+
+.btn {
+  background: var(--btn);
+  color: var(--fg);
+  border: 1px solid #2a345a;
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  cursor: pointer;
+}
+.btn:hover { filter: brightness(1.08); }
+.btn:active { transform: translateY(1px); }
+.btn:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.btn-outline {
+  background: transparent;
+  border-color: var(--btn);
+}
+
+.hint {
+  color: var(--muted);
+  margin-top: 0.85rem;
+  text-align: center;
+}
+
+.noscript {
+  background: #ffeeee;
+  color: #220000;
+  padding: 0.75rem;
+}

@@ -1,0 +1,23 @@
+{
+  "name": "Drawer Count",
+  "short_name": "Drawers",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b132b",
+  "theme_color": "#0b132b",
+  "description": "A minimal, installable PWA to help count drawers at the end of the day.",
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  },
+  "capture_links": "existing-client-nav",
+  "icons": [
+    {
+      "src": "/src/icons/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
