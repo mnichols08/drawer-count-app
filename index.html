@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b132b" />
+    <meta name="description" content="A minimal, installable PWA to help count drawers at the end of the day." />
+    <title>Drawer Count</title>
+
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/src/icons/favicon.svg" type="image/svg+xml" />
+    <meta name="application-name" content="Drawer Count" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <app-install-banner></app-install-banner>
+    <header class="app-header">
+      <app-header title="Drawer Count"></app-header>
+    </header>
+
+    <main class="container">
+      <section class="card" aria-live="polite" aria-atomic="true">
+        <network-status class="hint"></network-status>
+        <p class="hint">This app can be installed and works offline.</p>
+      </section>
+    </main>
+
+    <app-toaster></app-toaster>
+
+    <noscript>
+      <p class="noscript">This app needs JavaScript to run.</p>
+    </noscript>
+
+  <script type="module" src="/src/main.js?v=4"></script>
+  </body>
+  </html>
+  </html>
