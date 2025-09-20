@@ -186,7 +186,8 @@ class DrawerCount extends HTMLElement {
         span:before { content: '$'; }
 
         @media only print {
-          #drawer input, #roa input, div:not(#total,#cash,#balance,#cardTotal,#checkTotal,#drawer,#roa) { display: none; }
+          #drawer input, #roa input, #drawer label, #roa label,
+          div:not(#total,#cash,#balance,#cardTotal,#checkTotal,#drawer,#roa) { display: none; }
         }
       </style>
 
@@ -199,77 +200,95 @@ class DrawerCount extends HTMLElement {
         <div class="output" id="checkTotal">Check Total: $<balance>0.00</balance></div>
 
         <div class="input" id="drawer">
+          <label for="drawer-input">Cash Total</label>
           <input id="drawer-input" name="drawer" step=".01" type="number" placeholder="Cash Total" />
            Cash Total: $<drawer>0.00</drawer>
         </div>
         <div class="input" id="roa">
+          <label for="roa-input">ROA Amount</label>
           <input id="roa-input" name="roa" step=".01" type="number" placeholder="ROA Amount" />
            ROA Amount: $<roa>0.00</roa>
         </div>
         <div class="input" id="slips">
+          <label for="slips-input">Credit Cards</label>
           <input id="slips-input" name="slips" step=".01" type="number" placeholder="Credit Cards" />
           <button class="add-slip" title="Add Slip">+</button>
           <span>0.00</span> Slip
         </div>
         <div class="input" id="checks">
+          <label for="checks-input">Checks</label>
           <input id="checks-input" name="checks" step=".01" type="number" placeholder="Checks" min="0" />
           <button class="add-check" title="Add Check">+</button>
           <span>0.00</span> Check
         </div>
 
         <div class="input" id="hundreds">
+          <label for="hundreds-input">Hundreds</label>
           <input id="hundreds-input" name="hundreds" type="number" placeholder="Hundreds" min="0" max="20" />
           <span class="cash">0.00</span> in Hundreds
         </div>
         <div class="input" id="fifties">
+          <label for="fifties-input">Fifties</label>
           <input id="fifties-input" name="fifties" type="number" placeholder="Fifties" min="0" max="30" />
           <span class="cash">0.00</span> in Fifties
         </div>
         <div class="input" id="twenties">
+          <label for="twenties-input">Twenties</label>
           <input id="twenties-input" name="twenties" type="number" placeholder="Twenties" min="0" max="40" />
           <span class="cash">0.00</span> in Twenties
         </div>
         <div class="input" id="tens">
+          <label for="tens-input">Tens</label>
           <input id="tens-input" name="tens" type="number" placeholder="Tens" min="0" max="50" />
           <span class="cash">0.00</span> in Tens
         </div>
         <div class="input" id="fives">
+          <label for="fives-input">Fives</label>
           <input id="fives-input" name="fives" type="number" placeholder="Fives" min="0" max="75" />
           <span class="cash">0.00</span> in Fives
         </div>
         <div class="input" id="dollars">
+          <label for="dollars-input">Dollars</label>
           <input id="dollars-input" name="dollars" type="number" placeholder="Dollars" min="0" max="100" />
           <span class="cash">0.00</span> in Ones
         </div>
         <div class="input" id="quarters">
+          <label for="quarters-input">Quarters</label>
           <input id="quarters-input" name="quarters" type="number" placeholder="Quarters" min="0" max="50" />
           <span class="cash">0.00</span> in Quarters
         </div>
         <div class="input" id="dimes">
+          <label for="dimes-input">Dimes</label>
           <input id="dimes-input" name="dimes" type="number" placeholder="Dimes" min="0" max="50" />
           <span class="cash">0.00</span> in Dimes
         </div>
         <div class="input" id="nickels">
+          <label for="nickels-input">Nickels</label>
           <input id="nickels-input" name="nickels" type="number" placeholder="Nickels" min="0" max="50" />
           <span class="cash">0.00</span> in Nickels
         </div>
         <div class="input" id="pennies">
+          <label for="pennies-input">Pennies</label>
           <input id="pennies-input" name="pennies" type="number" placeholder="Pennies" min="0" max="50" />
           <span class="cash">0.00</span> in Pennies
         </div>
         <div class="input" id="quarterrolls">
+          <label for="quarterrolls-input">Quarter Rolls</label>
           <input id="quarterrolls-input" name="quarterrolls" type="number" placeholder="Quarter Rolls" min="0" max="4" />
           <span class="cash">0.00</span> in Quarter Rolls
         </div>
         <div class="input" id="dimerolls">
+          <label for="dimerolls-input">Dime Rolls</label>
           <input id="dimerolls-input" name="dimerolls" type="number" placeholder="Dime Rolls" min="0" max="4" />
           <span class="cash">0.00</span> in Dime Rolls
         </div>
         <div class="input" id="nickelrolls">
+          <label for="nickelrolls-input">Nickel Rolls</label>
           <input id="nickelrolls-input" name="nickelrolls" type="number" placeholder="Nickel Rolls" min="0" max="4" />
           <span class="cash">0.00</span> in Nickel Rolls
         </div>
         <div class="input" id="pennyrolls">
+          <label for="pennyrolls-input">Penny Rolls</label>
           <input id="pennyrolls-input" name="pennyrolls" type="number" placeholder="Penny Rolls" min="0" max="4" />
           <span class="cash">0.00</span> in Penny Rolls
         </div>
@@ -446,7 +465,12 @@ class DrawerCount extends HTMLElement {
     if (!inputEl) return;
     const val = Number(inputEl.value || 0);
     const out = val * multiplier;
-    container.lastElementChild && (container.lastElementChild.innerText = out.toFixed(2));
+    // Find the correct output element per container type
+    let outEl = null;
+    if (id === 'drawer') outEl = container.querySelector('drawer');
+    else if (id === 'roa') outEl = container.querySelector('roa');
+    else outEl = container.querySelector('span.cash') || container.querySelector('span');
+    if (outEl) outEl.innerText = out.toFixed(2);
     this._getTotal();
     this._getBalance();
     this._slipCheckCount();
@@ -494,11 +518,15 @@ class DrawerCount extends HTMLElement {
     btn.textContent = 'x';
     btn.addEventListener('click', () => this.remInput(id));
 
-    const span = document.createElement('span');
-    span.textContent = '0.00';
-    const label = document.createTextNode(` ${typeOf[0].toUpperCase()}${typeOf.slice(1)}`);
+  const span = document.createElement('span');
+  span.textContent = '0.00';
+  // Visible, clickable label tied to the input
+  const visLabel = document.createElement('label');
+  visLabel.setAttribute('for', input.id);
+  visLabel.textContent = ` ${typeOf[0].toUpperCase()}${typeOf.slice(1)}`;
 
-    div.append(input, btn, span, label);
+  // Append in UI order: input, button, value, label (span value is not lastElementChild dependent anymore)
+  div.append(input, btn, span, visLabel);
     // delegate input/keydown
     div.addEventListener('input', this._onInputEvent);
     div.addEventListener('keydown', (e) => {
