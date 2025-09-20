@@ -1004,6 +1004,26 @@ function _debouncedSaveWithProfiles(headerEl) {
   _saveTimer = setTimeout(() => { saveToActiveProfile(); if (headerEl) updateStatusPill(headerEl); }, 500);
 }
 window.addEventListener('DOMContentLoaded', () => {
+  // Update CSS var for header height so content padding matches fixed header
+  const root = document.documentElement;
+  const hdr = document.querySelector('header.app-header');
+  const setHeaderVar = () => {
+    if (!hdr) return;
+    const h = hdr.offsetHeight || 64;
+    root.style.setProperty('--header-h', `${h}px`);
+  };
+  setHeaderVar();
+  // Observe header size changes (e.g., responsive wraps)
+  try {
+    if (window.ResizeObserver && hdr) {
+      const ro = new ResizeObserver(() => setHeaderVar());
+      ro.observe(hdr);
+    } else {
+      window.addEventListener('resize', setHeaderVar);
+      setTimeout(setHeaderVar, 250); // after fonts/layout settle
+    }
+  } catch(_) { /* no-op */ }
+
   const comp = getDrawerComponent();
   if (!comp) return;
   ensureProfilesInitialized();
