@@ -4,6 +4,7 @@ class DrawerCount extends HTMLElement {
   constructor() {
     super();
     this._root = this.attachShadow({ mode: 'open' });
+    this._readOnly = false;
     this._onInputEvent = this._onInputEvent.bind(this);
     this._newInput = this._newInput.bind(this);
     this.remInput = this.remInput.bind(this);
@@ -17,6 +18,7 @@ class DrawerCount extends HTMLElement {
     this._render();
     this._wire();
     this._bindShortcuts();
+    try { this.setReadOnly(false); } catch(_) {}
   }
 
   // Public API: get current drawer data
@@ -162,6 +164,20 @@ class DrawerCount extends HTMLElement {
       extra: { slips: [], checks: [] }
     };
     this.setState(state);
+  }
+
+  // Public API: toggle read-only (disables inputs and add/remove row buttons)
+  setReadOnly(flag) {
+    try {
+      this._readOnly = !!flag;
+      const inputs = Array.from(this._root.querySelectorAll('input'));
+      inputs.forEach((el) => { el.disabled = this._readOnly; });
+      const buttons = Array.from(this._root.querySelectorAll('button'));
+      buttons.forEach((b) => {
+        const isMutator = b.classList.contains('add-slip') || b.classList.contains('add-check') || b.classList.contains('rem');
+        if (isMutator) b.disabled = this._readOnly;
+      });
+    } catch (_) { /* ignore */ }
   }
 
   _render() {
@@ -336,6 +352,7 @@ class DrawerCount extends HTMLElement {
   _bindShortcuts() {
     // Global shortcuts for adding/removing rows
     this._onKeyDownGlobal = (e) => {
+      if (this._readOnly) return;
       const isCtrlShift = (e.ctrlKey || e.metaKey) && e.shiftKey;
       const showUndo = (typeLabel, html, anchorSelectorForType) => {
         try {
@@ -461,6 +478,7 @@ class DrawerCount extends HTMLElement {
   }
 
   _onInputEvent(e) {
+    if (this._readOnly) return;
     // e.currentTarget is the .input container
     const container = e.currentTarget;
     const id = container.id;
@@ -503,6 +521,7 @@ class DrawerCount extends HTMLElement {
   }
 
   _newInput(anchorSelector) {
+    if (this._readOnly) return;
     // Determine type based on anchor (match original logic: before #checks => slip, else check)
     const typeOf = anchorSelector === '#checks' ? 'slip' : 'check';
     const id = `${typeOf}_${Math.random().toString(36).slice(2, 7)}`;
@@ -554,6 +573,7 @@ class DrawerCount extends HTMLElement {
   }
 
   remInput(id) {
+    if (this._readOnly) return;
     const el = this._root.querySelector(`#${CSS.escape(id)}`);
     if (el) el.remove();
     this._getTotal();

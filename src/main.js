@@ -176,10 +176,10 @@ class SettingsModal extends HTMLElement {
     this._onExport = this._onExport.bind(this);
     this._onImport = this._onImport.bind(this);
     // Daily history handlers
-    this._onDaySave = this._onDaySave.bind(this);
     this._onDayLoad = this._onDayLoad.bind(this);
     this._onDayDelete = this._onDayDelete.bind(this);
     this._populateDaysSelect = this._populateDaysSelect.bind(this);
+    this._onDayRename = this._onDayRename.bind(this);
   }
   connectedCallback() {
     this._render();
@@ -231,8 +231,8 @@ class SettingsModal extends HTMLElement {
             <div class="row">
               <div>Data</div>
               <div style="display:flex; gap:8px; flex-wrap: wrap;">
-                <button class="btn export-btn" aria-label="Export profiles">Export</button>
-                <button class="btn import-btn" aria-label="Import profiles">Import</button>
+                <button class="btn export-btn" aria-label="Export data">Export</button>
+                <button class="btn import-btn" aria-label="Import data">Import</button>
               </div>
             </div>
           </div>
@@ -250,11 +250,13 @@ class SettingsModal extends HTMLElement {
             <div class="row" style="align-items: start; gap: 12px;">
               <div>Daily History</div>
               <div style="display:flex; gap:8px; flex-wrap: wrap; align-items: center;">
-                <button class="btn day-save-btn" aria-label="Save today">Save Today</button>
                 <label for="saved-days" class="sr-only">Saved Days</label>
                 <select id="saved-days" class="day-select" aria-label="Saved Days" style="min-width: 180px; max-width: 60vw;"></select>
                 <button class="btn day-load-btn" aria-label="Load selected day">Load</button>
                 <button class="btn day-delete-btn" aria-label="Delete selected day">Delete</button>
+                <label for="day-label" class="sr-only">Day label</label>
+                <input id="day-label" class="day-label" type="text" placeholder="Label (optional)" style="min-width: 180px; max-width: 60vw;" />
+                <button class="btn day-rename-btn" aria-label="Rename selected day">Rename</button>
               </div>
             </div>
           </div>
@@ -270,10 +272,11 @@ class SettingsModal extends HTMLElement {
       saveBtn: this._shadow.querySelector('.save-btn'),
       restoreBtn: this._shadow.querySelector('.restore-btn'),
       clearBtn: this._shadow.querySelector('.clear-btn'),
-      daySaveBtn: this._shadow.querySelector('.day-save-btn'),
       daySelect: this._shadow.querySelector('.day-select'),
       dayLoadBtn: this._shadow.querySelector('.day-load-btn'),
       dayDeleteBtn: this._shadow.querySelector('.day-delete-btn'),
+      dayLabel: this._shadow.querySelector('.day-label'),
+      dayRenameBtn: this._shadow.querySelector('.day-rename-btn'),
     };
     // Init radio state
     const chosen = mode || currentTheme;
@@ -292,14 +295,21 @@ class SettingsModal extends HTMLElement {
       try { const comp = getDrawerComponent(); comp?.reset?.(); const header = document.querySelector('app-header'); updateStatusPill(header); toast('Cleared', { type: 'info', duration: 1500 }); } catch(_){}
     });
     // Daily history events
-    this._els.daySaveBtn?.addEventListener('click', this._onDaySave);
     this._els.dayLoadBtn?.addEventListener('click', this._onDayLoad);
     this._els.dayDeleteBtn?.addEventListener('click', this._onDayDelete);
     this._els.daySelect?.addEventListener('change', () => {
       const has = !!this._els.daySelect?.value;
       if (this._els.dayLoadBtn) this._els.dayLoadBtn.disabled = !has;
       if (this._els.dayDeleteBtn) this._els.dayDeleteBtn.disabled = !has;
+      // sync label input with selected day's current label
+      try {
+        const key = this._els.daySelect?.value;
+        const { entry } = _getActiveDaysEntry(false);
+        const label = (key && entry.days?.[key]?.label) || '';
+        if (this._els.dayLabel) this._els.dayLabel.value = label;
+      } catch(_) {}
     });
+    this._els.dayRenameBtn?.addEventListener('click', this._onDayRename);
     // Initialize the days UI state
     this._populateDaysSelect();
     if (this._els.dayLoadBtn) this._els.dayLoadBtn.disabled = !this._els.daySelect?.value;
@@ -321,6 +331,7 @@ class SettingsModal extends HTMLElement {
     try {
       const sel = this._els?.daySelect; if (!sel) return;
       const list = listSavedDaysForActiveProfile();
+      const { entry } = _getActiveDaysEntry(false);
       sel.innerHTML = '';
       if (!list.length) {
         const opt = document.createElement('option'); opt.value = ''; opt.textContent = 'No saved days'; sel.appendChild(opt);
@@ -329,23 +340,18 @@ class SettingsModal extends HTMLElement {
           const opt = document.createElement('option');
           opt.value = d.date;
           const dt = new Date(d.savedAt || Date.now());
-          const lbl = `${d.date} • ${dt.toLocaleTimeString()}`;
+          const label = entry?.days?.[d.date]?.label;
+          const time = dt.toLocaleTimeString();
+          const lbl = label && label.trim() ? `${d.date} • ${label} • ${time}` : `${d.date} • ${time}`;
           opt.textContent = lbl;
           sel.appendChild(opt);
         }
       }
     } catch(_) {}
   }
-  _onDaySave() {
-    try {
-      const ok = saveTodayToDays();
-      this._populateDaysSelect();
-      toast(ok ? 'Saved today' : 'Save failed', { type: ok ? 'success' : 'error', duration: 1800 });
-    } catch(_) { toast('Save failed', { type: 'error', duration: 2000 }); }
-  }
   _onDayLoad() {
     try {
-      const sel = this._els?.daySelect; const key = sel?.value; if (!key) return;
+      const key = this._els?.daySelect?.value; if (!key) return;
       const ok = restoreDay(key);
       const header = document.querySelector('app-header'); updateStatusPill(header);
       toast(ok ? `Loaded ${key}` : 'Load failed', { type: ok ? 'success' : 'error', duration: 1800 });
@@ -353,11 +359,20 @@ class SettingsModal extends HTMLElement {
   }
   _onDayDelete() {
     try {
-      const sel = this._els?.daySelect; const key = sel?.value; if (!key) return;
+      const key = this._els?.daySelect?.value; if (!key) return;
       const ok = deleteDay(key);
       this._populateDaysSelect();
       toast(ok ? 'Deleted day' : 'Delete failed', { type: ok ? 'success' : 'error', duration: 1800 });
     } catch(_) { toast('Delete failed', { type: 'error', duration: 2000 }); }
+  }
+  _onDayRename() {
+    try {
+      const key = this._els?.daySelect?.value; if (!key) return;
+      const label = (this._els?.dayLabel?.value || '').trim();
+      const ok = setDayLabel(key, label);
+      this._populateDaysSelect();
+      toast(ok ? 'Renamed day' : 'Rename failed', { type: ok ? 'success' : 'error', duration: 1600 });
+    } catch(_) { toast('Rename failed', { type: 'error', duration: 2000 }); }
   }
 }
 customElements.define('settings-modal', SettingsModal);
@@ -594,6 +609,8 @@ class AppHeader extends HTMLElement {
     this._onNewProfile = this._onNewProfile.bind(this);
     this._onDeleteProfile = this._onDeleteProfile.bind(this);
     this._onClear = this._onClear.bind(this);
+    this._onOpenDays = this._onOpenDays.bind(this);
+    this._onToggleLock = this._onToggleLock.bind(this);
   }
   connectedCallback() {
     const title = this.getAttribute('title') || 'Drawer Count';
@@ -630,6 +647,8 @@ class AppHeader extends HTMLElement {
         </div>
         <h1 class="title">${title}</h1>
         <div class="actions right">
+          <button class="icon-btn days-btn" aria-label="Daily history" title="Daily history">📅</button>
+          <button class="icon-btn lock-btn" aria-label="Toggle edit lock" title="Toggle edit lock">🔒</button>
           <button class="icon-btn clear-btn" aria-label="Clear inputs" title="Clear inputs">🧹</button>
           <button class="icon-btn settings-btn" aria-label="Settings" title="Settings">⚙️</button>
           <button class="icon-btn theme-toggle" aria-label="Toggle theme" title="Toggle theme">${(document.documentElement.getAttribute('data-theme')||getPreferredTheme())==='dark'?'🌙':'☀️'}</button>
@@ -644,6 +663,8 @@ class AppHeader extends HTMLElement {
     this.querySelector('.new-profile-btn')?.addEventListener('click', this._onNewProfile);
     this.querySelector('.delete-profile-btn')?.addEventListener('click', this._onDeleteProfile);
     this.querySelector('.clear-btn')?.addEventListener('click', this._onClear);
+  this.querySelector('.days-btn')?.addEventListener('click', this._onOpenDays);
+  this.querySelector('.lock-btn')?.addEventListener('click', this._onToggleLock);
 
     // Initialize profiles UI
     try { ensureProfilesInitialized(); populateProfilesSelect(this); updateStatusPill(this); } catch(_) {}
@@ -652,7 +673,7 @@ class AppHeader extends HTMLElement {
   _onHelp() { getHelpModal().open(); }
   _onSettings() { getSettingsModal().open(); }
   // data actions now live in settings modal
-  _onProfileChange(e) { try { const id = e.target?.value; if (!id) return; setActiveProfile(id); restoreActiveProfile(); ensureDayResetIfNeeded(this); populateProfilesSelect(this); updateStatusPill(this); toast('Switched profile', { type:'info', duration: 1200}); } catch(_){} }
+  _onProfileChange(e) { try { const id = e.target?.value; if (!id) return; setActiveProfile(id); restoreActiveProfile(); ensureDayResetIfNeeded(this); setActiveViewDateKey(getTodayKey()); applyReadOnlyByActiveDate(this); populateProfilesSelect(this); updateStatusPill(this); toast('Switched profile', { type:'info', duration: 1200}); } catch(_){} }
   async _onNewProfile() { try { const modal = getNewProfileModal(); const name = await modal.open(''); if (!name) return; const id = createProfile(name); setActiveProfile(id); saveToActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Profile created', { type: 'success', duration: 1800 }); } catch(_){} }
   async _onDeleteProfile() { try { const data = loadProfilesData(); const ids = Object.keys(data.profiles||{}); if (ids.length<=1) { toast('Cannot delete last profile', { type:'warning', duration: 2200}); return; } const active = data.activeId; const name = data.profiles[active]?.name || active; const modal = getDeleteProfileModal(); const ok = await modal.open(name); if (!ok) return; delete data.profiles[active]; const nextId = ids.find((x)=>x!==active) || 'default'; data.activeId = nextId; saveProfilesData(data); restoreActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Profile deleted', { type:'success', duration: 1800}); } catch(_){} }
   _onClear() {
@@ -665,8 +686,149 @@ class AppHeader extends HTMLElement {
       setTimeout(() => { try { comp?.shadowRoot?.querySelector('input')?.focus(); } catch(_) {} }, 0);
     } catch(_){}
   }
+  _onOpenDays() {
+    try {
+      const modal = getDayPickerModal();
+      modal.open();
+    } catch(_) {}
+  }
+  _onToggleLock() {
+    try {
+      const today = getTodayKey();
+      const key = getActiveViewDateKey();
+      if (key === today) { toast('Today is always editable', { type: 'info', duration: 1400 }); return; }
+      setDayEditUnlocked(!isDayEditUnlocked());
+      applyReadOnlyByActiveDate(this);
+      updateLockButtonUI(this);
+      toast(isDayEditUnlocked() ? 'Editing unlocked for this day' : 'Editing locked for this day', { type: 'info', duration: 1600 });
+    } catch(_) {}
+  }
 }
 customElements.define('app-header', AppHeader);
+
+// Web Component: <day-picker-modal> — calendar UI for picking saved days
+class DayPickerModal extends HTMLElement {
+  constructor() {
+    super();
+    this._shadow = this.attachShadow({ mode: 'open' });
+    this._onKeyDown = this._onKeyDown.bind(this);
+    this._monthOffset = 0; // 0 = current month, -1 = prev, +1 = next
+    this._onPrev = this._onPrev.bind(this);
+    this._onNext = this._onNext.bind(this);
+    this._onDayClick = this._onDayClick.bind(this);
+    this._render = this._render.bind(this);
+  }
+  connectedCallback() { this._render(); window.addEventListener('keydown', this._onKeyDown); }
+  disconnectedCallback() { window.removeEventListener('keydown', this._onKeyDown); }
+  open() { this.setAttribute('open', ''); this._render(); }
+  close() { this.removeAttribute('open'); }
+  _onKeyDown(e) { if (e.key === 'Escape' && this.hasAttribute('open')) this.close(); }
+  _getMonthInfo(offset = 0) {
+    const base = new Date();
+    const year = base.getFullYear();
+    const month = base.getMonth();
+    const d = new Date(year, month + offset, 1);
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const firstDow = new Date(y, m, 1).getDay(); // 0=Sun
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    return { y, m, firstDow, daysInMonth };
+  }
+  _onPrev() { this._monthOffset -= 1; this._render(); }
+  _onNext() { this._monthOffset += 1; this._render(); }
+  _onDayClick(e) {
+    const key = e.currentTarget?.getAttribute('data-key');
+    if (!key) return;
+    const { entry } = _getActiveDaysEntry(false);
+    if (!entry?.days?.[key]) {
+      toast('No save for this day', { type: 'warning', duration: 1600 });
+      return;
+    }
+    setActiveViewDateKey(key);
+    const ok = restoreDay(key);
+    const header = document.querySelector('app-header'); updateStatusPill(header);
+    toast(ok ? `Loaded ${key}` : 'Load failed', { type: ok ? 'success' : 'error', duration: 1800 });
+    this.close();
+  }
+  _render() {
+    const { y, m, firstDow, daysInMonth } = this._getMonthInfo(this._monthOffset);
+    const monthName = new Date(y, m, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' });
+    const todayKey = getTodayKey();
+    const { entry } = _getActiveDaysEntry(false);
+    const saved = new Set(Object.keys(entry?.days || {}));
+    // Build grid cells
+    const blanks = Array.from({ length: firstDow }, () => null);
+    const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+    const cells = [...blanks, ...days];
+    const dayCell = (d) => {
+      if (!d) return `<div class="cell empty"></div>`;
+      const key = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const isSaved = saved.has(key);
+      const isToday = key === todayKey;
+      const classes = ['cell', 'day'];
+      if (isSaved) classes.push('saved');
+      if (isToday && this._monthOffset === 0) classes.push('today');
+      return `<button class="${classes.join(' ')}" data-key="${key}" aria-label="${key}${isSaved ? ' (saved)' : ''}">${d}${isSaved ? '<span class="dot" aria-hidden="true"></span>' : ''}</button>`;
+    };
+    this._shadow.innerHTML = `
+      <style>
+        :host { display: none; }
+        :host([open]) { display: block; }
+        .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(2px); z-index: 1000; }
+        .dialog { position: fixed; inset: 10% auto auto 50%; transform: translateX(-50%);
+          max-width: min(480px, 92vw); background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
+          border: 1px solid var(--border, #2a345a); border-radius: 12px; padding: 12px; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
+        .hd { display:flex; align-items:center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+        .title { font-size: 1.05rem; margin: 0; }
+        .nav { display:flex; gap: 8px; }
+        .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 10px; cursor: pointer; min-height: 36px; }
+        .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+        .dow { text-align: center; font-size: .85rem; color: var(--muted, #9aa3b2); }
+        .cell { min-height: 40px; display:flex; align-items:center; justify-content:center; }
+        .cell.empty { opacity: 0; }
+        .cell.day { position: relative; }
+        .cell.day.today { outline: 2px solid var(--accent, #3a86ff); outline-offset: 2px; border-radius: 8px; }
+        .cell.day.saved { border: 1px solid var(--border, #2a345a); border-radius: 8px; }
+        .cell.day .dot { width: 6px; height: 6px; border-radius: 50%; background: #3a86ff; position: absolute; bottom: 6px; right: 6px; }
+        .cell.day.saved .dot { background: #2ecc71; }
+        .row { margin-top: 8px; }
+      </style>
+      <div class="backdrop"></div>
+      <div class="dialog" role="dialog" aria-modal="true" aria-label="Pick a day">
+        <div class="hd">
+          <div class="nav">
+            <button class="btn prev" aria-label="Previous month">◀</button>
+            <button class="btn next" aria-label="Next month">▶</button>
+          </div>
+          <h3 class="title">${monthName}</h3>
+          <button class="btn close" aria-label="Close">Close</button>
+        </div>
+        <div class="grid">
+          <div class="dow">Sun</div><div class="dow">Mon</div><div class="dow">Tue</div><div class="dow">Wed</div><div class="dow">Thu</div><div class="dow">Fri</div><div class="dow">Sat</div>
+          ${cells.map(dayCell).join('')}
+        </div>
+      </div>
+    `;
+    this._els = {
+      backdrop: this._shadow.querySelector('.backdrop'),
+      prev: this._shadow.querySelector('.prev'),
+      next: this._shadow.querySelector('.next'),
+      close: this._shadow.querySelector('.close'),
+    };
+    this._els.backdrop?.addEventListener('click', () => this.close());
+    this._els.close?.addEventListener('click', () => this.close());
+    this._els.prev?.addEventListener('click', this._onPrev);
+    this._els.next?.addEventListener('click', this._onNext);
+    this._shadow.querySelectorAll('button.day')?.forEach((b) => b.addEventListener('click', this._onDayClick));
+  }
+}
+customElements.define('day-picker-modal', DayPickerModal);
+
+function getDayPickerModal() {
+  let m = document.querySelector('day-picker-modal');
+  if (!m) { m = document.createElement('day-picker-modal'); document.body.appendChild(m); }
+  return m;
+}
 
 // Web Component: <app-install-banner> — top banner offering Install or Open in App
 class AppInstallBanner extends HTMLElement {
@@ -1043,11 +1205,14 @@ function updateStatusPill(headerEl) {
   } catch(_){}
 }
 function exportProfilesToFile() {
-  const data = loadProfilesData();
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  // Export both profiles and daily history in one file (backward compatible import)
+  const profiles = loadProfilesData();
+  const days = loadDaysData();
+  const payload = { version: 1, profilesData: profiles, daysData: days };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = 'drawer-profiles.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-  toast('Exported profiles', { type: 'success', duration: 1800 });
+  const a = document.createElement('a'); a.href = url; a.download = 'drawer-data.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  toast('Exported data', { type: 'success', duration: 1800 });
 }
 function openImportDialog(headerEl) {
   let inp = document.getElementById('import-profiles-input');
@@ -1057,16 +1222,46 @@ function openImportDialog(headerEl) {
       const file = inp.files && inp.files[0]; if (!file) return;
       const text = await file.text();
       const imported = JSON.parse(text);
-      if (!imported || typeof imported !== 'object' || !imported.profiles) { toast('Invalid import file', { type: 'error', duration: 2500 }); return; }
-      const current = loadProfilesData();
-      // Merge: imported profiles override on id conflicts
-      current.profiles = { ...current.profiles, ...imported.profiles };
-      if (imported.activeId) current.activeId = imported.activeId;
-      saveProfilesData(current);
-      populateProfilesSelect(headerEl);
-      restoreActiveProfile();
-      updateStatusPill(headerEl);
-      toast('Imported profiles', { type: 'success', duration: 2000 });
+      if (!imported || typeof imported !== 'object') { toast('Invalid import file', { type: 'error', duration: 2500 }); return; }
+      // Support new combined format { version, profilesData, daysData }
+      if (imported.profilesData || imported.daysData) {
+        const pCurrent = loadProfilesData();
+        const dCurrent = loadDaysData();
+        const pIn = imported.profilesData || { profiles: {}, activeId: 'default' };
+        const dIn = imported.daysData || {};
+        // Merge profiles
+        pCurrent.profiles = { ...pCurrent.profiles, ...(pIn.profiles || {}) };
+        if (pIn.activeId) pCurrent.activeId = pIn.activeId;
+        saveProfilesData(pCurrent);
+        // Merge days
+        const dMerged = { ...dCurrent };
+        for (const pid of Object.keys(dIn)) {
+          const curEntry = dMerged[pid] || { lastVisitedDate: null, days: {} };
+          const inEntry = dIn[pid] || { lastVisitedDate: null, days: {} };
+          curEntry.days = { ...curEntry.days, ...(inEntry.days || {}) };
+          // Prefer imported lastVisitedDate if provided
+          curEntry.lastVisitedDate = inEntry.lastVisitedDate || curEntry.lastVisitedDate || null;
+          dMerged[pid] = curEntry;
+        }
+        saveDaysData(dMerged);
+        populateProfilesSelect(headerEl);
+        restoreActiveProfile();
+        updateStatusPill(headerEl);
+        toast('Imported data', { type: 'success', duration: 2000 });
+      } else if (imported.profiles) {
+        // Backward-compat: old profiles-only format
+        const current = loadProfilesData();
+        current.profiles = { ...current.profiles, ...imported.profiles };
+        if (imported.activeId) current.activeId = imported.activeId;
+        saveProfilesData(current);
+        populateProfilesSelect(headerEl);
+        restoreActiveProfile();
+        updateStatusPill(headerEl);
+        toast('Imported profiles', { type: 'success', duration: 2000 });
+      } else {
+        toast('Invalid import file', { type: 'error', duration: 2500 });
+        return;
+      }
     } catch(_) { toast('Import failed', { type: 'error', duration: 2500 }); }
     finally { inp.value = ''; }
   };
@@ -1107,11 +1302,21 @@ window.addEventListener('DOMContentLoaded', () => {
   restoreActiveProfile();
   // If it's a new day, start fresh automatically
   ensureDayResetIfNeeded(document.querySelector('app-header'));
+  // Ensure view date defaults to today on fresh load
+  setActiveViewDateKey(getTodayKey());
+  applyReadOnlyByActiveDate(document.querySelector('app-header'));
   const header = document.querySelector('app-header');
   // Update initial status
   if (header) { populateProfilesSelect(header); updateStatusPill(header); }
   // Listen for changes to update status and auto-save
-  comp.addEventListener('change', () => _debouncedSaveWithProfiles(header));
+  comp.addEventListener('change', () => {
+    _debouncedSaveWithProfiles(header);
+    // Auto-save snapshot for the active view day
+    try {
+      const key = getActiveViewDateKey();
+      saveSpecificDay(key);
+    } catch(_) {}
+  });
 });
 
 // Daily history — per profile, keyed by local YYYY-MM-DD
@@ -1144,10 +1349,21 @@ function saveTodayToDays() {
   const { data, pid, entry } = _getActiveDaysEntry(true);
   const key = getTodayKey();
   entry.days = entry.days || {};
-  entry.days[key] = { state: comp.getState(), savedAt: Date.now() };
+  // Preserve any existing label
+  const prev = entry.days[key] || {};
+  entry.days[key] = { state: comp.getState(), savedAt: Date.now(), label: prev.label || '' };
   entry.lastVisitedDate = key;
   data[pid] = entry;
   return saveDaysData(data);
+}
+function saveSpecificDay(key) {
+  const comp = getDrawerComponent(); if (!comp?.getState) return false;
+  const { data, pid, entry } = _getActiveDaysEntry(true);
+  const k = key || getTodayKey();
+  entry.days = entry.days || {};
+  const prev = entry.days[k] || {};
+  entry.days[k] = { state: comp.getState(), savedAt: Date.now(), label: prev.label || '' };
+  data[pid] = entry; return saveDaysData(data);
 }
 function restoreDay(key) {
   const comp = getDrawerComponent(); if (!comp?.setState) return false;
@@ -1163,6 +1379,15 @@ function deleteDay(key) {
   if (!entry.days || !entry.days[key]) return false;
   try { delete entry.days[key]; data[pid] = entry; return saveDaysData(data); } catch(_) { return false; }
 }
+function setDayLabel(key, label) {
+  try {
+    const { data, pid, entry } = _getActiveDaysEntry(false);
+    if (!entry.days || !entry.days[key]) return false;
+    entry.days[key].label = String(label || '');
+    data[pid] = entry;
+    return saveDaysData(data);
+  } catch(_) { return false; }
+}
 function ensureDayResetIfNeeded(headerEl) {
   try {
     const { data, pid, entry } = _getActiveDaysEntry(true);
@@ -1177,4 +1402,58 @@ function ensureDayResetIfNeeded(headerEl) {
       toast('New day detected. Starting fresh.', { type: 'info', duration: 2200 });
     }
   } catch(_) { /* ignore */ }
+}
+
+// Active view date + edit lock management (per profile)
+function getActiveViewDateKey() {
+  try {
+    const { data, pid, entry } = _getActiveDaysEntry(true);
+    entry._activeViewDateKey = entry._activeViewDateKey || getTodayKey();
+    data[pid] = entry; saveDaysData(data);
+    return entry._activeViewDateKey;
+  } catch(_) { return getTodayKey(); }
+}
+function setActiveViewDateKey(key) {
+  try {
+    const { data, pid, entry } = _getActiveDaysEntry(true);
+    entry._activeViewDateKey = key || getTodayKey();
+    data[pid] = entry; saveDaysData(data);
+  } catch(_) { /* ignore */ }
+}
+function isDayEditUnlocked() {
+  try {
+    const { entry } = _getActiveDaysEntry(true);
+    return !!entry._editUnlocked;
+  } catch(_) { return false; }
+}
+function setDayEditUnlocked(flag) {
+  try {
+    const { data, pid, entry } = _getActiveDaysEntry(true);
+    entry._editUnlocked = !!flag;
+    data[pid] = entry; saveDaysData(data);
+  } catch(_) { /* ignore */ }
+}
+function applyReadOnlyByActiveDate(headerEl) {
+  try {
+    const comp = getDrawerComponent(); if (!comp?.setReadOnly) return;
+    const today = getTodayKey();
+    const key = getActiveViewDateKey();
+    const ro = key !== today && !isDayEditUnlocked();
+    comp.setReadOnly(ro);
+    updateLockButtonUI(headerEl);
+  } catch(_) {}
+}
+function updateLockButtonUI(headerEl) {
+  try {
+    const header = headerEl || document.querySelector('app-header');
+    const btn = header?.querySelector('.lock-btn');
+    const today = getTodayKey();
+    const key = getActiveViewDateKey();
+    const ro = key !== today && !isDayEditUnlocked();
+    if (btn) {
+      btn.textContent = ro ? '🔒' : '🔓';
+      btn.title = ro ? 'Toggle edit lock (locked)' : 'Toggle edit lock (unlocked)';
+      btn.disabled = (key === today); // today always editable
+    }
+  } catch(_) {}
 }
