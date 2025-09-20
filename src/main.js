@@ -407,6 +407,106 @@ function getNewProfileModal() {
   return m;
 }
 
+// Web Component: <delete-profile-modal> — confirm UI for deleting a profile
+class DeleteProfileModal extends HTMLElement {
+  constructor() {
+    super();
+    this._shadow = this.attachShadow({ mode: 'open' });
+    this._onKeyDown = this._onKeyDown.bind(this);
+    this._resolver = null;
+    this._profileName = '';
+  }
+  connectedCallback() {
+    this._render();
+    window.addEventListener('keydown', this._onKeyDown);
+  }
+  disconnectedCallback() {
+    window.removeEventListener('keydown', this._onKeyDown);
+  }
+  _render() {
+    this._shadow.innerHTML = `
+      <style>
+        :host { display: none; }
+        :host([open]) { display: block; }
+        .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(2px); z-index: 1000; }
+        .dialog { position: fixed; inset: 12% auto auto 50%; transform: translateX(-50%);
+         max-width: min(520px, 92vw); max-height: min(85vh, 92vh); overflow-y: auto; overflow-x: hidden;
+          background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
+          border: 1px solid var(--border, #2a345a); border-radius: 12px; padding: 14px; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
+        .hd { display:flex; justify-content: space-between; align-items:center; gap: 8px; margin-bottom: 10px; }
+        .hd h2 { margin: 0; font-size: 1.1rem; }
+        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+        .content { display: grid; gap: 10px; }
+        .danger { color: #ffb4b4; }
+        .actions { display:flex; gap: 8px; justify-content: flex-end; }
+        .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 8px 12px; cursor: pointer; min-height: 40px; font-weight: 600; }
+        .btn-danger { background: #5a2a2a; color: #ffd6d6; border-color: #7a3a3a; }
+        @media (max-width: 480px) { .dialog { inset: 6% auto auto 50%; padding: 12px; } }
+      </style>
+      <div class="backdrop" part="backdrop"></div>
+      <div class="dialog" role="dialog" aria-modal="true" aria-label="Delete profile">
+        <div class="hd">
+          <h2>Delete Profile</h2>
+          <button class="close" aria-label="Close">Close</button>
+        </div>
+        <div class="content">
+          <p>Are you sure you want to delete the profile <strong class="pname"></strong>? This action cannot be undone.</p>
+          <p class="danger" aria-live="polite"></p>
+          <div class="actions">
+            <button type="button" class="btn btn-cancel">Cancel</button>
+            <button type="button" class="btn btn-danger btn-delete">Delete</button>
+          </div>
+        </div>
+      </div>
+    `;
+    this._els = {
+      backdrop: this._shadow.querySelector('.backdrop'),
+      dialog: this._shadow.querySelector('.dialog'),
+      close: this._shadow.querySelector('.close'),
+      cancel: this._shadow.querySelector('.btn-cancel'),
+      del: this._shadow.querySelector('.btn-delete'),
+      name: this._shadow.querySelector('.pname'),
+      warn: this._shadow.querySelector('.danger'),
+    };
+    this._els.backdrop?.addEventListener('click', () => this._cancel());
+    this._els.close?.addEventListener('click', () => this._cancel());
+    this._els.cancel?.addEventListener('click', () => this._cancel());
+    this._els.del?.addEventListener('click', () => this._confirm());
+  }
+  open(profileName = '') {
+    if (!this._els) this._render();
+    this._profileName = profileName || '';
+    if (this._els.name) this._els.name.textContent = this._profileName || '—';
+    // If only one profile exists, warn and disable delete (caller may check too)
+    try {
+      const data = loadProfilesData();
+      const count = Object.keys(data.profiles || {}).length;
+      if (count <= 1) {
+        this._els.warn.textContent = 'You cannot delete the last remaining profile.';
+        this._els.del.disabled = true;
+      } else {
+        this._els.warn.textContent = '';
+        this._els.del.disabled = false;
+      }
+    } catch(_) {}
+    this.setAttribute('open', '');
+    return new Promise((resolve) => { this._resolver = resolve; });
+  }
+  close() { this.removeAttribute('open'); }
+  _cancel() { this.close(); this._resolve(false); }
+  _confirm() { this.close(); this._resolve(true); }
+  _resolve(v) { const r = this._resolver; this._resolver = null; if (r) r(v); }
+  _onKeyDown(e) { if (e.key === 'Escape' && this.hasAttribute('open')) this._cancel(); }
+}
+customElements.define('delete-profile-modal', DeleteProfileModal);
+
+// Ensure a single delete profile modal exists in document
+function getDeleteProfileModal() {
+  let m = document.querySelector('delete-profile-modal');
+  if (!m) { m = document.createElement('delete-profile-modal'); document.body.appendChild(m); }
+  return m;
+}
+
 // Web Component: <app-header> with title, theme toggle, and help button
 class AppHeader extends HTMLElement {
   constructor() {
@@ -475,7 +575,7 @@ class AppHeader extends HTMLElement {
   // data actions now live in settings modal
   _onProfileChange(e) { try { const id = e.target?.value; if (!id) return; setActiveProfile(id); restoreActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Switched profile', { type:'info', duration: 1200}); } catch(_){} }
   async _onNewProfile() { try { const modal = getNewProfileModal(); const name = await modal.open(''); if (!name) return; const id = createProfile(name); setActiveProfile(id); saveToActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Profile created', { type: 'success', duration: 1800 }); } catch(_){} }
-  _onDeleteProfile() { try { const data = loadProfilesData(); const ids = Object.keys(data.profiles||{}); if (ids.length<=1) { toast('Cannot delete last profile', { type:'warning', duration: 2200}); return; } const active = data.activeId; const name = data.profiles[active]?.name || active; if (!confirm(`Delete profile "${name}"?`)) return; delete data.profiles[active]; const nextId = ids.find((x)=>x!==active) || 'default'; data.activeId = nextId; saveProfilesData(data); restoreActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Profile deleted', { type:'success', duration: 1800}); } catch(_){} }
+  async _onDeleteProfile() { try { const data = loadProfilesData(); const ids = Object.keys(data.profiles||{}); if (ids.length<=1) { toast('Cannot delete last profile', { type:'warning', duration: 2200}); return; } const active = data.activeId; const name = data.profiles[active]?.name || active; const modal = getDeleteProfileModal(); const ok = await modal.open(name); if (!ok) return; delete data.profiles[active]; const nextId = ids.find((x)=>x!==active) || 'default'; data.activeId = nextId; saveProfilesData(data); restoreActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Profile deleted', { type:'success', duration: 1800}); } catch(_){} }
 }
 customElements.define('app-header', AppHeader);
 
