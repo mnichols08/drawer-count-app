@@ -89,13 +89,13 @@ Install/Open as app:
 
 ## Icons
 
-An SVG favicon is included. For best install UX across platforms, generate PNG icons:
+This project uses a single source icon at `src/icons/favicon.svg` and generates a full cross‑platform set (Android, iOS, Windows tiles, favicons):
 
 ```powershell
 npm run icons
 ```
 
-This creates `src/icons/icon-192.png` and `src/icons/icon-512.png` and keeps the SVG as a scalable icon.
+Outputs are written to `src/icons/` plus `favicon.ico` and `browserconfig.xml` in the project root. The manifest and `index.html` are wired to these assets so install prompts and app icons look correct across iOS, Android, Windows, and desktop browsers.
 
 ## Deployment
 
