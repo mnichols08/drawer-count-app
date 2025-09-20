@@ -141,6 +141,18 @@ Adding new background images:
 - Run `npm run optimize-images` to generate `.webp` versions and recompress the PNGs.
 - Add the new image filenames (both `.png` and `.webp`) to the precache array in `sw.js` so they’re available offline.
 
+### Deploy to Render (quick checklist)
+
+1) Create a new Web Service on Render pointing to this repo.
+2) Environment → add:
+	- `MONGODB_URI` = Atlas SRV URI (e.g., `mongodb+srv://...mongodb.net/drawercount?retryWrites=true&w=majority`)
+	- `MONGODB_DB` = `drawercount`
+	- `MONGODB_TLS` = `true`
+	- Optional: `API_BASE` = `https://<your-service>.onrender.com/api`
+3) Start command: `npm start` (default in `package.json`).
+4) In Atlas → Network Access: allow Render’s egress IP or temporarily `0.0.0.0/0` to validate.
+5) After deploy, verify `https://<your-service>.onrender.com/api/health` shows DB connected.
+
 ## License
 
 ISC — see `LICENSE` (or the license field in `package.json`).

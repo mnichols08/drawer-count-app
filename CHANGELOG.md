@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.1.2 - 2025-09-20
+### Added
+- Server supports configurable MongoDB TLS via env vars: `MONGODB_TLS`, `MONGODB_TLS_INSECURE`, and optional CA inputs (`MONGODB_TLS_CA_FILE`, `MONGODB_TLS_CA_PEM`, `MONGODB_TLS_CA_BASE64`).
+- `.env.example` with local and Render/Atlas-friendly defaults.
+- README: new sections for Render + Atlas deployment and a quick deploy checklist.
+
+### Fixed
+- Avoid TLS handshake failures on providers that require explicit TLS flags by allowing configuration via env vars.
+
 ## v0.1.1 - 2025-09-20
 ### Added
 - Backend runtime config endpoint: `GET /config.js` exposes `window.DCA_API_BASE` derived from the `API_BASE` environment variable.
