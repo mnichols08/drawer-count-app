@@ -734,8 +734,35 @@ class DayPickerModal extends HTMLElement {
     const daysInMonth = new Date(y, m + 1, 0).getDate();
     return { y, m, firstDow, daysInMonth };
   }
-  _onPrev() { this._monthOffset -= 1; this._render(); }
-  _onNext() { this._monthOffset += 1; this._render(); }
+  // Compute the earliest allowed negative offset (in months) based on stored days
+  _getEarliestOffset() {
+    try {
+      const { entry } = _getActiveDaysEntry(false);
+      const keys = Object.keys(entry?.days || {});
+      if (!keys.length) return 0; // no saved days => don't allow moving back
+      // Find the earliest date key (YYYY-MM-DD). String sort works for ISO-like format.
+      const earliestKey = keys.sort()[0];
+      const [ey, em/*, ed*/] = earliestKey.split('-').map((x) => Number(x));
+      if (!ey || !em) return 0;
+      const today = new Date();
+      const ty = today.getFullYear();
+      const tm = today.getMonth() + 1; // 1-based to align with key
+      // Offset from today month to earliest month (negative or zero)
+      const offset = (ey - ty) * 12 + (em - tm);
+      return Math.min(0, offset);
+    } catch (_) { return 0; }
+  }
+  _onPrev() {
+    const minOffset = this._getEarliestOffset();
+    // move back one month but not beyond earliest saved month
+    this._monthOffset = Math.max(minOffset, this._monthOffset - 1);
+    this._render();
+  }
+  _onNext() {
+    // Only allow moving forward up to current month (offset 0). Never beyond (no future months).
+    this._monthOffset = Math.min(0, this._monthOffset + 1);
+    this._render();
+  }
   _onDayClick(e) {
     const key = e.currentTarget?.getAttribute('data-key');
     if (!key) return;
@@ -756,6 +783,7 @@ class DayPickerModal extends HTMLElement {
     const todayKey = getTodayKey();
     const { entry } = _getActiveDaysEntry(false);
     const saved = new Set(Object.keys(entry?.days || {}));
+    const minOffset = this._getEarliestOffset();
     // Build grid cells
     const blanks = Array.from({ length: firstDow }, () => null);
     const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
@@ -781,7 +809,9 @@ class DayPickerModal extends HTMLElement {
         .hd { display:flex; align-items:center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
         .title { font-size: 1.05rem; margin: 0; }
         .nav { display:flex; gap: 8px; }
-        .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 10px; cursor: pointer; min-height: 36px; }
+  .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 10px; cursor: pointer; min-height: 36px; }
+  .btn:not([disabled]):hover { filter: brightness(1.08); }
+  .btn[disabled] { background: var(--button-disabled-bg, #1a1f2e); color: var(--muted, #9aa3b2); border-color: var(--button-disabled-border, #2a345a); opacity: .7; cursor: not-allowed; }
         .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
         .dow { text-align: center; font-size: .85rem; color: var(--muted, #9aa3b2); }
         .cell { min-height: 40px; display:flex; align-items:center; justify-content:center; }
@@ -820,6 +850,12 @@ class DayPickerModal extends HTMLElement {
     this._els.prev?.addEventListener('click', this._onPrev);
     this._els.next?.addEventListener('click', this._onNext);
     this._shadow.querySelectorAll('button.day')?.forEach((b) => b.addEventListener('click', this._onDayClick));
+
+    // Update nav button states:
+    // - Prev disabled if we're already at or before earliest saved month.
+    // - Next disabled if we're at current month (no future navigation allowed at all).
+    if (this._els.prev) this._els.prev.disabled = (this._monthOffset <= minOffset);
+    if (this._els.next) this._els.next.disabled = (this._monthOffset >= 0);
   }
 }
 customElements.define('day-picker-modal', DayPickerModal);
