@@ -4,6 +4,7 @@ class DrawerCount extends HTMLElement {
   constructor() {
     super();
     this._root = this.attachShadow({ mode: 'open' });
+    this._readOnly = false;
     this._onInputEvent = this._onInputEvent.bind(this);
     this._newInput = this._newInput.bind(this);
     this.remInput = this.remInput.bind(this);
@@ -17,6 +18,7 @@ class DrawerCount extends HTMLElement {
     this._render();
     this._wire();
     this._bindShortcuts();
+    try { this.setReadOnly(false); } catch(_) {}
   }
 
   // Public API: get current drawer data
@@ -140,6 +142,7 @@ class DrawerCount extends HTMLElement {
       this._getTotal();
       this._getBalance();
       this._slipCheckCount();
+      this._renumberDynamicLabels();
       this._announce('Drawer restored');
     } catch (_) {
       // ignore
@@ -163,6 +166,20 @@ class DrawerCount extends HTMLElement {
     this.setState(state);
   }
 
+  // Public API: toggle read-only (disables inputs and add/remove row buttons)
+  setReadOnly(flag) {
+    try {
+      this._readOnly = !!flag;
+      const inputs = Array.from(this._root.querySelectorAll('input'));
+      inputs.forEach((el) => { el.disabled = this._readOnly; });
+      const buttons = Array.from(this._root.querySelectorAll('button'));
+      buttons.forEach((b) => {
+        const isMutator = b.classList.contains('add-slip') || b.classList.contains('add-check') || b.classList.contains('rem');
+        if (isMutator) b.disabled = this._readOnly;
+      });
+    } catch (_) { /* ignore */ }
+  }
+
   _render() {
     this._root.innerHTML = `
       <style>
@@ -181,12 +198,15 @@ class DrawerCount extends HTMLElement {
           margin: 0.1rem;
           padding: 0.2rem;
         }
+  /* Subtle style for dynamic row labels (Slip/Check) shown to the left of input */
+  .dyn-label { color: var(--muted, #9aa3b2); margin-right: .35rem; font-size: .9rem; }
         button { background: var(--button-bg-color, #222222f0); color: var(--button-color, green); }
         button.rem { color: var(--button-rem-color, red); margin-left: .35rem; }
         span:before { content: '$'; }
 
         @media only print {
-          #drawer input, #roa input, div:not(#total,#cash,#balance,#cardTotal,#checkTotal,#drawer,#roa) { display: none; }
+          #drawer input, #roa input, #drawer label, #roa label,
+          div:not(#total,#cash,#balance,#cardTotal,#checkTotal,#drawer,#roa) { display: none; }
         }
       </style>
 
@@ -199,78 +219,96 @@ class DrawerCount extends HTMLElement {
         <div class="output" id="checkTotal">Check Total: $<balance>0.00</balance></div>
 
         <div class="input" id="drawer">
-          <input step=".01" type="number" placeholder="Cash Total" />
+          <label for="drawer-input">Cash Total</label>
+          <input id="drawer-input" name="drawer" step=".01" type="number" placeholder="Cash Total" />
            Cash Total: $<drawer>0.00</drawer>
         </div>
         <div class="input" id="roa">
-          <input step=".01" type="number" placeholder="ROA Amount" />
+          <label for="roa-input">ROA Amount</label>
+          <input id="roa-input" name="roa" step=".01" type="number" placeholder="ROA Amount" />
            ROA Amount: $<roa>0.00</roa>
         </div>
         <div class="input" id="slips">
-          <input step=".01" type="number" placeholder="Credit Cards" />
+          <label for="slips-input">Credit Cards</label>
+          <input id="slips-input" name="slips" step=".01" type="number" placeholder="Credit Cards" />
           <button class="add-slip" title="Add Slip">+</button>
           <span>0.00</span> Slip
         </div>
         <div class="input" id="checks">
-          <input step=".01" type="number" placeholder="Checks" min="0" />
+          <label for="checks-input">Checks</label>
+          <input id="checks-input" name="checks" step=".01" type="number" placeholder="Checks" min="0" />
           <button class="add-check" title="Add Check">+</button>
           <span>0.00</span> Check
         </div>
 
         <div class="input" id="hundreds">
-          <input type="number" placeholder="Hundreds" min="0" max="20" />
+          <label for="hundreds-input">Hundreds</label>
+          <input id="hundreds-input" name="hundreds" type="number" placeholder="Hundreds" min="0" max="20" />
           <span class="cash">0.00</span> in Hundreds
         </div>
         <div class="input" id="fifties">
-          <input type="number" placeholder="Fifties" min="0" max="30" />
+          <label for="fifties-input">Fifties</label>
+          <input id="fifties-input" name="fifties" type="number" placeholder="Fifties" min="0" max="30" />
           <span class="cash">0.00</span> in Fifties
         </div>
         <div class="input" id="twenties">
-          <input type="number" placeholder="Twenties" min="0" max="40" />
+          <label for="twenties-input">Twenties</label>
+          <input id="twenties-input" name="twenties" type="number" placeholder="Twenties" min="0" max="40" />
           <span class="cash">0.00</span> in Twenties
         </div>
         <div class="input" id="tens">
-          <input type="number" placeholder="Tens" min="0" max="50" />
+          <label for="tens-input">Tens</label>
+          <input id="tens-input" name="tens" type="number" placeholder="Tens" min="0" max="50" />
           <span class="cash">0.00</span> in Tens
         </div>
         <div class="input" id="fives">
-          <input type="number" placeholder="Fives" min="0" max="75" />
+          <label for="fives-input">Fives</label>
+          <input id="fives-input" name="fives" type="number" placeholder="Fives" min="0" max="75" />
           <span class="cash">0.00</span> in Fives
         </div>
         <div class="input" id="dollars">
-          <input type="number" placeholder="Dollars" min="0" max="100" />
+          <label for="dollars-input">Dollars</label>
+          <input id="dollars-input" name="dollars" type="number" placeholder="Dollars" min="0" max="100" />
           <span class="cash">0.00</span> in Ones
         </div>
         <div class="input" id="quarters">
-          <input type="number" placeholder="Quarters" min="0" max="50" />
+          <label for="quarters-input">Quarters</label>
+          <input id="quarters-input" name="quarters" type="number" placeholder="Quarters" min="0" max="50" />
           <span class="cash">0.00</span> in Quarters
         </div>
         <div class="input" id="dimes">
-          <input type="number" placeholder="Dimes" min="0" max="50" />
+          <label for="dimes-input">Dimes</label>
+          <input id="dimes-input" name="dimes" type="number" placeholder="Dimes" min="0" max="50" />
           <span class="cash">0.00</span> in Dimes
         </div>
         <div class="input" id="nickels">
-          <input type="number" placeholder="Nickels" min="0" max="50" />
+          <label for="nickels-input">Nickels</label>
+          <input id="nickels-input" name="nickels" type="number" placeholder="Nickels" min="0" max="50" />
           <span class="cash">0.00</span> in Nickels
         </div>
         <div class="input" id="pennies">
-          <input type="number" placeholder="Pennies" min="0" max="50" />
+          <label for="pennies-input">Pennies</label>
+          <input id="pennies-input" name="pennies" type="number" placeholder="Pennies" min="0" max="50" />
           <span class="cash">0.00</span> in Pennies
         </div>
         <div class="input" id="quarterrolls">
-          <input type="number" placeholder="Quarter Rolls" min="0" max="4" />
+          <label for="quarterrolls-input">Quarter Rolls</label>
+          <input id="quarterrolls-input" name="quarterrolls" type="number" placeholder="Quarter Rolls" min="0" max="4" />
           <span class="cash">0.00</span> in Quarter Rolls
         </div>
         <div class="input" id="dimerolls">
-          <input type="number" placeholder="Dime Rolls" min="0" max="4" />
+          <label for="dimerolls-input">Dime Rolls</label>
+          <input id="dimerolls-input" name="dimerolls" type="number" placeholder="Dime Rolls" min="0" max="4" />
           <span class="cash">0.00</span> in Dime Rolls
         </div>
         <div class="input" id="nickelrolls">
-          <input type="number" placeholder="Nickel Rolls" min="0" max="4" />
+          <label for="nickelrolls-input">Nickel Rolls</label>
+          <input id="nickelrolls-input" name="nickelrolls" type="number" placeholder="Nickel Rolls" min="0" max="4" />
           <span class="cash">0.00</span> in Nickel Rolls
         </div>
         <div class="input" id="pennyrolls">
-          <input type="number" placeholder="Penny Rolls" min="0" max="4" />
+          <label for="pennyrolls-input">Penny Rolls</label>
+          <input id="pennyrolls-input" name="pennyrolls" type="number" placeholder="Penny Rolls" min="0" max="4" />
           <span class="cash">0.00</span> in Penny Rolls
         </div>
       </div>
@@ -314,6 +352,7 @@ class DrawerCount extends HTMLElement {
   _bindShortcuts() {
     // Global shortcuts for adding/removing rows
     this._onKeyDownGlobal = (e) => {
+      if (this._readOnly) return;
       const isCtrlShift = (e.ctrlKey || e.metaKey) && e.shiftKey;
       const showUndo = (typeLabel, html, anchorSelectorForType) => {
         try {
@@ -342,6 +381,7 @@ class DrawerCount extends HTMLElement {
                 this._getTotal();
                 this._getBalance();
                 this._slipCheckCount();
+                this._renumberDynamicLabels();
                 // Focus restored node input and announce
                 this._focusInputIn(node);
                 this._announce('Row restored');
@@ -403,7 +443,7 @@ class DrawerCount extends HTMLElement {
                   node.addEventListener('input', this._onInputEvent);
                   node.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.keyCode === 13) this._newInput(node.classList.contains('slip') ? '#checks' : '#hundreds'); });
                   if (anchor && anchor.parentElement) anchor.before(node); else wrap.appendChild(node);
-                  this._getTotal(); this._getBalance(); this._slipCheckCount();
+                  this._getTotal(); this._getBalance(); this._slipCheckCount(); this._renumberDynamicLabels();
                   this._focusInputIn(node);
                   this._announce('Row restored');
                 }
@@ -438,6 +478,7 @@ class DrawerCount extends HTMLElement {
   }
 
   _onInputEvent(e) {
+    if (this._readOnly) return;
     // e.currentTarget is the .input container
     const container = e.currentTarget;
     const id = container.id;
@@ -446,7 +487,12 @@ class DrawerCount extends HTMLElement {
     if (!inputEl) return;
     const val = Number(inputEl.value || 0);
     const out = val * multiplier;
-    container.lastElementChild && (container.lastElementChild.innerText = out.toFixed(2));
+    // Find the correct output element per container type
+    let outEl = null;
+    if (id === 'drawer') outEl = container.querySelector('drawer');
+    else if (id === 'roa') outEl = container.querySelector('roa');
+    else outEl = container.querySelector('span.cash') || container.querySelector('span');
+    if (outEl) outEl.innerText = out.toFixed(2);
     this._getTotal();
     this._getBalance();
     this._slipCheckCount();
@@ -475,6 +521,7 @@ class DrawerCount extends HTMLElement {
   }
 
   _newInput(anchorSelector) {
+    if (this._readOnly) return;
     // Determine type based on anchor (match original logic: before #checks => slip, else check)
     const typeOf = anchorSelector === '#checks' ? 'slip' : 'check';
     const id = `${typeOf}_${Math.random().toString(36).slice(2, 7)}`;
@@ -485,6 +532,8 @@ class DrawerCount extends HTMLElement {
     const input = document.createElement('input');
     input.type = 'number';
     input.placeholder = `Additional ${typeOf[0].toUpperCase()}${typeOf.slice(1)}`;
+    input.name = typeOf;
+    input.id = `${id}-input`;
 
     const btn = document.createElement('button');
     btn.className = 'rem';
@@ -492,11 +541,16 @@ class DrawerCount extends HTMLElement {
     btn.textContent = 'x';
     btn.addEventListener('click', () => this.remInput(id));
 
-    const span = document.createElement('span');
-    span.textContent = '0.00';
-    const label = document.createTextNode(` ${typeOf[0].toUpperCase()}${typeOf.slice(1)}`);
+  const span = document.createElement('span');
+  span.textContent = '0.00';
+  // Visible, clickable label tied to the input, shown to the left
+  const visLabel = document.createElement('label');
+  visLabel.setAttribute('for', input.id);
+  visLabel.textContent = `${typeOf[0].toUpperCase()}${typeOf.slice(1)}`;
+  visLabel.className = 'dyn-label';
 
-    div.append(input, btn, span, label);
+  // Append in UI order: label (left), input, button, value
+  div.append(visLabel, input, btn, span);
     // delegate input/keydown
     div.addEventListener('input', this._onInputEvent);
     div.addEventListener('keydown', (e) => {
@@ -514,15 +568,18 @@ class DrawerCount extends HTMLElement {
     this._getTotal();
     this._getBalance();
     this._slipCheckCount();
+    this._renumberDynamicLabels();
     input.focus();
   }
 
   remInput(id) {
+    if (this._readOnly) return;
     const el = this._root.querySelector(`#${CSS.escape(id)}`);
     if (el) el.remove();
     this._getTotal();
     this._getBalance();
     this._slipCheckCount();
+    this._renumberDynamicLabels();
     this.dispatchEvent(new CustomEvent('change', { detail: this.getCount(), bubbles: true, composed: true }));
   }
 
@@ -574,6 +631,21 @@ class DrawerCount extends HTMLElement {
     const checkEl = this._root.querySelector('#checkTotal balance');
     if (cardEl) cardEl.innerText = to2(s);
     if (checkEl) checkEl.innerText = to2(c);
+  }
+
+  _renumberDynamicLabels() {
+    try {
+      const renumber = (cls, label) => {
+        let n = 2; // Base row is 1
+        const rows = Array.from(this._root.querySelectorAll(`.wrap .${cls}`));
+        for (const row of rows) {
+          const l = row.querySelector('label.dyn-label');
+          if (l) l.textContent = `${label} ${n++}`;
+        }
+      };
+      renumber('slip', 'Slip');
+      renumber('check', 'Check');
+    } catch (_) { /* ignore */ }
   }
 }
 

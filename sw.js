@@ -1,5 +1,5 @@
 /* Drawer Count Service Worker */
-const CACHE_VERSION = 'v6';
+const CACHE_VERSION = 'v8';
 const PRECACHE = `precache-${CACHE_VERSION}`;
 const RUNTIME = `runtime-${CACHE_VERSION}`;
 
@@ -12,7 +12,15 @@ const RAW_PRECACHE_URLS = [
   'manifest.webmanifest',
   'src/style.css',
   'src/main.js',
-  'src/icons/favicon.svg'
+  'src/drawer-count.js',
+  'src/icons/favicon.svg',
+  'src/icons/icon-192.png',
+  'src/icons/icon-512.png',
+  'src/icons/apple-touch-icon-180x180.png',
+  'src/icons/favicon-32x32.png',
+  'src/icons/favicon-16x16.png',
+  'favicon.ico',
+  'browserconfig.xml'
 ];
 const PRECACHE_URLS = RAW_PRECACHE_URLS.map(toScopePath);
 const INDEX_PATH = toScopePath('index.html');

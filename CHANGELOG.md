@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.0.7 - 2025-09-20
+- Add daily history in `SettingsModal` (save, load, delete days)
+- Add read-only toggle and day renaming in `SettingsModal`
+- Introduce `NewProfileModal` (keyboard accessible) and `DeleteProfileModal` with confirmation
+- Add "Clear inputs" action in `AppHeader`
+- Dynamic label renumbering for slip/check rows in `DrawerCount`
+- Add explicit labels to inputs for improved accessibility
+- Improve header styling and responsive layout; add dynamic padding
+- Enhance theme management; add input color CSS variables for modals
+- Update `DayPickerModal` navigation with earliest-offset logic and disabled buttons
+- Support relative deployment paths in manifest, HTML, and service worker registration
+- Add icon generation scripts and new icons; update tile sizes
+- Add `bump-sw-cache` script and predeploy step; update dependencies
+- Refresh `README` and `HelpModal` text with clearer instructions and deployment notes
+
 ## v0.0.6 - 2025-09-20
 - Save/Restore drawer state (manual buttons in header) with auto-save to `localStorage`.
 - Restores dynamic slip/check rows and all base inputs.
