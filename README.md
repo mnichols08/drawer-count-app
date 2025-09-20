@@ -84,7 +84,7 @@ Install/Open as app:
 - Cache versioning: bump `CACHE_VERSION` in `sw.js` when you need to invalidate old caches.
 - Query busting: `index.html` may add a version query (e.g., `src/main.js?v=5`). The SW handles this and serves the cached file correctly.
 - Scope-aware paths: the SW normalizes URLs to its scope so cached assets work even under a subpath.
-- Manifest scope: current `manifest.webmanifest` and HTML use absolute paths (e.g., `/manifest.webmanifest`). If you deploy under a subpath (e.g., GitHub Pages `/your-repo/`), change these to relative paths and set `start_url`/`scope` accordingly.
+- Manifest scope and paths are now relative (e.g., `./manifest.webmanifest`, `./src/...`) so deployment under a subpath (like GitHub Pages `/your-repo/`) works out of the box. If you customize the base path, ensure `start_url`/`scope` in the manifest still point to `./` for your chosen directory.
 
 ## Icons
 
@@ -93,7 +93,7 @@ An SVG favicon is included. For best results across platforms, add PNG icons (e.
 ## Deployment
 
 Any static host will work. Recommended:
-- Serve at the site root so the absolute links in `index.html`/`manifest` resolve. If deploying at a subpath, convert absolute URLs to relative and update the manifest `start_url`/`scope`.
+- Paths are relative, so hosting from a subpath is supported (e.g., GitHub Pages). If you further nest the app, keep the manifest `start_url` and `scope` set to `./` so it scopes to the current directory.
 - Ensure responses are served with correct MIME types (e.g., `application/manifest+json` for the manifest, `text/javascript` for `.js`).
 
 ## License
