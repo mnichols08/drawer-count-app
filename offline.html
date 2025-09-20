@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b132b" />
+    <title>Drawer Count • Offline</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/src/icons/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <app-header title="Drawer Count"></app-header>
+    </header>
+
+    <main class="container">
+      <section class="card" aria-live="polite" aria-atomic="true">
+        <network-status class="hint"></network-status>
+        <p class="hint">Some resources may be unavailable right now.</p>
+        <p><a href="/">Return to app</a></p>
+      </section>
+    </main>
+
+    <noscript>
+      <p class="noscript">This page needs JavaScript for install and live status.</p>
+    </noscript>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

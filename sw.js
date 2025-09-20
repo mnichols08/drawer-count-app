@@ -1,0 +1,177 @@
+/* Drawer Count Service Worker */
+const CACHE_VERSION = 'v6';
+const PRECACHE = `precache-${CACHE_VERSION}`;
+const RUNTIME = `runtime-${CACHE_VERSION}`;
+
+// Scope-aware URL helpers (works under subpaths like /drawer-count-app/)
+const toScopePath = (p) => new URL(p, self.registration.scope).pathname;
+const RAW_PRECACHE_URLS = [
+  '.',                 // scope root
+  'index.html',
+  'offline.html',
+  'manifest.webmanifest',
+  'src/style.css',
+  'src/main.js',
+  'src/icons/favicon.svg'
+];
+const PRECACHE_URLS = RAW_PRECACHE_URLS.map(toScopePath);
+const INDEX_PATH = toScopePath('index.html');
+const ROOT_PATH = toScopePath('.');
+const OFFLINE_PATH = toScopePath('offline.html');
+
+// Connectivity state + broadcaster
+let isOffline = false;
+const broadcastStatus = async (offline) => {
+  const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  for (const client of clients) client.postMessage({ type: 'NETWORK_STATUS', offline });
+};
+const setOffline = (flag) => {
+  if (isOffline !== flag) {
+    isOffline = flag;
+    // fire only on transitions
+    broadcastStatus(isOffline);
+  }
+};
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches
+      .open(PRECACHE)
+      .then((cache) => cache.addAll(PRECACHE_URLS))
+      .then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => ![PRECACHE, RUNTIME].includes(k)).map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
+});
+
+// Allow clients to request current status
+self.addEventListener('message', (event) => {
+  const data = event.data;
+  if (!data) return;
+  if (data.type === 'GET_NETWORK_STATUS') {
+    event.source?.postMessage({ type: 'NETWORK_STATUS', offline: isOffline });
+  } else if (data.type === 'OPEN_APP') {
+    event.waitUntil((async () => {
+      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      // Try to focus an existing client within scope
+      for (const client of clients) {
+        try {
+          // Limit to this SW scope
+          const clientUrl = new URL(client.url);
+          const scopeUrl = new URL(self.registration.scope);
+          if (clientUrl.origin === scopeUrl.origin && clientUrl.pathname.startsWith(scopeUrl.pathname)) {
+            await client.focus();
+            try { event.source?.postMessage({ type: 'OPEN_APP_DONE' }); } catch (_) {}
+            return;
+          }
+        } catch (_) { /* ignore */ }
+      }
+      // Otherwise open a new window at start_url
+      const startUrl = new URL('.', self.registration.scope).toString();
+      await self.clients.openWindow(startUrl);
+      try { event.source?.postMessage({ type: 'OPEN_APP_DONE' }); } catch (_) {}
+    })());
+  }
+});
+
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  if (request.mode === 'navigate') {
+    // Network-first for navigations with scope-aware fallbacks
+    event.respondWith(
+      (async () => {
+        try {
+          const response = await fetch(request);
+          const cache = await caches.open(RUNTIME);
+          cache.put(request, response.clone());
+          setOffline(false);
+          return response;
+        } catch {
+          setOffline(true);
+          const precache = await caches.open(PRECACHE);
+          const cachedApp =
+            (await precache.match(INDEX_PATH)) || (await precache.match(ROOT_PATH));
+          return (
+            cachedApp ||
+            (await precache.match(OFFLINE_PATH)) ||
+            new Response('Offline', { status: 503 })
+          );
+        }
+      })()
+    );
+    return;
+  }
+
+  // Static assets: try cache first, then network (scope-aware lookup)
+  if (url.origin === self.location.origin) {
+    const normalizedPath = url.pathname;
+    const isPrecacheAsset = PRECACHE_URLS.includes(normalizedPath);
+    if (isPrecacheAsset) {
+      event.respondWith(
+        (async () => {
+          const cache = await caches.open(PRECACHE);
+          const exact = await cache.match(request);
+          if (exact) return exact;
+          const noQuery = await cache.match(new Request(normalizedPath, { cache: 'reload' }));
+          if (noQuery) return noQuery;
+          // Network fallback with status tracking
+          try {
+            const res = await fetch(request);
+            setOffline(false);
+            return res;
+          } catch {
+            setOffline(true);
+            return new Response('', { status: 503 });
+          }
+        })()
+      );
+      return;
+    }
+  }
+
+  // Default: stale-while-revalidate for same-origin GET with offline fallbacks
+  if (request.method === 'GET' && url.origin === self.location.origin) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(RUNTIME);
+        const cached = await cache.match(request);
+        try {
+          const network = await fetch(request);
+          cache.put(request, network.clone());
+          setOffline(false);
+          return cached || network;
+        } catch {
+          setOffline(true);
+          if (cached) return cached;
+
+          // Offline fallbacks
+          const accept = request.headers.get('accept') || '';
+          if (accept.includes('text/html') || request.destination === 'document') {
+            const precache = await caches.open(PRECACHE);
+            return (
+              (await precache.match(INDEX_PATH)) ||
+              (await precache.match(ROOT_PATH)) ||
+              (await precache.match(OFFLINE_PATH)) ||
+              new Response('Offline', { status: 503 })
+            );
+          }
+          if (accept.includes('application/json')) {
+            return new Response(JSON.stringify({ offline: true }), {
+              status: 503,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+          return new Response('', { status: 503 });
+        }
+      })()
+    );
+  }
+});
