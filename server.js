@@ -49,17 +49,32 @@ async function connectMongoOnce() {
 		console.warn('[api] MONGODB_URI is not set. API routes will return 503.');
 		return null;
 	}
-	mongoClient = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 5000 });
-	await mongoClient.connect();
-	const db = mongoClient.db(MONGODB_DB);
+	try {
+		mongoClient = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 5000 });
+		await mongoClient.connect();
+		const db = mongoClient.db(MONGODB_DB);
 		kvCollection = db.collection('kv');
-		// Global unique index for shared records
-		await kvCollection.createIndex({ scope: 1, key: 1 }, { unique: true });
-		// Legacy unique index for older per-client records (keep if present)
-		try { await kvCollection.createIndex({ clientId: 1, key: 1 }, { unique: true }); } catch (_) {}
+		// Global unique index for shared records, limited only to documents with scope==='global'
+		// This avoids duplicate key errors from legacy documents that lacked a scope field.
+		try {
+			await kvCollection.createIndex(
+				{ scope: 1, key: 1 },
+				{ unique: true, partialFilterExpression: { scope: 'global' }, name: 'unique_global_scope_key' }
+			);
+		} catch (e) {
+			console.warn('[api] Warning creating global unique index on {scope,key}:', e?.message || e);
+		}
+		// Legacy unique index for older per-client records (keep if present). Ignore errors if duplicates exist.
+		try { await kvCollection.createIndex({ clientId: 1, key: 1 }, { unique: true, name: 'unique_clientId_key' }); } catch (_) {}
 		// UpdatedAt index for optional housekeeping
-		await kvCollection.createIndex({ updatedAt: 1 });
-	return kvCollection;
+		try { await kvCollection.createIndex({ updatedAt: 1 }, { name: 'idx_updatedAt' }); } catch (_) {}
+		return kvCollection;
+	} catch (err) {
+		console.error('[api] Mongo initialization failed:', err?.message || err);
+		try { await mongoClient?.close(); } catch (_) {}
+		kvCollection = null;
+		return null; // Signal unavailable so routes can return 503 instead of 500
+	}
 }
 
 // Note: We now use a global scope so all clients share the same data.
