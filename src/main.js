@@ -352,8 +352,12 @@ class SettingsModal extends HTMLElement {
   _onDayLoad() {
     try {
       const key = this._els?.daySelect?.value; if (!key) return;
+      // Set the active view date to the selected key before restoring
+      setActiveViewDateKey(key);
       const ok = restoreDay(key);
-      const header = document.querySelector('app-header'); updateStatusPill(header);
+      const header = document.querySelector('app-header');
+      updateStatusPill(header);
+      applyReadOnlyByActiveDate(header); // ensure lock state and UI are in sync
       toast(ok ? `Loaded ${key}` : 'Load failed', { type: ok ? 'success' : 'error', duration: 1800 });
     } catch(_) { toast('Load failed', { type: 'error', duration: 2000 }); }
   }
@@ -670,7 +674,7 @@ class AppHeader extends HTMLElement {
   this.querySelector('.lock-btn')?.addEventListener('click', this._onToggleLock);
 
     // Initialize profiles UI
-    try { ensureProfilesInitialized(); populateProfilesSelect(this); updateStatusPill(this); } catch(_) {}
+    try { ensureProfilesInitialized(); populateProfilesSelect(this); updateStatusPill(this); updateLockButtonUI(this); } catch(_) {}
   }
   _onTheme() { toggleTheme(); }
   _onHelp() { getHelpModal().open(); }
@@ -678,8 +682,8 @@ class AppHeader extends HTMLElement {
   _onOptional() { getOptionalFieldsModal().open(); }
   // data actions now live in settings modal
   _onProfileChange(e) { try { const id = e.target?.value; if (!id) return; setActiveProfile(id); restoreActiveProfile(); ensureDayResetIfNeeded(this); setActiveViewDateKey(getTodayKey()); applyReadOnlyByActiveDate(this); populateProfilesSelect(this); updateStatusPill(this); toast('Switched profile', { type:'info', duration: 1200}); } catch(_){} }
-  async _onNewProfile() { try { const modal = getNewProfileModal(); const name = await modal.open(''); if (!name) return; const id = createProfile(name); setActiveProfile(id); saveToActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Profile created', { type: 'success', duration: 1800 }); } catch(_){} }
-  async _onDeleteProfile() { try { const data = loadProfilesData(); const ids = Object.keys(data.profiles||{}); if (ids.length<=1) { toast('Cannot delete last profile', { type:'warning', duration: 2200}); return; } const active = data.activeId; const name = data.profiles[active]?.name || active; const modal = getDeleteProfileModal(); const ok = await modal.open(name); if (!ok) return; delete data.profiles[active]; const nextId = ids.find((x)=>x!==active) || 'default'; data.activeId = nextId; saveProfilesData(data); restoreActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); toast('Profile deleted', { type:'success', duration: 1800}); } catch(_){} }
+  async _onNewProfile() { try { const modal = getNewProfileModal(); const name = await modal.open(''); if (!name) return; const id = createProfile(name); setActiveProfile(id); saveToActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); applyReadOnlyByActiveDate(this); toast('Profile created', { type: 'success', duration: 1800 }); } catch(_){} }
+  async _onDeleteProfile() { try { const data = loadProfilesData(); const ids = Object.keys(data.profiles||{}); if (ids.length<=1) { toast('Cannot delete last profile', { type:'warning', duration: 2200}); return; } const active = data.activeId; const name = data.profiles[active]?.name || active; const modal = getDeleteProfileModal(); const ok = await modal.open(name); if (!ok) return; delete data.profiles[active]; const nextId = ids.find((x)=>x!==active) || 'default'; data.activeId = nextId; saveProfilesData(data); restoreActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); applyReadOnlyByActiveDate(this); toast('Profile deleted', { type:'success', duration: 1800}); } catch(_){} }
   _onClear() {
     try {
       const comp = getDrawerComponent();
@@ -899,7 +903,10 @@ class DayPickerModal extends HTMLElement {
     }
     setActiveViewDateKey(key);
     const ok = restoreDay(key);
-    const header = document.querySelector('app-header'); updateStatusPill(header);
+    const header = document.querySelector('app-header');
+    updateStatusPill(header);
+    // Apply readonly rules and update lock button/icon/tooltip for the newly selected day
+    applyReadOnlyByActiveDate(header);
     toast(ok ? `Loaded ${key}` : 'Load failed', { type: ok ? 'success' : 'error', duration: 1800 });
     this.close();
   }
@@ -1464,9 +1471,10 @@ function openImportDialog(headerEl) {
           dMerged[pid] = curEntry;
         }
         saveDaysData(dMerged);
-        populateProfilesSelect(headerEl);
-        restoreActiveProfile();
-        updateStatusPill(headerEl);
+  populateProfilesSelect(headerEl);
+  restoreActiveProfile();
+  updateStatusPill(headerEl);
+  applyReadOnlyByActiveDate(headerEl);
         toast('Imported data', { type: 'success', duration: 2000 });
       } else if (imported.profiles) {
         // Backward-compat: old profiles-only format
@@ -1474,9 +1482,10 @@ function openImportDialog(headerEl) {
         current.profiles = { ...current.profiles, ...imported.profiles };
         if (imported.activeId) current.activeId = imported.activeId;
         saveProfilesData(current);
-        populateProfilesSelect(headerEl);
-        restoreActiveProfile();
-        updateStatusPill(headerEl);
+  populateProfilesSelect(headerEl);
+  restoreActiveProfile();
+  updateStatusPill(headerEl);
+  applyReadOnlyByActiveDate(headerEl);
         toast('Imported profiles', { type: 'success', duration: 2000 });
       } else {
         toast('Invalid import file', { type: 'error', duration: 2500 });
@@ -1700,13 +1709,24 @@ function updateLockButtonUI(headerEl) {
     const key = getActiveViewDateKey();
     const ro = key !== today && !isDayEditUnlocked();
     if (btn) {
+      const isToday = (key === today);
       btn.textContent = ro ? '🔒' : '🔓';
-      btn.title = ro ? 'Toggle edit lock (locked)' : 'Toggle edit lock (unlocked)';
-      btn.disabled = (key === today); // today always editable
+      // Today is always editable; show informative tooltip, and disable the control
+      if (isToday) {
+        btn.title = 'Today is always editable';
+        btn.setAttribute('aria-label', 'Today is always editable');
+      } else {
+        const stateTxt = ro ? 'locked' : 'unlocked';
+        const tip = `Toggle edit lock (${stateTxt})`;
+        btn.title = tip;
+        btn.setAttribute('aria-label', tip);
+      }
+      btn.disabled = isToday; // today always editable
     }
     if (optBtn) {
       optBtn.disabled = ro; // disable optional editing when read-only
       optBtn.title = ro ? 'Optional fields (read-only)' : 'Optional fields';
+      optBtn.setAttribute('aria-label', optBtn.title);
     }
   } catch(_) {}
 }
