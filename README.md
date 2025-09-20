@@ -82,13 +82,20 @@ Install/Open as app:
 - HTTPS/localhost required: service workers and install only work over HTTPS or `http://localhost`.
 - Updates: after changing `sw.js`, reload and close/reopen the page to activate. In DevTools → Application → Service Workers you can `Update`/`Skip waiting`.
 - Cache versioning: bump `CACHE_VERSION` in `sw.js` when you need to invalidate old caches.
+	- Currently set to `v7`. Changing this forces clients to fetch new assets after activation.
 - Query busting: `index.html` may add a version query (e.g., `src/main.js?v=5`). The SW handles this and serves the cached file correctly.
 - Scope-aware paths: the SW normalizes URLs to its scope so cached assets work even under a subpath.
 - Manifest scope and paths are now relative (e.g., `./manifest.webmanifest`, `./src/...`) so deployment under a subpath (like GitHub Pages `/your-repo/`) works out of the box. If you customize the base path, ensure `start_url`/`scope` in the manifest still point to `./` for your chosen directory.
 
 ## Icons
 
-An SVG favicon is included. For best results across platforms, add PNG icons (e.g., `192x192`, `512x512`) under `src/icons/` and reference them in `manifest.webmanifest` with appropriate `purpose` values.
+An SVG favicon is included. For best install UX across platforms, generate PNG icons:
+
+```powershell
+npm run icons
+```
+
+This creates `src/icons/icon-192.png` and `src/icons/icon-512.png` and keeps the SVG as a scalable icon.
 
 ## Deployment
 

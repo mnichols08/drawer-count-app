@@ -1,5 +1,5 @@
 /* Drawer Count Service Worker */
-const CACHE_VERSION = 'v6';
+const CACHE_VERSION = 'v7';
 const PRECACHE = `precache-${CACHE_VERSION}`;
 const RUNTIME = `runtime-${CACHE_VERSION}`;
 
@@ -12,6 +12,7 @@ const RAW_PRECACHE_URLS = [
   'manifest.webmanifest',
   'src/style.css',
   'src/main.js',
+  'src/drawer-count.js',
   'src/icons/favicon.svg'
 ];
 const PRECACHE_URLS = RAW_PRECACHE_URLS.map(toScopePath);
