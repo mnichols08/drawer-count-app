@@ -140,6 +140,7 @@ class DrawerCount extends HTMLElement {
       this._getTotal();
       this._getBalance();
       this._slipCheckCount();
+      this._renumberDynamicLabels();
       this._announce('Drawer restored');
     } catch (_) {
       // ignore
@@ -181,6 +182,8 @@ class DrawerCount extends HTMLElement {
           margin: 0.1rem;
           padding: 0.2rem;
         }
+  /* Subtle style for dynamic row labels (Slip/Check) shown to the left of input */
+  .dyn-label { color: var(--muted, #9aa3b2); margin-right: .35rem; font-size: .9rem; }
         button { background: var(--button-bg-color, #222222f0); color: var(--button-color, green); }
         button.rem { color: var(--button-rem-color, red); margin-left: .35rem; }
         span:before { content: '$'; }
@@ -361,6 +364,7 @@ class DrawerCount extends HTMLElement {
                 this._getTotal();
                 this._getBalance();
                 this._slipCheckCount();
+                this._renumberDynamicLabels();
                 // Focus restored node input and announce
                 this._focusInputIn(node);
                 this._announce('Row restored');
@@ -422,7 +426,7 @@ class DrawerCount extends HTMLElement {
                   node.addEventListener('input', this._onInputEvent);
                   node.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.keyCode === 13) this._newInput(node.classList.contains('slip') ? '#checks' : '#hundreds'); });
                   if (anchor && anchor.parentElement) anchor.before(node); else wrap.appendChild(node);
-                  this._getTotal(); this._getBalance(); this._slipCheckCount();
+                  this._getTotal(); this._getBalance(); this._slipCheckCount(); this._renumberDynamicLabels();
                   this._focusInputIn(node);
                   this._announce('Row restored');
                 }
@@ -520,13 +524,14 @@ class DrawerCount extends HTMLElement {
 
   const span = document.createElement('span');
   span.textContent = '0.00';
-  // Visible, clickable label tied to the input
+  // Visible, clickable label tied to the input, shown to the left
   const visLabel = document.createElement('label');
   visLabel.setAttribute('for', input.id);
-  visLabel.textContent = ` ${typeOf[0].toUpperCase()}${typeOf.slice(1)}`;
+  visLabel.textContent = `${typeOf[0].toUpperCase()}${typeOf.slice(1)}`;
+  visLabel.className = 'dyn-label';
 
-  // Append in UI order: input, button, value, label (span value is not lastElementChild dependent anymore)
-  div.append(input, btn, span, visLabel);
+  // Append in UI order: label (left), input, button, value
+  div.append(visLabel, input, btn, span);
     // delegate input/keydown
     div.addEventListener('input', this._onInputEvent);
     div.addEventListener('keydown', (e) => {
@@ -544,6 +549,7 @@ class DrawerCount extends HTMLElement {
     this._getTotal();
     this._getBalance();
     this._slipCheckCount();
+    this._renumberDynamicLabels();
     input.focus();
   }
 
@@ -553,6 +559,7 @@ class DrawerCount extends HTMLElement {
     this._getTotal();
     this._getBalance();
     this._slipCheckCount();
+    this._renumberDynamicLabels();
     this.dispatchEvent(new CustomEvent('change', { detail: this.getCount(), bubbles: true, composed: true }));
   }
 
@@ -604,6 +611,21 @@ class DrawerCount extends HTMLElement {
     const checkEl = this._root.querySelector('#checkTotal balance');
     if (cardEl) cardEl.innerText = to2(s);
     if (checkEl) checkEl.innerText = to2(c);
+  }
+
+  _renumberDynamicLabels() {
+    try {
+      const renumber = (cls, label) => {
+        let n = 2; // Base row is 1
+        const rows = Array.from(this._root.querySelectorAll(`.wrap .${cls}`));
+        for (const row of rows) {
+          const l = row.querySelector('label.dyn-label');
+          if (l) l.textContent = `${label} ${n++}`;
+        }
+      };
+      renumber('slip', 'Slip');
+      renumber('check', 'Check');
+    } catch (_) { /* ignore */ }
   }
 }
 
