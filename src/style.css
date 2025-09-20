@@ -7,6 +7,15 @@
   --border: #263056;
   --btn: #3a506b;
   --shadow: 0 12px 36px rgba(0,0,0,.35);
+  /* Banner and kbd defaults (dark) */
+  --banner-bg: #152041;
+  --banner-fg: #e7ecff;
+  --banner-border: #2a345a;
+  --banner-primary-bg: #3a86ff;
+  --banner-primary-fg: #0b132b;
+  --kbd-bg: #0f1730;
+  --kbd-fg: #e7ecff;
+  --kbd-border: #2a345a;
 }
 
 * { box-sizing: border-box; }
@@ -20,6 +29,30 @@ body {
   letter-spacing: .2px;
 }
 
+/* Light theme (top-level) */
+:root[data-theme="light"] {
+  --bg: #f7f9ff;
+  --fg: #0b132b;        /* darker text for stronger contrast */
+  --muted: #334155;     /* slate-700 for better readability */
+  --accent: #1c64f2;
+  --card: #ffffff;
+  --border: #b8c1e1;    /* darker border for clearer separation */
+  --btn: #dbe4ff;       /* slightly darker button bg */
+  --shadow: 0 8px 28px rgba(10, 14, 35, 0.12);
+  /* Light variants */
+  --banner-bg: #e8f0ff;
+  --banner-fg: #0b132b;
+  --banner-border: #b8c1e1;
+  --banner-primary-bg: #1c64f2;
+  --banner-primary-fg: #ffffff;
+  --kbd-bg: #eef2ff;
+  --kbd-fg: #0b132b;
+  --kbd-border: #b8c1e1;
+}
+
+/* Light mode: remove dramatic background gradient */
+:root[data-theme="light"] body { background: var(--bg); }
+
 .app-header {
   display: flex;
   align-items: center;
@@ -28,6 +61,10 @@ body {
   padding: 0.9rem 1.1rem;
   border-bottom: 1px solid var(--border);
 }
+.app-header h1 { font-size: 1.25rem; margin: 0; }
+.app-header .actions { display: flex; gap: .5rem; }
+.icon-btn { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: .25rem .5rem; cursor: pointer; }
+.icon-btn:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .container {
   display: grid;
@@ -36,12 +73,27 @@ body {
 }
 
 .card {
-  width: min(520px, 100%);
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 1.1rem 1.1rem 1.25rem;
   box-shadow: var(--shadow);
+}
+
+/* Bridge theme variables into <drawer-count> shadow via host */
+drawer-count {
+  --main-color: var(--fg);
+  --border-color: var(--border);
+  --input-bg-color: #0f1730;
+  --button-bg-color: var(--btn);
+  --button-color: #10b981;
+  --button-rem-color: #ef4444;
+}
+:root[data-theme="light"] drawer-count {
+  --input-bg-color: #f3f6ff;
+  --button-bg-color: #dbe4ff;
+  --button-color: #0b132b; /* dark text for contrast on light button */
+  --button-rem-color: #b91c1c;
 }
 
 .count-display {
@@ -70,6 +122,13 @@ input[type="number"] {
   border-radius: 10px;
   padding: 0.6rem 0.75rem;
 }
+:root[data-theme="light"] input[type="number"] { background: #f3f6ff; color: #0b132b; border-color: var(--border); }
+
+/* Buttons in light mode: ensure text contrast on light bg */
+:root[data-theme="light"] .btn { background: var(--btn); color: #0b132b; border-color: var(--border); }
+
+/* Muted text in light mode slightly darker for readability */
+:root[data-theme="light"] .hint { color: #475569; }
 
 .btn {
   background: var(--btn);
@@ -113,8 +172,19 @@ network-status {
   padding: 6px 10px;
   box-shadow: var(--shadow);
   font-size: .9rem;
-  display: none; /* default hidden until offline */
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
-network-status.offline {
+/* Light theme background for the status pill */
+:root[data-theme="light"] network-status { background: #eef2ff; }
+network-status .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
   display: inline-block;
+  border: 2px solid rgba(0,0,0,.25);
+  box-sizing: border-box;
 }
+network-status.online .dot { background: #10b981; border-color: rgba(16,185,129,.35); }
+network-status.offline .dot { background: #ef4444; border-color: rgba(239,68,68,.35); }

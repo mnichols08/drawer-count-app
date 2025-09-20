@@ -16,6 +16,7 @@ class DrawerCount extends HTMLElement {
   connectedCallback() {
     this._render();
     this._wire();
+    this._bindShortcuts();
   }
 
   // Public API: get current drawer data
@@ -190,6 +191,40 @@ class DrawerCount extends HTMLElement {
     this._getTotal();
     this._getBalance();
     this._slipCheckCount();
+  }
+
+  _bindShortcuts() {
+    // Global shortcuts for adding/removing rows
+    this._onKeyDownGlobal = (e) => {
+      const isCtrlShift = (e.ctrlKey || e.metaKey) && e.shiftKey;
+      if (isCtrlShift && (e.key === 'S' || e.key === 's')) {
+        e.preventDefault();
+        this._newInput('#checks'); // add slip
+      } else if (isCtrlShift && (e.key === 'C' || e.key === 'c')) {
+        e.preventDefault();
+        this._newInput('#hundreds'); // add check
+      } else if (isCtrlShift && (e.key === 'Backspace' || e.keyCode === 8)) {
+        e.preventDefault();
+        // Remove the last dynamically-added row (slip or check)
+        const rows = Array.from(this._root.querySelectorAll('.wrap .slip, .wrap .check'));
+        const last = rows[rows.length - 1];
+        if (last && last.id) {
+          this.remInput(last.id);
+        }
+      }
+    };
+    window.addEventListener('keydown', this._onKeyDownGlobal);
+
+    // Per-row removal via Alt+Backspace
+    this._root.addEventListener('keydown', (e) => {
+      if (e.altKey && (e.key === 'Backspace' || e.keyCode === 8)) {
+        const row = e.target && e.target.closest('.slip, .check');
+        if (row && row.id) {
+          e.preventDefault();
+          this.remInput(row.id);
+        }
+      }
+    });
   }
 
   _onInputEvent(e) {

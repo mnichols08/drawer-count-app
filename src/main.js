@@ -65,12 +65,117 @@ function getToaster() {
 }
 function toast(message, opts) { try { getToaster().show(message, opts); } catch (_) {} }
 
-// Web Component: <app-header> handles title + PWA install prompt
+// Theme management
+const THEME_KEY = 'theme';
+function getPreferredTheme() {
+  try {
+    const stored = localStorage.getItem(THEME_KEY);
+    if (stored === 'light' || stored === 'dark') return stored;
+  } catch (_) {}
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+function applyTheme(theme) {
+  const t = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  try { localStorage.setItem(THEME_KEY, t); } catch (_) {}
+  // Update header icon if present
+  const btn = document.querySelector('app-header .theme-toggle');
+  if (btn) btn.textContent = t === 'dark' ? '🌙' : '☀️';
+  // Update theme-color meta for consistent PWA UI
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', t === 'dark' ? '#0b132b' : '#f7f9ff');
+}
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme') || getPreferredTheme();
+  applyTheme(cur === 'dark' ? 'light' : 'dark');
+}
+applyTheme(getPreferredTheme());
+
+// Web Component: <help-modal> simple modal dialog
+class HelpModal extends HTMLElement {
+  constructor() {
+    super();
+    this._shadow = this.attachShadow({ mode: 'open' });
+    this._onKeyDown = this._onKeyDown.bind(this);
+  }
+  connectedCallback() {
+    const content = this.getAttribute('content') || '';
+    this._shadow.innerHTML = `
+      <style>
+        :host { display: none; }
+        :host([open]) { display: block; }
+        .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(2px); z-index: 1000; }
+        .dialog { position: fixed; inset: 10% auto auto 50%; transform: translateX(-50%);
+          max-width: min(640px, 92vw); background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
+          border: 1px solid var(--border, #2a345a); border-radius: 12px; padding: 14px; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
+        .hd { display:flex; justify-content: space-between; align-items:center; gap: 8px; margin-bottom: 8px; }
+        .hd h2 { margin: 0; font-size: 1.2rem; }
+        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; cursor: pointer; }
+        .content { font-size: .95rem; line-height: 1.5; color: var(--fg); }
+        .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--kbd-bg, #0f1730); color: var(--kbd-fg, #e7ecff); border:1px solid var(--kbd-border, #2a345a); border-radius:6px; padding:2px 6px; font-weight: 600; }
+        ul { margin: .25rem 0 .5rem 1.25rem; }
+      </style>
+      <div class="backdrop" part="backdrop"></div>
+      <div class="dialog" role="dialog" aria-modal="true" aria-label="Help and shortcuts">
+        <div class="hd">
+          <h2>About & Shortcuts</h2>
+          <button class="close" aria-label="Close">Close</button>
+        </div>
+        <div class="content">
+          <p>Drawer Count helps quickly total cash drawers with slips, checks, and bill/coin counts. It works offline and can be installed as an app.</p>
+          <p><strong>Keyboard Shortcuts</strong></p>
+          <ul>
+            <li><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">S</span> &rarr; Add Slip</li>
+            <li><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">C</span> &rarr; Add Check</li>
+            <li><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">Backspace</span> &rarr; Remove last added row</li>
+            <li><span class="kbd">Alt</span>+<span class="kbd">Backspace</span> (in a row) &rarr; Remove that row</li>
+          </ul>
+          <p><strong>Install</strong>: Use the browser’s install option or the banner when available. Once installed, it opens in its own window and works offline.</p>
+        </div>
+      </div>
+    `;
+    this._shadow.querySelector('.backdrop')?.addEventListener('click', () => this.close());
+    this._shadow.querySelector('.close')?.addEventListener('click', () => this.close());
+    window.addEventListener('keydown', this._onKeyDown);
+  }
+  disconnectedCallback() {
+    window.removeEventListener('keydown', this._onKeyDown);
+  }
+  open() { this.setAttribute('open', ''); }
+  close() { this.removeAttribute('open'); }
+  _onKeyDown(e) { if (e.key === 'Escape') this.close(); }
+}
+customElements.define('help-modal', HelpModal);
+
+// Ensure a single help modal exists in document
+function getHelpModal() {
+  let m = document.querySelector('help-modal');
+  if (!m) { m = document.createElement('help-modal'); document.body.appendChild(m); }
+  return m;
+}
+
+// Web Component: <app-header> with title, theme toggle, and help button
 class AppHeader extends HTMLElement {
+  constructor() {
+    super();
+    this._onTheme = this._onTheme.bind(this);
+    this._onHelp = this._onHelp.bind(this);
+  }
   connectedCallback() {
     const title = this.getAttribute('title') || 'Drawer Count';
-    this.innerHTML = `<h1>${title}</h1>`;
+    this.innerHTML = `
+      <div class="bar" role="toolbar" aria-label="App header">
+        <h1>${title}</h1>
+        <div class="actions">
+          <button class="icon-btn theme-toggle" aria-label="Toggle theme" title="Toggle theme">${(document.documentElement.getAttribute('data-theme')||getPreferredTheme())==='dark'?'🌙':'☀️'}</button>
+          <button class="icon-btn info-btn" aria-label="Help" title="Help">?</button>
+        </div>
+      </div>`;
+    this.querySelector('.theme-toggle')?.addEventListener('click', this._onTheme);
+    this.querySelector('.info-btn')?.addEventListener('click', this._onHelp);
   }
+  _onTheme() { toggleTheme(); }
+  _onHelp() { getHelpModal().open(); }
 }
 customElements.define('app-header', AppHeader);
 
@@ -97,11 +202,11 @@ class AppInstallBanner extends HTMLElement {
     this._shadow.innerHTML = `
       <style>
         :host { position: sticky; top: 0; z-index: 20; display: block; }
-        .wrap { display: none; background: #152041; border-bottom: 1px solid #2a345a; padding: 10px 12px; }
+        .wrap { display: none; background: var(--banner-bg, #152041); border-bottom: 1px solid var(--banner-border, #2a345a); padding: 10px 12px; }
         .inner { max-width: 980px; margin: 0 auto; display: flex; gap: 10px; align-items: center; justify-content: space-between; }
-        .msg { color: var(--fg, #e0e6ff); }
+        .msg { color: var(--banner-fg, #e0e6ff); }
         .actions { display: flex; gap: 8px; }
-        .primary { background: var(--btn, #3a506b); color: var(--fg, #e0e6ff); border: 1px solid #2a345a; border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+        .primary { background: var(--banner-primary-bg, #3a86ff); color: var(--banner-primary-fg, #0b132b); border: 1px solid var(--banner-border, #2a345a); border-radius: 8px; padding: 8px 12px; cursor: pointer; font-weight: 600; }
         .dismiss { background: transparent; color: var(--muted, #9aa3b2); border: none; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
         .primary:focus, .dismiss:focus { outline: 2px solid var(--accent, #3a86ff); outline-offset: 2px; }
       </style>
@@ -330,17 +435,12 @@ class NetworkStatus extends HTMLElement {
     this._offline = offline;
     // Subtle title hint only when offline
     document.title = offline ? `${this._baseTitle} \u2022 Offline` : this._baseTitle;
-    // As a floating pill: only render text when offline and toggle class for CSS visibility
-    if (offline) {
-      this.textContent = 'Offline';
-      this.classList.add('offline');
-      this.setAttribute('aria-live', 'polite');
-      this.setAttribute('role', 'status');
-    } else {
-      this.textContent = '';
-      this.classList.remove('offline');
-      this.removeAttribute('role');
-    }
+    // Always show with a dot and label, color via classes
+    this.classList.toggle('offline', !!offline);
+    this.classList.toggle('online', !offline);
+    this.setAttribute('aria-live', 'polite');
+    this.setAttribute('role', 'status');
+    this.innerHTML = `<span class="dot" aria-hidden="true"></span><span class="label">${offline ? 'Offline' : 'Online'}</span>`;
   }
 
   _onSwMessage(event) {
