@@ -8,7 +8,9 @@
     "dev": "live-server --port=8080 --open=index.html --watch=src",
     "start": "npm run dev",
     "build": "echo \"No build step needed; this is a static app. Use 'npm run dev' for local preview.\"",
-  "icons": "node ./scripts/generate-icons.js"
+    "icons": "node ./scripts/generate-icons.js",
+    "bump-sw": "node ./scripts/bump-sw-cache.js",
+    "predeploy": "npm run bump-sw"
   },
   "repository": {
     "type": "git",

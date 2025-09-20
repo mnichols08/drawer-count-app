@@ -103,6 +103,12 @@ Any static host will work. Recommended:
 - Paths are relative, so hosting from a subpath is supported (e.g., GitHub Pages). If you further nest the app, keep the manifest `start_url` and `scope` set to `./` so it scopes to the current directory.
 - Ensure responses are served with correct MIME types (e.g., `application/manifest+json` for the manifest, `text/javascript` for `.js`).
 
+Before deploying, optionally bump the service worker cache to ensure clients pick up new assets:
+
+```powershell
+npm run bump-sw
+```
+
 ## License
 
 ISC — see `LICENSE` (or the license field in `package.json`).
