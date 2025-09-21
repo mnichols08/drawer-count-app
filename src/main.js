@@ -479,6 +479,8 @@ class SettingsModal extends HTMLElement {
       applyReadOnlyByActiveDate(header); // ensure lock state and UI are in sync
       // Auto-show completed summary for past days
       try { const today = getTodayKey(); if (key !== today) { const panel = document.querySelector('count-panel'); panel?.showCompletedSummary?.(); } } catch(_) {}
+      // Refresh panel to sync title and hints
+      try { document.querySelector('count-panel')?.refresh?.(); } catch(_) {}
       toast(ok ? `Loaded ${key}` : 'Load failed', { type: ok ? 'success' : 'error', duration: 1800 });
     } catch(_) { toast('Load failed', { type: 'error', duration: 2000 }); }
   }
@@ -492,7 +494,7 @@ class SettingsModal extends HTMLElement {
   }
   _onDayRename() {
     try {
-      const key = this._els?.daySelect?.value; if (!key) return;
+          if (key !== today) { const panel = document.querySelector('count-panel'); panel?.showCompletedSummary?.(); }
       const label = (this._els?.dayLabel?.value || '').trim();
       const ok = setDayLabel(key, label);
       this._populateDaysSelect();
@@ -996,6 +998,8 @@ class AppHeader extends HTMLElement {
       }
       applyReadOnlyByActiveDate(this);
       updateLockButtonUI(this);
+      // Refresh panel to update hint and button visibility
+      try { document.querySelector('count-panel')?.refresh?.(); } catch(_) {}
     } catch(_) {}
   }
   _closeMenu() {
@@ -1320,7 +1324,10 @@ class DayPickerModal extends HTMLElement {
             <button class="btn next" aria-label="Next month">▶</button>
           </div>
           <h3 class="title">${monthName}</h3>
-          <button class="btn close" aria-label="Close">Close</button>
+          <div style="display:flex; gap:8px;">
+            <button class="btn cancel" aria-label="Cancel">Cancel</button>
+            <button class="btn close" aria-label="Close">Close</button>
+          </div>
         </div>
         <div class="grid">
           <div class="dow">Sun</div><div class="dow">Mon</div><div class="dow">Tue</div><div class="dow">Wed</div><div class="dow">Thu</div><div class="dow">Fri</div><div class="dow">Sat</div>
@@ -1333,9 +1340,11 @@ class DayPickerModal extends HTMLElement {
       prev: this._shadow.querySelector('.prev'),
       next: this._shadow.querySelector('.next'),
       close: this._shadow.querySelector('.close'),
+      cancel: this._shadow.querySelector('.cancel'),
     };
     this._els.backdrop?.addEventListener('click', () => this.close());
     this._els.close?.addEventListener('click', () => this.close());
+    this._els.cancel?.addEventListener('click', () => this.close());
     this._els.prev?.addEventListener('click', this._onPrev);
     this._els.next?.addEventListener('click', this._onNext);
     this._shadow.querySelectorAll('button.day')?.forEach((b) => b.addEventListener('click', this._onDayClick));
@@ -1831,6 +1840,7 @@ class CountPanel extends HTMLElement {
 
   // Public API for external controls (header toggle)
   isCollapsed() { return !!this._state.collapsed; }
+  refresh() { this._refresh(); }
   expand() {
     // Do not auto-start; expand only if already started, otherwise keep hidden
     if (!this._state.started) return false;
@@ -1887,12 +1897,16 @@ class CountPanel extends HTMLElement {
   this._els.complete.hidden = !started || !!completed || readOnly;
     this._els.reopen.hidden = !completed;
 
-    // Toggle labels/ARIA
+  // Toggle labels/ARIA
     this._els.toggle.textContent = collapsed ? 'Show' : 'Hide';
     this._els.toggle.setAttribute('aria-expanded', String(!collapsed));
 
     // Determine whether action is Save vs Mark complete
     const saveMode = this._isSaveMode();
+    // Update title for active day
+    try {
+      if (this._els.title) this._els.title.textContent = this._activeDayTitle();
+    } catch(_) {}
     if (!this._els.complete.hidden) {
       const label = saveMode ? 'Save' : 'Mark complete';
       this._els.complete.textContent = label;
@@ -2046,6 +2060,24 @@ class CountPanel extends HTMLElement {
       const unlocked = (typeof isDayEditUnlocked === 'function') ? isDayEditUnlocked() : false;
       return past && !unlocked;
     } catch (_) { return false; }
+  }
+
+  _activeDayTitle() {
+    try {
+      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
+      if (!key) return "Today's Count";
+      const today = (typeof getTodayKey === 'function') ? getTodayKey() : '';
+      if (key === today) return "Today's Count";
+      // Compute yesterday key
+      const d = new Date(); d.setDate(d.getDate() - 1);
+      const yk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      if (key === yk) return "Yesterday's Count";
+      // Format key as localized date (e.g., Tue, Sep 17, 2025)
+      const [Y,M,D] = key.split('-').map((x)=>Number(x));
+      const dt = new Date(Y, (M||1)-1, D||1);
+      const formatted = dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+      return `${formatted} Count`;
+    } catch(_) { return "Count"; }
   }
 
   _hasSavedDay(key) {
