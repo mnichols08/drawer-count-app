@@ -1378,9 +1378,16 @@ class OptionalFieldsModal extends HTMLElement {
       set('#opt-num-voids', this._els.numVoids.value);
       // Auto-save snapshot for active day
       try { const key = getActiveViewDateKey(); saveSpecificDay(key); } catch(_) {}
-      // Update status pill
-      try { const header = document.querySelector('app-header'); updateStatusPill(header); } catch(_) {}
-      toast('Optional fields saved', { type: 'success', duration: 1600 });
+      // After saving, lock edits and refresh read-only state
+      try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch(_) {}
+      // Update status pill and apply read-only to inputs
+      try {
+        const header = document.querySelector('app-header');
+        updateStatusPill(header);
+        applyReadOnlyByActiveDate(header);
+        updateLockButtonUI(header);
+      } catch(_) {}
+      toast('Optional fields saved. Editing locked.', { type: 'success', duration: 1800 });
     } catch(_) { toast('Save failed', { type: 'error', duration: 2000 }); }
     this.close();
   }
@@ -2533,8 +2540,16 @@ class CountPanel extends HTMLElement {
           const key = getActiveViewDateKey();
           if (key) saveSpecificDay(key);
         }
-        try { const header = document.querySelector('app-header'); updateStatusPill(header); } catch(_) {}
-        try { if (typeof toast === 'function') toast('Saved'); } catch(_) {}
+        // After saving a past day, automatically lock edits again (make uneditable)
+        try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch(_) {}
+        try {
+          const header = document.querySelector('app-header');
+          updateStatusPill(header);
+          // Apply read-only to <drawer-count> and sync lock icon/title
+          applyReadOnlyByActiveDate(header);
+          updateLockButtonUI(header);
+        } catch(_) {}
+        try { if (typeof toast === 'function') toast('Saved. Editing locked.'); } catch(_) {}
       } catch (_) { /* ignore */ }
       // Let the user see the busy state very briefly
       setTimeout(() => this._endProcessing(), 200);
