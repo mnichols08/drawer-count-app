@@ -279,6 +279,7 @@ app.get('/api/kv', async (req, res) => {
 			if (d.scope === 'global' && cur.scope !== 'global') { map.set(k, d); continue; }
 			if ((d.updatedAt || 0) > (cur.updatedAt || 0)) { map.set(k, d); }
 		}
+		// Remove clientId from each item before sending the response to avoid exposing internal identifiers.
 		const items = Array.from(map.values()).map(({ clientId, ...rest }) => rest);
 		res.json({ ok: true, items });
 	} catch (err) {
