@@ -33,6 +33,7 @@ const RAW_PRECACHE_URLS = [
 ];
 // Map to scope-relative paths and ensure uniqueness to avoid Cache.addAll duplicate request errors
 const PRECACHE_URLS = Array.from(new Set(RAW_PRECACHE_URLS.map(toScopePath)));
+const stripQuery = (p) => p.split('?')[0];
 const INDEX_PATH = toScopePath('index.html');
 const ROOT_PATH = toScopePath('.');
 const OFFLINE_PATH = toScopePath('offline.html');
