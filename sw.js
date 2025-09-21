@@ -1,5 +1,5 @@
 /* Drawer Count Service Worker */
-const CACHE_VERSION = 'v16';
+const CACHE_VERSION = 'v17';
 const PRECACHE = `precache-${CACHE_VERSION}`;
 const RUNTIME = `runtime-${CACHE_VERSION}`;
 
@@ -12,7 +12,6 @@ const RAW_PRECACHE_URLS = [
   'manifest.webmanifest',
   'src/style.css',
   'src/main.js',
-  'src/main.js?v=7',
   'src/drawer-count.js',
   'src/icons/favicon.svg',
   'src/icons/icon-192.png',
@@ -32,7 +31,8 @@ const RAW_PRECACHE_URLS = [
   'favicon.ico',
   'browserconfig.xml'
 ];
-const PRECACHE_URLS = RAW_PRECACHE_URLS.map(toScopePath);
+// Map to scope-relative paths and ensure uniqueness to avoid Cache.addAll duplicate request errors
+const PRECACHE_URLS = Array.from(new Set(RAW_PRECACHE_URLS.map(toScopePath)));
 const stripQuery = (p) => p.split('?')[0];
 const INDEX_PATH = toScopePath('index.html');
 const ROOT_PATH = toScopePath('.');
