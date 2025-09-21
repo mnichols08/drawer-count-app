@@ -1887,6 +1887,15 @@ class CountPanel extends HTMLElement {
     this._els.toggle.textContent = collapsed ? 'Show' : 'Hide';
     this._els.toggle.setAttribute('aria-expanded', String(!collapsed));
 
+    // Determine whether action is Save vs Mark complete
+    const saveMode = this._isSaveMode();
+    if (!this._els.complete.hidden) {
+      const label = saveMode ? 'Save' : 'Mark complete';
+      this._els.complete.textContent = label;
+      this._els.complete.setAttribute('aria-label', label);
+      this._els.complete.title = label;
+    }
+
   // Decide which container is visible (summary when completed, body otherwise)
   const container = this._visibleContainer();
   this._syncContainersVisibility();
@@ -2023,6 +2032,23 @@ class CountPanel extends HTMLElement {
     } catch (_) { /* ignore */ }
   }
 
+  _hasSavedDay(key) {
+    try {
+      const { entry } = _getActiveDaysEntry(false);
+      return !!entry?.days?.[key];
+    } catch (_) { return false; }
+  }
+
+  _isSaveMode() {
+    try {
+      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
+      if (!key) return true;
+      const today = (typeof getTodayKey === 'function') ? getTodayKey() : '';
+      if (key !== today) return true; // past or future date -> Save
+      return this._hasSavedDay(key); // today but already saved previously -> Save
+    } catch (_) { return true; }
+  }
+
   _focusFirstInput() {
     try {
       const dc = this.querySelector('drawer-count');
@@ -2053,20 +2079,33 @@ class CountPanel extends HTMLElement {
   }
 
   _onComplete() {
+    const saveMode = this._isSaveMode();
+    if (saveMode) {
+      // Just save snapshot without changing completed state
+      try {
+        if (typeof getActiveViewDateKey === 'function' && typeof saveSpecificDay === 'function') {
+          const key = getActiveViewDateKey();
+          if (key) saveSpecificDay(key);
+        }
+        try { const header = document.querySelector('app-header'); updateStatusPill(header); } catch(_) {}
+        try { if (typeof toast === 'function') toast('Saved'); } catch(_) {}
+      } catch (_) { /* ignore */ }
+      this._refresh();
+      return;
+    }
+
     // Mark complete, collapse, and lock edits
     this._state.completed = true;
-    // Auto-expand summary for this session ONLY; do not persist collapsed=false
     // Persist only that it is completed and started
     this._savePersisted({ completed: true, started: true });
     try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch (_) {}
-    // Save snapshot for current day if helpers exist
+    // Save snapshot for current day
     try {
       if (typeof getActiveViewDateKey === 'function' && typeof saveSpecificDay === 'function') {
         const key = getActiveViewDateKey();
         if (key) saveSpecificDay(key);
       }
     } catch (_) {}
-    // Toast if available
     try { if (typeof toast === 'function') toast('Marked complete for this day.'); } catch (_) {}
     // Show summary now but don't save that it's expanded
     this._state.collapsed = false;
