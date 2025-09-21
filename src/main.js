@@ -812,8 +812,14 @@ class AppHeader extends HTMLElement {
   window.addEventListener('click', this._onOutsideClick, true);
   this.querySelector('.menu-backdrop')?.addEventListener('click', () => this._closeMenu());
 
-    // Initialize profiles UI
-  try { ensureProfilesInitialized(); populateProfilesSelect(this); updateStatusPill(this); updateLockButtonUI(this); } catch(_) {}
+    // Initialize profiles UI (prefer remote if available before seeding defaults)
+    (async () => {
+      try {
+        await initProfilesFromRemoteIfAvailable();
+      } catch (_) { /* ignore */ }
+      try { ensureProfilesInitialized(); } catch (_) {}
+      try { populateProfilesSelect(this); updateStatusPill(this); updateLockButtonUI(this); } catch (_) {}
+    })();
   }
   _onTheme() { toggleTheme(); }
   _onHelp() { getHelpModal().open(); }
@@ -1965,14 +1971,49 @@ function saveProfilesData(data) {
 }
 
 function ensureProfilesInitialized() {
-  const data = loadProfilesData();
-  if (!data.profiles || !data.activeId) {
+  // Ensure there is always at least one profile ("default") and a valid activeId
+  try {
+    const data = loadProfilesData() || {};
+    let changed = false;
     const now = Date.now();
-    const init = { profiles: { default: { name: 'Default', state: null, updatedAt: now } }, activeId: 'default', updatedAt: now };
-    saveProfilesData({ ...init, ...data });
+
+    // Ensure profiles map exists
+    if (!data.profiles || typeof data.profiles !== 'object') {
+      data.profiles = {};
+      changed = true;
+    }
+
+    // Seed default profile if none exist
+    if (Object.keys(data.profiles).length === 0) {
+      data.profiles.default = { name: 'Default', state: null, updatedAt: now };
+      changed = true;
+    }
+
+    // Ensure activeId exists and points to a valid profile
+    if (!data.activeId || !data.profiles[data.activeId]) {
+      data.activeId = 'default';
+      // Also ensure the default profile exists in case activeId was invalid
+      if (!data.profiles.default) {
+        data.profiles.default = { name: 'Default', state: null, updatedAt: now };
+      }
+      changed = true;
+    }
+
+    if (changed) {
+      data.updatedAt = now;
+      saveProfilesData(data);
+      return true;
+    }
+    return false;
+  } catch (_) {
+    // As a last resort, write a minimal default structure
+    try {
+      const now = Date.now();
+      const init = { profiles: { default: { name: 'Default', state: null, updatedAt: now } }, activeId: 'default', updatedAt: now };
+      saveProfilesData(init);
+    } catch (_) {}
     return true;
   }
-  return false;
 }
 
 function getActiveProfileId() { try { const d = loadProfilesData(); return d.activeId || 'default'; } catch(_) { return 'default'; } }
@@ -2023,8 +2064,19 @@ function createProfile(name) {
 function populateProfilesSelect(headerEl) {
   try {
     const sel = headerEl?.querySelector?.('.profile-select'); if (!sel) return;
-    const d = loadProfilesData(); const active = d.activeId || 'default'; const profiles = d.profiles || {};
-    const entries = Object.entries(profiles);
+    let d = loadProfilesData(); let active = d.activeId || 'default'; let profiles = d.profiles || {};
+    let entries = Object.entries(profiles);
+    // Defensive: if no profiles present, try to initialize and reload
+    if (entries.length === 0) {
+      try { ensureProfilesInitialized(); } catch(_) {}
+      d = loadProfilesData(); active = d.activeId || 'default'; profiles = d.profiles || {}; entries = Object.entries(profiles);
+      // As a last resort, synthesize a default option in UI to avoid empty select
+      if (entries.length === 0) {
+        profiles = { default: { name: 'Default', state: null, updatedAt: Date.now() } };
+        active = 'default';
+        entries = Object.entries(profiles);
+      }
+    }
     sel.innerHTML = '';
     for (const [id, info] of entries) {
       const opt = document.createElement('option');
@@ -2107,6 +2159,9 @@ function updateLockButtonUI(headerEl) {
   } catch(_) {}
 }
 
+// Placeholder for potential future logic when switching profiles; currently a no-op
+function ensureDayResetIfNeeded(_headerEl) { /* no-op */ }
+
 // Debounced push scheduler for sync
 const _debouncedPushers = {};
 function _scheduleSyncPush(key) {
@@ -2136,6 +2191,40 @@ function apiUrl(path) {
   const b = (resolved || getApiBase()).replace(/\/+$/, '');
   const p = path.startsWith('/') ? path : `/${path}`;
   return `${b}${p}`;
+}
+
+function _apiCandidatesFor(path) {
+  try {
+    const candidates = [];
+    const primaryFull = apiUrl(path);
+    candidates.push(primaryFull);
+    // If the current base is a Render domain, add toggled .app/.com variant
+    try {
+      const base = (typeof window !== 'undefined' && window.DCA_API_BASE_RESOLVED) ? String(window.DCA_API_BASE_RESOLVED) : getApiBase();
+      if (/^https?:\/\//i.test(base) && /\.onrender\.(app|com)/i.test(base)) {
+        const alt = base.includes('.onrender.app')
+          ? base.replace('.onrender.app', '.onrender.com')
+          : base.replace('.onrender.com', '.onrender.app');
+        const altFull = `${alt.replace(/\/+$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
+        if (altFull !== primaryFull) candidates.push(altFull);
+      }
+    } catch (_) {}
+    // If we're using local '/api', try the known production default as a fallback
+    try {
+      const base = getApiBase();
+      const isLocalBase = !/^https?:\/\//i.test(base); // '/api' or similar
+      if (isLocalBase) {
+        const prod = 'https://drawer-counter.onrender.app/api';
+        const prodFull = `${prod.replace(/\/+$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
+        if (!candidates.includes(prodFull)) candidates.push(prodFull);
+        // also add toggled render domain
+        const prodAlt = prod.includes('.onrender.app') ? prod.replace('.onrender.app', '.onrender.com') : prod.replace('.onrender.com', '.onrender.app');
+        const prodAltFull = `${prodAlt.replace(/\/+$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
+        if (!candidates.includes(prodAltFull)) candidates.push(prodAltFull);
+      }
+    } catch (_) {}
+    return candidates;
+  } catch (_) { return [apiUrl(path)]; }
 }
 async function fetchServerHealth() {
   try {
@@ -2235,11 +2324,19 @@ function _getClientId() {
 
 async function _fetchRemoteKV(key) {
   try {
-    const res = await fetch(apiUrl(`/kv/${encodeURIComponent(key)}`), { cache: 'no-store' });
-    if (res.status === 404) return { ok: true, missing: true };
-    if (!res.ok) return { ok: false };
-    const data = await res.json();
-    return { ok: true, value: data.value, updatedAt: Number(data.updatedAt || 0) };
+    const path = `/kv/${encodeURIComponent(key)}`;
+    const urls = _apiCandidatesFor(path);
+    let lastErr = null;
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (res.status === 404) return { ok: true, missing: true };
+        if (!res.ok) { lastErr = new Error(`HTTP ${res.status}`); continue; }
+        const data = await res.json();
+        return { ok: true, value: data.value, updatedAt: Number(data.updatedAt || 0) };
+      } catch (e) { lastErr = e; }
+    }
+    return { ok: false, error: lastErr ? String(lastErr) : 'unknown' };
   } catch(_) { return { ok: false }; }
 }
 
@@ -2297,6 +2394,46 @@ function initOnlineSync() {
     _syncAllKeys();
     window.addEventListener('online', () => { _syncAllKeys(); });
   } catch(_) { /* ignore */ }
+}
+
+// Attempt to prime local profiles from remote before UI renders, so all server profiles appear
+async function initProfilesFromRemoteIfAvailable() {
+  try {
+    // Fetch remote first
+    const remote = await _fetchRemoteKV(DRAWER_PROFILES_KEY);
+    if (!remote.ok || remote.missing) return false;
+    const rAt = Number(remote.updatedAt || 0);
+    const rVal = remote.value;
+    const rText = (typeof rVal === 'string') ? rVal : JSON.stringify(rVal);
+    let rObj = null;
+    try { rObj = JSON.parse(rText); } catch (_) { rObj = null; }
+
+    // Inspect local
+    const localRaw = localStorage.getItem(DRAWER_PROFILES_KEY);
+    const localMeta = _getLocalMeta(DRAWER_PROFILES_KEY) || { updatedAt: 0 };
+    const lAt = Number(localMeta.updatedAt || 0);
+    let lObj = null;
+    try { lObj = localRaw ? JSON.parse(localRaw) : null; } catch (_) { lObj = null; }
+
+    const localProfiles = (lObj && lObj.profiles && typeof lObj.profiles === 'object') ? lObj.profiles : {};
+    const remoteProfiles = (rObj && rObj.profiles && typeof rObj.profiles === 'object') ? rObj.profiles : {};
+    const localCount = Object.keys(localProfiles).length;
+    const remoteCount = Object.keys(remoteProfiles).length;
+
+    // Decision matrix:
+    // - If no local data: adopt remote
+    // - If local has 0 or 1 profile(s) (default-only scenarios) and remote has more: adopt remote
+    // - Else, if remote updatedAt is newer than local: adopt remote
+    // - Otherwise, keep local
+    const localLooksDefaultOnly = (localCount <= 1);
+    const remoteHasMore = (remoteCount > localCount);
+    if (!localRaw || (localLooksDefaultOnly && remoteHasMore) || (rAt > lAt)) {
+      localStorage.setItem(DRAWER_PROFILES_KEY, rText);
+      _setLocalMeta(DRAWER_PROFILES_KEY, { updatedAt: rAt || Date.now() });
+      return true;
+    }
+    return false;
+  } catch (_) { return false; }
 }
 
 // ------------------------------
