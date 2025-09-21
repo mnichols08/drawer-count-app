@@ -18,6 +18,10 @@ class AppToaster extends HTMLElement {
           display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px;
           transform: translateY(8px); opacity: 0; transition: transform .15s ease, opacity .15s ease;
         }
+        <div class="panel-empty" role="group" aria-label="Start drawer count">
+          <button class="btn-start-ghost" type="button" aria-label="Start today’s count">Start today’s count</button>
+          <p class="empty-hint" id="empty-hint">Or use the header’s Today button.</p>
+        </div>
         .toast.show { transform: translateY(0); opacity: 1; }
         .msg { font-size: 0.95rem; }
         .btnx, .act { background: transparent; color: inherit; border: 1px solid var(--border, #2a345a); cursor: pointer; padding: 4px 8px; border-radius: 6px; }
@@ -2008,6 +2012,7 @@ class CountPanel extends HTMLElement {
     this._els.title = this.querySelector('.panel-title');
     this._els.actions = this.querySelector('.panel-actions');
     this._els.start = this.querySelector('.start-btn');
+  this._els.startGhost = this.querySelector('.btn-start-ghost');
     this._els.toggle = this.querySelector('.toggle-btn');
     this._els.lock = this.querySelector('.lock-btn');
     this._els.complete = this.querySelector('.complete-btn');
@@ -2021,6 +2026,7 @@ class CountPanel extends HTMLElement {
 
   _bind() {
     this._els.start.addEventListener('click', this._onStart);
+  this._els.startGhost?.addEventListener('click', this._onStart);
     this._els.toggle.addEventListener('click', this._onToggle);
     this._els.lock.addEventListener('click', this._onToggleLock.bind(this));
     this._els.complete.addEventListener('click', this._onComplete);
@@ -2217,6 +2223,20 @@ class CountPanel extends HTMLElement {
     if (this._els.lockHint) this._els.lockHint.hidden = !(started && !completed && readOnly);
     // Keep lock icon/title in sync
     try { updateLockButtonUI(this); } catch(_) {}
+
+    // Empty placeholder visibility
+    try {
+      const emptyEl = this.querySelector('.panel-empty');
+      if (emptyEl) {
+        if (isEmpty) {
+          emptyEl.hidden = false;
+          emptyEl.setAttribute('aria-hidden', 'false');
+        } else {
+          emptyEl.hidden = true;
+          emptyEl.setAttribute('aria-hidden', 'true');
+        }
+      }
+    } catch(_) {}
   }
 
   async _onCancel() {
