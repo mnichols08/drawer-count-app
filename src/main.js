@@ -1070,6 +1070,7 @@ class AppHeader extends HTMLElement {
     } catch(_) {}
   }
   async _onToggleLock() {
+    if (this._isProcessing) return; // avoid lock toggles during processing
     try {
       const today = getTodayKey();
       const key = getActiveViewDateKey();
@@ -1823,6 +1824,7 @@ class CountPanel extends HTMLElement {
     super();
     this._els = {};
     this._state = { started: false, collapsed: true, completed: false };
+    this._isProcessing = false; // UI busy flag during save/complete
     this._onStart = this._onStart.bind(this);
     this._onToggle = this._onToggle.bind(this);
     this._onComplete = this._onComplete.bind(this);
@@ -1985,6 +1987,8 @@ class CountPanel extends HTMLElement {
     // Classes
     this.classList.toggle('collapsed', !!collapsed);
     this.classList.toggle('completed', !!completed);
+    // Busy ARIA
+    this.setAttribute('aria-busy', this._isProcessing ? 'true' : 'false');
 
     // Buttons visibility
     this._els.start.hidden = !!started;
@@ -2020,6 +2024,12 @@ class CountPanel extends HTMLElement {
     } catch(_) { showCancel = false; }
     this._els.cancel.hidden = !showCancel;
 
+    // Disable certain controls while processing to prevent conflicts
+    if (this._els.complete) this._els.complete.disabled = !!this._isProcessing || readOnly;
+    if (this._els.cancel) this._els.cancel.disabled = !!this._isProcessing;
+    if (this._els.lock) this._els.lock.disabled = !!this._isProcessing;
+    if (this._els.toggle) this._els.toggle.disabled = !!this._isProcessing;
+
   // Toggle labels/ARIA
     this._els.toggle.textContent = collapsed ? 'Show' : 'Hide';
     this._els.toggle.setAttribute('aria-expanded', String(!collapsed));
@@ -2031,7 +2041,7 @@ class CountPanel extends HTMLElement {
       if (this._els.title) this._els.title.textContent = this._activeDayTitle();
     } catch(_) {}
     if (!this._els.complete.hidden) {
-      const label = saveMode ? 'Save' : 'Mark complete';
+      const label = this._isProcessing ? (saveMode ? 'Saving…' : 'Completing…') : (saveMode ? 'Save' : 'Mark complete');
       this._els.complete.textContent = label;
       this._els.complete.setAttribute('aria-label', label);
       this._els.complete.title = label;
@@ -2053,6 +2063,7 @@ class CountPanel extends HTMLElement {
   }
 
   async _onCancel() {
+    if (this._isProcessing) return; // ignore while busy
     if (!this._state.started) return;
     try {
       const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
@@ -2323,8 +2334,23 @@ class CountPanel extends HTMLElement {
     this._refresh();
   }
 
+  _beginProcessing(kind) {
+    // kind: 'save' | 'complete'
+    this._isProcessing = true;
+    this._processingKind = kind || null;
+    this._refresh();
+  }
+
+  _endProcessing() {
+    this._isProcessing = false;
+    this._processingKind = null;
+    this._refresh();
+  }
+
   _onComplete() {
+    if (this._isProcessing) return; // prevent double submit
     const saveMode = this._isSaveMode();
+    this._beginProcessing(saveMode ? 'save' : 'complete');
     if (saveMode) {
       // Just save snapshot without changing completed state
       try {
@@ -2335,6 +2361,8 @@ class CountPanel extends HTMLElement {
         try { const header = document.querySelector('app-header'); updateStatusPill(header); } catch(_) {}
         try { if (typeof toast === 'function') toast('Saved'); } catch(_) {}
       } catch (_) { /* ignore */ }
+      // Let the user see the busy state very briefly
+      setTimeout(() => this._endProcessing(), 200);
       this._refresh();
       return;
     }
@@ -2354,6 +2382,8 @@ class CountPanel extends HTMLElement {
     try { if (typeof toast === 'function') toast('Marked complete for this day.'); } catch (_) {}
     // Show summary now but don't save that it's expanded
     this._state.collapsed = false;
+    // Briefly show processing state then finish
+    setTimeout(() => this._endProcessing(), 250);
     this._refresh();
   }
 
