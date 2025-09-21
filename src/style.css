@@ -452,3 +452,10 @@ main.container > .card {
   .count-panel .panel-actions button { padding: 0.34rem 0.55rem; }
   .count-panel .panel-title { font-size: 0.95rem; }
 }
+
+/* Empty state: keep the card minimal/invisible until counting or reviewing */
+.count-panel.empty .panel-header,
+.count-panel.empty .panel-body,
+.count-panel.empty .panel-summary,
+.count-panel.empty .hint { display: none !important; }
+.count-panel.empty { min-height: 0; }

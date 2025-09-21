@@ -2108,18 +2108,21 @@ class CountPanel extends HTMLElement {
     const { started, completed } = this._state;
     // Never show content before start; force collapsed in-memory
     if (!started) this._state.collapsed = true;
+    // Determine whether panel should render an "empty" shell (nothing visible)
+    const isEmpty = !started && !completed;
     const collapsed = this._state.collapsed;
     const readOnly = this._computeReadOnly();
 
     // Classes
-    this.classList.toggle('collapsed', !!collapsed);
+  this.classList.toggle('collapsed', !!collapsed);
+  this.classList.toggle('empty', !!isEmpty);
     this.classList.toggle('completed', !!completed);
     // Busy ARIA
     this.setAttribute('aria-busy', this._isProcessing ? 'true' : 'false');
 
     // Buttons visibility
-    this._els.start.hidden = !!started;
-    this._els.toggle.hidden = !started; // only makes sense after start
+  this._els.start.hidden = !!started;
+  this._els.toggle.hidden = !started; // only makes sense after start
     // Show the lock button ONLY when the "Reopen" edit screen is active:
     // i.e., started, not completed, and viewing a past day (not today)
     let isPast = false;
@@ -2189,7 +2192,7 @@ class CountPanel extends HTMLElement {
       this._els.complete.title = this._isProcessing ? processingLabel : baseLabel;
     }
 
-  // Decide which container is visible (summary when completed, body otherwise)
+    // Decide which container is visible (summary when completed, body otherwise)
   const container = this._visibleContainer();
   this._syncContainersVisibility();
   // (Re)render summary if needed
@@ -2197,8 +2200,14 @@ class CountPanel extends HTMLElement {
   // Avoid re-running expand/collapse if state didn't change and caller asked for no animation
   const collapsedChanged = this._lastCollapsed !== collapsed;
   const completedChanged = this._lastCompleted !== completed;
-  if (collapsedChanged || completedChanged || !noAnim) {
+  if (!isEmpty && (collapsedChanged || completedChanged || !noAnim)) {
     if (collapsed) this._collapseEl(container, !noAnim); else this._expandEl(container, !noAnim);
+  } else if (isEmpty) {
+    // Ensure both containers are hidden when empty
+    try {
+      this._els.body.hidden = true; this._els.body.setAttribute('aria-hidden', 'true'); this._els.body.style.height = '0px';
+      this._els.summary.hidden = true; this._els.summary.setAttribute('aria-hidden', 'true'); this._els.summary.style.height = '0px';
+    } catch(_) {}
   }
   this._lastCollapsed = collapsed;
   this._lastCompleted = completed;
