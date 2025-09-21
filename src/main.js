@@ -494,7 +494,10 @@ class SettingsModal extends HTMLElement {
   }
   _onDayRename() {
     try {
-          if (key !== today) { const panel = document.querySelector('count-panel'); panel?.showCompletedSummary?.(); }
+      const key = this._els?.daySelect?.value || getActiveViewDateKey();
+      const today = getTodayKey();
+      // If renaming a past day, keep UX consistent by showing completed summary
+      if (key && key !== today) { const panel = document.querySelector('count-panel'); panel?.showCompletedSummary?.(); }
       const label = (this._els?.dayLabel?.value || '').trim();
       const ok = setDayLabel(key, label);
       this._populateDaysSelect();
@@ -801,6 +804,96 @@ customElements.define('unlock-confirm-modal', UnlockConfirmModal);
 function getUnlockConfirmModal() {
   let m = document.querySelector('unlock-confirm-modal');
   if (!m) { m = document.createElement('unlock-confirm-modal'); document.body.appendChild(m); }
+  return m;
+}
+
+// Web Component: <revert-confirm-modal> — confirm reverting in-progress edits to last saved snapshot
+class RevertConfirmModal extends HTMLElement {
+  constructor() {
+    super();
+    this._shadow = this.attachShadow({ mode: 'open' });
+    this._onKeyDown = this._onKeyDown.bind(this);
+    this._resolver = null;
+    this._dayKey = '';
+  }
+  connectedCallback() { this._render(); window.addEventListener('keydown', this._onKeyDown); }
+  disconnectedCallback() { window.removeEventListener('keydown', this._onKeyDown); }
+  _render() {
+    this._shadow.innerHTML = `
+      <style>
+        :host { display: none; }
+        :host([open]) { display: block; }
+        .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(2px); z-index: 1000; }
+        .dialog { position: fixed; inset: 12% auto auto 50%; transform: translateX(-50%);
+         max-width: min(520px, 92vw); max-height: min(85vh, 92vh); overflow-y: auto; overflow-x: hidden;
+          background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
+          border: 1px solid var(--border, #2a345a); border-radius: 12px; padding: 14px; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
+        .hd { display:flex; justify-content: space-between; align-items:center; gap: 8px; margin-bottom: 10px; }
+        .hd h2 { margin: 0; font-size: 1.1rem; }
+        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+        .content { display: grid; gap: 10px; }
+        .warn { color: #ffd6a6; }
+        .actions { display:flex; gap: 8px; justify-content: flex-end; }
+        .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 8px 12px; cursor: pointer; min-height: 40px; font-weight: 600; }
+        .btn-danger { background: #5a2a2a; color: #ffd6d6; border-color: #7a3a3a; }
+      </style>
+      <div class="backdrop" part="backdrop"></div>
+      <div class="dialog" role="dialog" aria-modal="true" aria-label="Revert changes">
+        <div class="hd">
+          <h2>Revert changes?</h2>
+          <button class="close" aria-label="Close">Close</button>
+        </div>
+        <div class="content">
+          <p>Discard your changes and restore the last saved snapshot for <strong class="key"></strong>?</p>
+          <p class="warn">This cannot be undone.</p>
+          <div class="actions">
+            <button type="button" class="btn btn-cancel">Cancel</button>
+            <button type="button" class="btn btn-danger btn-revert">Revert</button>
+          </div>
+        </div>
+      </div>
+    `;
+    this._els = {
+      backdrop: this._shadow.querySelector('.backdrop'),
+      close: this._shadow.querySelector('.close'),
+      cancel: this._shadow.querySelector('.btn-cancel'),
+      revert: this._shadow.querySelector('.btn-revert'),
+      key: this._shadow.querySelector('.key'),
+    };
+    this._els.backdrop?.addEventListener('click', () => this._cancel());
+    this._els.close?.addEventListener('click', () => this._cancel());
+    this._els.cancel?.addEventListener('click', () => this._cancel());
+    this._els.revert?.addEventListener('click', () => this._confirm());
+  }
+  open(dayKey = '') {
+    if (!this._els) this._render();
+    this._dayKey = dayKey || '';
+    // Friendly label: Today/Yesterday/key
+    try {
+      const today = getTodayKey();
+      let label = dayKey || today;
+      if (dayKey === today) label = "today";
+      else {
+        const d = new Date(); d.setDate(d.getDate()-1);
+        const yk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        if (dayKey === yk) label = "yesterday";
+      }
+      if (this._els.key) this._els.key.textContent = label;
+    } catch(_) { if (this._els?.key) this._els.key.textContent = dayKey || 'this day'; }
+    this.setAttribute('open', '');
+    return new Promise((resolve) => { this._resolver = resolve; });
+  }
+  close() { this.removeAttribute('open'); }
+  _cancel() { this.close(); this._resolve(false); }
+  _confirm() { this.close(); this._resolve(true); }
+  _resolve(v) { const r = this._resolver; this._resolver = null; if (r) r(v); }
+  _onKeyDown(e) { if (e.key === 'Escape' && this.hasAttribute('open')) this._cancel(); }
+}
+customElements.define('revert-confirm-modal', RevertConfirmModal);
+
+function getRevertConfirmModal() {
+  let m = document.querySelector('revert-confirm-modal');
+  if (!m) { m = document.createElement('revert-confirm-modal'); document.body.appendChild(m); }
   return m;
 }
 
@@ -1894,15 +1987,30 @@ class CountPanel extends HTMLElement {
     this.classList.toggle('completed', !!completed);
 
     // Buttons visibility
-  this._els.start.hidden = !!started;
-  this._els.toggle.hidden = !started; // only makes sense after start
-  // Lock button visible when not today (to reflect lock state) and after start; still show for today to communicate state
-  this._els.lock.hidden = !started;
-  // Hide save/complete when read-only (nothing to save)
-  this._els.complete.hidden = !started || !!completed || readOnly;
+    this._els.start.hidden = !!started;
+    this._els.toggle.hidden = !started; // only makes sense after start
+    // Lock button visible when not today (to reflect lock state) and after start; still show for today to communicate state
+    this._els.lock.hidden = !started;
+    // Hide save/complete when read-only (nothing to save)
+    this._els.complete.hidden = !started || !!completed || readOnly;
     this._els.reopen.hidden = !completed;
-    // Show Cancel when started and currently expanded (provides a quick collapse)
-    this._els.cancel.hidden = !started || !!this._state.collapsed;
+
+    // Cancel should only be visible when there are unsaved changes you can actually revert
+    // Criteria:
+    // - Panel is started
+    // - Panel is expanded (we only show controls when visible)
+    // - There is a saved snapshot for the active day AND the current state differs from that snapshot
+    //   OR (for today) the panel is completed and user reopened/edited (unsaved delta vs completed)
+    let showCancel = false;
+    try {
+      if (started && !this._state.collapsed) {
+        const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
+        const hasSaved = key ? this._hasSavedDay(key) : false;
+        const hasUnsaved = this._hasUnsavedChangesComparedToSaved();
+        showCancel = !!(hasSaved && hasUnsaved);
+      }
+    } catch(_) { showCancel = false; }
+    this._els.cancel.hidden = !showCancel;
 
   // Toggle labels/ARIA
     this._els.toggle.textContent = collapsed ? 'Show' : 'Hide';
@@ -1936,11 +2044,55 @@ class CountPanel extends HTMLElement {
     try { updateLockButtonUI(this); } catch(_) {}
   }
 
-  _onCancel() {
+  async _onCancel() {
     if (!this._state.started) return;
+    try {
+      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
+      if (key && this._hasSavedDay(key) && this._hasUnsavedChangesComparedToSaved()) {
+        // Confirm before reverting
+        const modal = (typeof getRevertConfirmModal === 'function') ? getRevertConfirmModal() : null;
+        let proceed = true;
+        if (modal && typeof modal.open === 'function') {
+          proceed = await modal.open(key);
+        }
+        if (!proceed) return;
+        // Restore saved snapshot and show summary
+        try { restoreDay(key); } catch(_) {}
+        this._state.started = true;
+        this._state.completed = true;
+        this._state.collapsed = false;
+        this._savePersisted({ started: true, completed: true, collapsed: false });
+        // Lock edits for past days
+        try { setDayEditUnlocked(false); } catch(_) {}
+        try {
+          const header = document.querySelector('app-header');
+          applyReadOnlyByActiveDate(header);
+          updateLockButtonUI(header);
+        } catch(_) {}
+        try { toast('Reverted changes. Showing summary.', { type: 'info', duration: 1800 }); } catch(_) {}
+        this._refresh();
+        return;
+      }
+    } catch(_) {}
+    // If no saved snapshot or no delta, just collapse
     this._state.collapsed = true;
     this._savePersisted({ collapsed: true, started: this._state.started });
     this._refresh();
+  }
+
+  // Compare current drawer state to the last saved snapshot for active day
+  _hasUnsavedChangesComparedToSaved() {
+    try {
+      const comp = this.querySelector('drawer-count');
+      const cur = comp?.getState?.();
+      if (!cur) return false;
+      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
+      if (!key) return false;
+      const { entry } = _getActiveDaysEntry(false);
+      const saved = entry?.days?.[key]?.state;
+      if (!saved) return false;
+      return JSON.stringify(cur) !== JSON.stringify(saved);
+    } catch(_) { return false; }
   }
 
   async _onToggleLock() {
