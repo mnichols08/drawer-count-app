@@ -2082,10 +2082,8 @@ class CountPanel extends HTMLElement {
         return;
       }
     } catch(_) {}
-    // If no saved snapshot or no delta, just collapse
-    this._state.collapsed = true;
-    this._savePersisted({ collapsed: true, started: this._state.started });
-    this._refresh();
+    // No saved snapshot or no changes to revert — do nothing (button should be hidden in this state)
+    return;
   }
 
   // Compare current drawer state to the last saved snapshot for active day
