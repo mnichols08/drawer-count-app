@@ -850,9 +850,9 @@ class UnlockConfirmModal extends HTMLElement {
       unlock: this._shadow.querySelector('.btn-unlock'),
       key: this._shadow.querySelector('.key'),
     };
-    this._els.backdrop?.addEventListener('click', () => this._cancel());
-    this._els.close?.addEventListener('click', () => this._cancel());
-    this._els.cancel?.addEventListener('click', () => this._cancel());
+    this._els.backdrop?.addEventListener('click', () => this.close());
+    this._els.close?.addEventListener('click', () => this.close());
+    this._els.cancel?.addEventListener('click', () => this.close());
     this._els.unlock?.addEventListener('click', () => this._confirm());
   }
   open(dayKey = '') {
@@ -1174,7 +1174,7 @@ class AppHeader extends HTMLElement {
   // data actions now live in settings modal
   _onProfileChange(e) { try { const id = e.target?.value; if (!id) return; setActiveProfile(id); restoreActiveProfile(); ensureDayResetIfNeeded(this); setActiveViewDateKey(getTodayKey()); applyReadOnlyByActiveDate(this); populateProfilesSelect(this); updateStatusPill(this); toast('Switched profile', { type:'info', duration: 1200}); } catch(_){} }
   async _onNewProfile() { try { const modal = getNewProfileModal(); const name = await modal.open(''); if (!name) return; const id = createProfile(name); setActiveProfile(id); saveToActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); applyReadOnlyByActiveDate(this); toast('Profile created', { type: 'success', duration: 1800 }); } catch(_){} }
-  async _onDeleteProfile() { try { const data = loadProfilesData(); const ids = Object.keys(data.profiles||{}); if (ids.length<=1) { toast('Cannot delete last profile', { type:'warning', duration: 2200}); return; } const active = data.activeId; const name = data.profiles[active]?.name || active; const modal = getDeleteProfileModal(); const ok = await modal.open(name); if (!ok) return; delete data.profiles[active]; const nextId = ids.find((x)=>x!==active) || 'default'; data.activeId = nextId; saveProfilesData(data); restoreActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); applyReadOnlyByActiveDate(this); toast('Profile deleted', { type:'success', duration: 1800}); } catch(_){} }
+  async _onDeleteProfile() { try { const data = loadProfilesData(); const ids = Object.keys(data.profiles||{}); if (ids.length<=1) { toast('Cannot delete last profile', { type:'warning', duration: 2200}); return; } const active = data.activeId; const name = data.profiles[active]?.name || active; const modal = getDeleteProfileModal(); const ok = await modal.open(name); if (!ok) return; delete data.profiles[active]; const nextId = ids.find((x)=>x!==active) || 'default'; data.activeId = nextId; saveProfilesData(data); restoreActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); applyReadOnlyByActiveDate(this); toast('Profile deleted', { type: 'success', duration: 1800}); } catch(_){} }
   _onClear() {
     try {
       const comp = getDrawerComponent();
@@ -2463,7 +2463,7 @@ class CountPanel extends HTMLElement {
       const optEntries = [
         ['Charges', opt.charges],
         ['Total Received', opt.totalReceived],
-        ['Net Sales', opt.netSales],
+        ['Net Sales', opt.grossProfitAmount],
         ['Gross Profit ($)', opt.grossProfitAmount],
         ['Gross Profit (%)', opt.grossProfitPercent],
         ['# Invoices', opt.numInvoices],
@@ -2608,14 +2608,14 @@ class CountPanel extends HTMLElement {
         }
         // After saving a past day, automatically lock edits again (make uneditable)
         try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch(_) {}
+        // Update status pill and apply read-only to inputs
         try {
           const header = document.querySelector('app-header');
           updateStatusPill(header);
-          // Apply read-only to <drawer-count> and sync lock icon/title
           applyReadOnlyByActiveDate(header);
           updateLockButtonUI(header);
         } catch(_) {}
-        try { if (typeof toast === 'function') toast('Saved. Editing locked.'); } catch(_) {}
+        toast('Saved. Editing locked.', { type: 'success', duration: 3000 });
       } catch (_) { /* ignore */ }
       // Let the user see the busy state very briefly
       setTimeout(() => this._endProcessing(), 200);
@@ -2636,7 +2636,7 @@ class CountPanel extends HTMLElement {
         if (key) saveSpecificDay(key);
       }
     } catch (_) {}
-    try { if (typeof toast === 'function') toast('Marked complete for this day.'); } catch (_) {}
+    try { if (typeof toast === 'function') toast('Marked complete for this day.'); } catch(_) {}
     // Show summary now but don't save that it's expanded
     this._state.collapsed = false;
     // Briefly show processing state then finish
@@ -3411,13 +3411,13 @@ function startOnboardingHint() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  // Hide panel and card on first load
+  // Hide panel and card on first load using .hidden-on-load class
   const panel = document.querySelector('count-panel');
   if (panel) {
-    panel.style.display = 'none';
-    // Hide card elements inside panel
-    const cardEls = panel.querySelectorAll('.panel-header, .panel-body, .panel-summary, .panel-actions, .panel-title');
-    cardEls.forEach(el => { el.style.display = 'none'; });
+    panel.classList.add('hidden-on-load');
+    // Also add to section.card if present
+    const cardSection = document.querySelector('section.card');
+    if (cardSection) cardSection.classList.add('hidden-on-load');
   }
   // Listen for header button clicks to mark interaction and show panel/card
   const header = document.querySelector('app-header');
@@ -3427,11 +3427,9 @@ window.addEventListener('DOMContentLoaded', () => {
       btn.addEventListener('click', () => {
         onboardingInteracted = true;
         if (onboardingTimeout) clearTimeout(onboardingTimeout);
-        if (panel) {
-          panel.style.display = '';
-          const cardEls = panel.querySelectorAll('.panel-header, .panel-body, .panel-summary, .panel-actions, .panel-title');
-          cardEls.forEach(el => { el.style.display = ''; });
-        }
+        if (panel) panel.classList.remove('hidden-on-load');
+        const cardSection = document.querySelector('section.card');
+        if (cardSection) cardSection.classList.remove('hidden-on-load');
       });
     });
   }
