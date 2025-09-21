@@ -1858,8 +1858,8 @@ class CountPanel extends HTMLElement {
     this._state.started = true;
     this._state.completed = true;
     this._state.collapsed = false;
-    // Persist started/completed for this day; do not persist the expanded state
-    this._savePersisted({ started: true, completed: true });
+    // Persist started/completed and expanded state so the summary is presented (not hidden)
+    this._savePersisted({ started: true, completed: true, collapsed: false });
     try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch (_) {}
     this._refresh();
   }
