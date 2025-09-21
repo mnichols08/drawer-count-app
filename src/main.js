@@ -2058,11 +2058,12 @@ class CountPanel extends HTMLElement {
   _isSaveMode() {
     try {
       const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
-      if (!key) return true;
+      if (!key) return false; // default to 'Mark complete'
       const today = (typeof getTodayKey === 'function') ? getTodayKey() : '';
-      if (key !== today) return true; // past or future date -> Save
-      return this._hasSavedDay(key); // today but already saved previously -> Save
-    } catch (_) { return true; }
+      // Past day -> Save; Today -> Save only if already completed
+      if (key !== today) return true;
+      return !!this._state?.completed;
+    } catch (_) { return false; }
   }
 
   _focusFirstInput() {
