@@ -1805,6 +1805,185 @@ class CountPanel extends HTMLElement {
 }
 customElements.define('count-panel', CountPanel);
 
+// ------------------------------
+// Drawer persistence — profiles and view/lock state
+// ------------------------------
+// Storage keys used throughout the app and sync layer
+const DRAWER_PROFILES_KEY = 'drawer-profiles-v1';
+const DRAWER_DAYS_KEY = 'drawer-days-v1';
+
+function getDrawerComponent() { try { return document.querySelector('drawer-count'); } catch(_) { return null; } }
+
+function loadProfilesData() {
+  try {
+    const raw = localStorage.getItem(DRAWER_PROFILES_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return (parsed && typeof parsed === 'object') ? parsed : {};
+  } catch(_) { return {}; }
+}
+
+function saveProfilesData(data) {
+  try {
+    localStorage.setItem(DRAWER_PROFILES_KEY, JSON.stringify(data || {}));
+    try { _setLocalMeta(DRAWER_PROFILES_KEY, { updatedAt: Date.now() }); _scheduleSyncPush(DRAWER_PROFILES_KEY); } catch(_) {}
+    return true;
+  } catch(_) { return false; }
+}
+
+function ensureProfilesInitialized() {
+  const data = loadProfilesData();
+  if (!data.profiles || !data.activeId) {
+    const now = Date.now();
+    const init = { profiles: { default: { name: 'Default', state: null, updatedAt: now } }, activeId: 'default', updatedAt: now };
+    saveProfilesData({ ...init, ...data });
+    return true;
+  }
+  return false;
+}
+
+function getActiveProfileId() { try { const d = loadProfilesData(); return d.activeId || 'default'; } catch(_) { return 'default'; } }
+function setActiveProfile(id) { const d = loadProfilesData(); d.activeId = id; d.updatedAt = Date.now(); saveProfilesData(d); }
+
+function saveToActiveProfile() {
+  try {
+    const comp = getDrawerComponent();
+    const state = comp?.getState?.();
+    if (!state) return false;
+    const d = loadProfilesData();
+    const id = d.activeId || 'default';
+    d.profiles = d.profiles || {};
+    d.profiles[id] = d.profiles[id] || { name: id, state: null };
+    d.profiles[id].state = state;
+    d.profiles[id].updatedAt = Date.now();
+    d.updatedAt = Date.now();
+    saveProfilesData(d);
+    return true;
+  } catch(_) { return false; }
+}
+
+function restoreActiveProfile() {
+  try {
+    const comp = getDrawerComponent(); if (!comp) return false;
+    const d = loadProfilesData();
+    const id = d.activeId || 'default';
+    const st = d.profiles?.[id]?.state;
+    if (!st) return false;
+    comp.setState?.(st);
+    return true;
+  } catch(_) { return false; }
+}
+
+function createProfile(name) {
+  const d = loadProfilesData(); d.profiles = d.profiles || {};
+  const base = (name || 'Profile').toString().trim() || 'Profile';
+  const slug = base.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'profile';
+  let id = slug; let i = 2;
+  while (d.profiles[id]) { id = `${slug}-${i++}`; }
+  d.profiles[id] = { name: base, state: null, updatedAt: Date.now() };
+  d.activeId = id;
+  d.updatedAt = Date.now();
+  saveProfilesData(d);
+  return id;
+}
+
+function populateProfilesSelect(headerEl) {
+  try {
+    const sel = headerEl?.querySelector?.('.profile-select'); if (!sel) return;
+    const d = loadProfilesData(); const active = d.activeId || 'default'; const profiles = d.profiles || {};
+    const entries = Object.entries(profiles);
+    sel.innerHTML = '';
+    for (const [id, info] of entries) {
+      const opt = document.createElement('option');
+      opt.value = id; opt.textContent = info?.name || id; if (id === active) opt.selected = true; sel.appendChild(opt);
+    }
+  } catch(_) {}
+}
+
+function updateStatusPill(headerEl) {
+  try {
+    const pill = headerEl?.querySelector?.('.status-pill'); if (!pill) return;
+    const d = loadProfilesData(); const id = d.activeId || 'default'; const saved = d.profiles?.[id]?.state;
+    const comp = getDrawerComponent(); const cur = comp?.getState?.();
+    const same = saved && cur ? JSON.stringify(saved) === JSON.stringify(cur) : !!saved === !!cur;
+    pill.textContent = same ? 'Saved' : 'Dirty';
+    pill.classList.toggle('saved', same);
+    pill.classList.toggle('dirty', !same);
+  } catch(_) {}
+}
+
+function exportProfilesToFile() {
+  try {
+    const data = loadProfilesData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'drawer-profiles.json'; document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  } catch(_) { toast?.('Export failed', { type: 'error' }); }
+}
+
+function openImportDialog(headerEl) {
+  try {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/json';
+    inp.addEventListener('change', async () => {
+      const file = inp.files?.[0]; if (!file) return;
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        if (!parsed || typeof parsed !== 'object') throw new Error('Bad file');
+        saveProfilesData(parsed);
+        populateProfilesSelect(headerEl);
+        updateStatusPill(headerEl);
+        toast?.('Imported profiles', { type: 'success' });
+      } catch(e) { toast?.('Import failed', { type: 'error' }); }
+    });
+    inp.click();
+  } catch(_) { /* ignore */ }
+}
+
+// Active view date + edit lock management (per profile)
+function getActiveViewDateKey() {
+  try { const { entry } = _getActiveDaysEntry(false); return entry?._activeViewDateKey || getTodayKey(); } catch(_) { return getTodayKey(); }
+}
+function setActiveViewDateKey(key) {
+  try { const { data, pid, entry } = _getActiveDaysEntry(true); entry._activeViewDateKey = key || getTodayKey(); data[pid] = entry; saveDaysData(data); } catch(_) {}
+}
+function isDayEditUnlocked() {
+  try { const { entry } = _getActiveDaysEntry(false); return !!entry?._editUnlocked; } catch(_) { return false; }
+}
+function setDayEditUnlocked(flag) {
+  try { const { data, pid, entry } = _getActiveDaysEntry(true); entry._editUnlocked = !!flag; data[pid] = entry; saveDaysData(data); } catch(_) {}
+}
+function applyReadOnlyByActiveDate(headerEl) {
+  try {
+    const comp = getDrawerComponent(); if (!comp) return;
+    const key = getActiveViewDateKey(); const today = getTodayKey();
+    const readOnly = key !== today && !isDayEditUnlocked();
+    comp.setReadOnly?.(readOnly);
+    updateLockButtonUI(headerEl);
+  } catch(_) {}
+}
+function updateLockButtonUI(headerEl) {
+  try {
+    const btns = headerEl ? headerEl.querySelectorAll('.lock-btn') : document.querySelectorAll('app-header .lock-btn');
+    const key = getActiveViewDateKey(); const today = getTodayKey();
+    const isToday = key === today; const unlocked = isDayEditUnlocked();
+    const title = isToday ? 'Today is always editable' : (unlocked ? 'Editing unlocked (tap to lock)' : 'Editing locked (tap to unlock)');
+    btns.forEach((b) => { b.title = title; b.setAttribute('aria-label', title); });
+  } catch(_) {}
+}
+
+// Debounced push scheduler for sync
+const _debouncedPushers = {};
+function _scheduleSyncPush(key) {
+  try {
+    const delay = 500;
+    if (_debouncedPushers[key]) clearTimeout(_debouncedPushers[key]);
+    _debouncedPushers[key] = setTimeout(() => { try { _syncKeyOnce(key); } catch(_) {} }, delay);
+  } catch(_) {}
+}
+
 // --- Server status pill ---
 // API base resolution: window.DCA_API_BASE or localStorage override; default
 // - localhost: '/api' (proxied by local server)
@@ -2057,4 +2236,46 @@ function saveSpecificDay(key) { return saveDay(key); }
 
 // Kick off initial online sync shortly after load
 try { window.addEventListener('load', () => { try { initOnlineSync(); } catch (_) {} }); } catch (_) {}
+
+// --- Day helpers used by settings modal and elsewhere ---
+function saveDay(key) {
+  try {
+    const k = key || getActiveViewDateKey();
+    const comp = getDrawerComponent(); const state = comp?.getState?.(); if (!state) return false;
+    const { data, pid, entry } = _getActiveDaysEntry(true);
+    entry.days[k] = entry.days[k] || { state: null, savedAt: 0 };
+    entry.days[k].state = state;
+    entry.days[k].savedAt = Date.now();
+    data[pid] = entry; return saveDaysData(data);
+  } catch(_) { return false; }
+}
+
+function restoreDay(key) {
+  try {
+    const k = key || getActiveViewDateKey();
+    const comp = getDrawerComponent(); if (!comp) return false;
+    const { entry } = _getActiveDaysEntry(false); const rec = entry?.days?.[k];
+    if (!rec?.state) return false;
+    comp.setState?.(rec.state);
+    return true;
+  } catch(_) { return false; }
+}
+
+function deleteDay(key) {
+  try {
+    const k = key || getActiveViewDateKey();
+    const { data, pid, entry } = _getActiveDaysEntry(false); if (!entry?.days?.[k]) return false;
+    delete entry.days[k]; data[pid] = entry; return saveDaysData(data);
+  } catch(_) { return false; }
+}
+
+function setDayLabel(key, label) {
+  try {
+    const k = key || getActiveViewDateKey();
+    const { data, pid, entry } = _getActiveDaysEntry(true);
+    if (!entry.days[k]) entry.days[k] = { state: null, savedAt: Date.now(), label: '' };
+    entry.days[k].label = String(label || '');
+    data[pid] = entry; return saveDaysData(data);
+  } catch(_) { return false; }
+}
 

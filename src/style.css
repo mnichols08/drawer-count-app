@@ -320,6 +320,19 @@ main.container {
   display: grid;
   place-items: start center;
 }
+/* Background image layer managed by JS (fades in when ready) */
+#bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-position: left 5vh;
+  background-repeat: no-repeat;
+  background-size: cover;
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+#bg-layer.show { opacity: 1; }
+
 main.container > .card {
   width: min(900px, 92vw);
   margin-inline: auto;

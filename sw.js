@@ -1,5 +1,5 @@
 /* Drawer Count Service Worker */
-const CACHE_VERSION = 'v14';
+const CACHE_VERSION = 'v16';
 const PRECACHE = `precache-${CACHE_VERSION}`;
 const RUNTIME = `runtime-${CACHE_VERSION}`;
 
@@ -12,6 +12,7 @@ const RAW_PRECACHE_URLS = [
   'manifest.webmanifest',
   'src/style.css',
   'src/main.js',
+  'src/main.js?v=7',
   'src/drawer-count.js',
   'src/icons/favicon.svg',
   'src/icons/icon-192.png',
@@ -32,6 +33,7 @@ const RAW_PRECACHE_URLS = [
   'browserconfig.xml'
 ];
 const PRECACHE_URLS = RAW_PRECACHE_URLS.map(toScopePath);
+const stripQuery = (p) => p.split('?')[0];
 const INDEX_PATH = toScopePath('index.html');
 const ROOT_PATH = toScopePath('.');
 const OFFLINE_PATH = toScopePath('offline.html');
@@ -161,14 +163,15 @@ self.addEventListener('fetch', (event) => {
       })());
       return;
     }
-    const isPrecacheAsset = PRECACHE_URLS.includes(normalizedPath);
+    // Consider query-stripped matches as pre-cacheable
+    const isPrecacheAsset = PRECACHE_URLS.includes(normalizedPath) || PRECACHE_URLS.includes(stripQuery(normalizedPath));
     if (isPrecacheAsset) {
       event.respondWith(
         (async () => {
           const cache = await caches.open(PRECACHE);
           const exact = await cache.match(request);
           if (exact) return exact;
-          const noQuery = await cache.match(new Request(normalizedPath, { cache: 'reload' }));
+          const noQuery = await cache.match(new Request(stripQuery(normalizedPath), { cache: 'reload' }));
           if (noQuery) return noQuery;
           // Network fallback with status tracking
           try {
