@@ -2340,16 +2340,44 @@ async function _fetchRemoteKV(key) {
   } catch(_) { return { ok: false }; }
 }
 
+// List all KV entries from the server as a fallback (e.g., if the exact profiles key is unknown)
+async function _listRemoteKV() {
+  try {
+    const path = `/kv`;
+    const urls = _apiCandidatesFor(path);
+    let lastErr = null;
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) { lastErr = new Error(`HTTP ${res.status}`); continue; }
+        const data = await res.json();
+        // Expect shape { ok: true, items: [{ key, value, updatedAt }...] }
+        const items = Array.isArray(data.items) ? data.items : [];
+        return { ok: true, items };
+      } catch (e) { lastErr = e; }
+    }
+    return { ok: false, error: lastErr ? String(lastErr) : 'unknown' };
+  } catch(_) { return { ok: false }; }
+}
+
 async function _pushRemoteKV(key, rawValue, updatedAt) {
   try {
-    const res = await fetch(apiUrl(`/kv/${encodeURIComponent(key)}`), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value: rawValue, updatedAt: Number(updatedAt) || Date.now() })
-    });
-    if (!res.ok) return { ok: false };
-    const data = await res.json();
-    return { ok: true, updatedAt: Number(data.updatedAt || Date.now()) };
+    const path = `/kv/${encodeURIComponent(key)}`;
+    const urls = _apiCandidatesFor(path);
+    let lastErr = null;
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: rawValue, updatedAt: Number(updatedAt) || Date.now() })
+        });
+        if (!res.ok) { lastErr = new Error(`HTTP ${res.status}`); continue; }
+        const data = await res.json();
+        return { ok: true, updatedAt: Number(data.updatedAt || Date.now()) };
+      } catch (e) { lastErr = e; }
+    }
+    return { ok: false, error: lastErr ? String(lastErr) : 'unknown' };
   } catch(_) { return { ok: false }; }
 }
 
@@ -2418,6 +2446,41 @@ async function initProfilesFromRemoteIfAvailable() {
         } catch (_) { /* try next */ }
       }
     }
+    // Fallback: if still missing, list all remote KV entries and pick the best match
+    if (!remote.ok || remote.missing) {
+      try {
+        const list = await _listRemoteKV();
+        if (list.ok && Array.isArray(list.items) && list.items.length) {
+          // Rank candidates: exact known keys first, then any whose parsed value exposes a profiles map
+          const knownSet = new Set(candidateKeys);
+          const scored = [];
+          for (const it of list.items) {
+            const key = String(it.key || '');
+            const updatedAt = Number(it.updatedAt || 0);
+            let score = 0;
+            if (knownSet.has(key)) score += 10; // prefer known keys
+            // Try to inspect value to see if it looks like profiles
+            let parsed = null;
+            try {
+              const raw = typeof it.value === 'string' ? it.value : JSON.stringify(it.value);
+              parsed = JSON.parse(raw);
+            } catch(_) { parsed = null; }
+            const looksWrapped = parsed && typeof parsed === 'object' && parsed.profiles && typeof parsed.profiles === 'object';
+            const looksBareMap = parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Object.keys(parsed).length && !('days' in parsed) && !('state' in parsed);
+            if (looksWrapped) score += 5;
+            else if (looksBareMap) score += 3;
+            // Add recency as a tiebreaker
+            score += Math.min(2, Math.max(0, Math.floor((updatedAt || 0) / 1e13))); // tiny contribution
+            scored.push({ it, score, updatedAt, parsed });
+          }
+          scored.sort((a, b) => b.score - a.score || b.updatedAt - a.updatedAt);
+          const pick = scored[0];
+          if (pick && pick.it) {
+            remote = { ok: true, value: pick.it.value, updatedAt: Number(pick.it.updatedAt || 0) };
+          }
+        }
+      } catch(_) { /* ignore */ }
+    }
     if (!remote.ok || remote.missing) {
       try { console.info('[profiles:init] no remote data available'); } catch(_) {}
       return false;
@@ -2434,7 +2497,7 @@ async function initProfilesFromRemoteIfAvailable() {
     }
 
     // Inspect local
-  const localRaw = localStorage.getItem(DRAWER_PROFILES_KEY);
+    const localRaw = localStorage.getItem(DRAWER_PROFILES_KEY);
     const localMeta = _getLocalMeta(DRAWER_PROFILES_KEY) || { updatedAt: 0 };
     const lAt = Number(localMeta.updatedAt || 0);
     let lObj = null;
