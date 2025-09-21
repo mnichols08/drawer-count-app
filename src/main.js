@@ -972,7 +972,8 @@ class AppHeader extends HTMLElement {
     this._onHelp = this._onHelp.bind(this);
     this._onSettings = this._onSettings.bind(this);
     this._onOptional = this._onOptional.bind(this);
-    this._onPanelToggle = this._onPanelToggle.bind(this);
+  this._onPanelToggle = this._onPanelToggle.bind(this);
+  this._updatePanelBtnUI = this._updatePanelBtnUI.bind(this);
     this._onProfileChange = this._onProfileChange.bind(this);
     this._onNewProfile = this._onNewProfile.bind(this);
     this._onDeleteProfile = this._onDeleteProfile.bind(this);
@@ -1045,7 +1046,7 @@ class AppHeader extends HTMLElement {
         </div>
         <h1 class="title">${title}</h1>
         <div class="actions right inline-actions">
-          <button class="icon-btn panel-toggle-btn" aria-label="Show/Hide count panel" title="Show/Hide count panel">⬒</button>
+          <button class="icon-btn panel-toggle-btn" aria-label="Today’s count" title="Today’s count">⬒</button>
           <button class="icon-btn optional-btn" aria-label="Optional fields" title="Optional fields">🧾</button>
           <button class="icon-btn days-btn" aria-label="Daily history" title="Daily history">📅</button>
           <button class="icon-btn clear-btn" aria-label="Clear inputs" title="Clear inputs">🧹</button>
@@ -1057,7 +1058,7 @@ class AppHeader extends HTMLElement {
           <button class="menu-toggle" aria-label="Menu" aria-expanded="false" aria-haspopup="true">☰</button>
           <div class="nav-menu" role="menu">
             <div class="row">
-              <button class="icon-btn panel-toggle-btn" role="menuitem" aria-label="Show/Hide count panel" title="Show/Hide count panel">⬒</button>
+              <button class="icon-btn panel-toggle-btn" role="menuitem" aria-label="Today’s count" title="Today’s count">⬒</button>
               <button class="icon-btn optional-btn" role="menuitem" aria-label="Optional fields" title="Optional fields">🧾</button>
               <button class="icon-btn days-btn" role="menuitem" aria-label="Daily history" title="Daily history">📅</button>
               <button class="icon-btn clear-btn" role="menuitem" aria-label="Clear inputs" title="Clear inputs">🧹</button>
@@ -1093,7 +1094,12 @@ class AppHeader extends HTMLElement {
         await initProfilesFromRemoteIfAvailable();
       } catch (_) { /* ignore */ }
       try { ensureProfilesInitialized(); } catch (_) {}
-      try { populateProfilesSelect(this); updateStatusPill(this); updateLockButtonUI(this); } catch (_) {}
+      try { populateProfilesSelect(this); updateStatusPill(this); updateLockButtonUI(this); this._updatePanelBtnUI(); } catch (_) {}
+      // keep the header panel button label in sync when storage/focus changes
+      try {
+        window.addEventListener('storage', this._updatePanelBtnUI);
+        window.addEventListener('focus', this._updatePanelBtnUI);
+      } catch(_) {}
     })();
   }
   _onTheme() { toggleTheme(); }
@@ -1101,19 +1107,62 @@ class AppHeader extends HTMLElement {
   _onSettings() { getSettingsModal().open(); }
   _onOptional() { getOptionalFieldsModal().open(); }
   _onPanelToggle() {
+    // New behavior: Jump to today. If completed, show today's summary. Otherwise start/continue today's count.
     try {
+      const today = getTodayKey();
+      // Ensure active view is today
+      try { setActiveViewDateKey(today); } catch(_) {}
+      // Attempt to restore any saved snapshot for today
+      try { restoreDay(today); } catch(_) {}
+
       const panel = document.querySelector('count-panel');
-      if (panel && typeof panel.toggleCollapsed === 'function') {
-        panel.toggleCollapsed();
-      } else if (panel) {
-        // Fallback: flip aria-expanded based on current state
-        const body = panel.querySelector('.panel-body');
-        const summary = panel.querySelector('.panel-summary');
-        const visible = panel.classList.contains('completed') ? summary : body;
-        const isCollapsed = (visible?.getAttribute('aria-hidden') === 'true') || (visible?.hidden === true);
-        const btn = panel.querySelector('.toggle-btn');
-        btn?.click?.(); // reuse panel’s own toggle logic
+      // Inspect persisted panel state for today to decide action
+      let started = false, completed = false;
+      try {
+        const pid = getActiveProfileId?.();
+        const key = `${pid || 'default'}::${today}`;
+        const raw = localStorage.getItem('drawer-panel-v1');
+        const all = raw ? JSON.parse(raw) : {};
+        const st = all[key];
+        if (st && typeof st === 'object') { started = !!st.started; completed = !!st.completed; }
+      } catch(_) {}
+
+      if (panel) {
+        if (completed && typeof panel.showCompletedSummary === 'function') {
+          panel.showCompletedSummary();
+        } else if (!started) {
+          // Start a new count (simulate Start button)
+          try { panel.querySelector('.start-btn')?.click?.(); } catch(_) {}
+        } else {
+          // Continue today's count: ensure expanded
+          try { if (typeof panel.expand === 'function') panel.expand(); else panel.querySelector('.toggle-btn')?.click?.(); } catch(_) {}
+        }
       }
+      // Today is always editable
+      try { applyReadOnlyByActiveDate(this); updateLockButtonUI(this); } catch(_) {}
+      // Close the menu if opened
+      this._closeMenu();
+      // Keep header button label in sync
+      this._updatePanelBtnUI();
+    } catch(_) {}
+  }
+
+  _updatePanelBtnUI() {
+    try {
+      const btns = this.querySelectorAll('.panel-toggle-btn');
+      if (!btns || !btns.length) return;
+      const today = getTodayKey();
+      let started = false, completed = false;
+      try {
+        const pid = getActiveProfileId?.();
+        const key = `${pid || 'default'}::${today}`;
+        const raw = localStorage.getItem('drawer-panel-v1');
+        const all = raw ? JSON.parse(raw) : {};
+        const st = all[key];
+        if (st && typeof st === 'object') { started = !!st.started; completed = !!st.completed; }
+      } catch(_) {}
+      const title = completed ? 'Show today’s count summary' : (started ? 'Continue today’s count' : 'Start today’s count');
+      btns.forEach((b)=>{ try { b.title = title; b.setAttribute('aria-label', title); } catch(_) {} });
     } catch(_) {}
   }
   // data actions now live in settings modal
@@ -1929,7 +1978,7 @@ class CountPanel extends HTMLElement {
         <div class="panel-title">Today's Count</div>
         <div class="panel-actions">
           <button class="start-btn" type="button">Start count</button>
-          <button class="toggle-btn" type="button" aria-expanded="false">Show</button>
+          <button class="toggle-btn" type="button" aria-expanded="false" aria-label="Expand">▸</button>
           <button class="lock-btn" type="button" aria-label="Toggle edit lock" title="Toggle edit lock">🔒</button>
           <button class="complete-btn" type="button">Mark complete</button>
           <button class="reopen-btn" type="button">Reopen</button>
@@ -2097,9 +2146,10 @@ class CountPanel extends HTMLElement {
     if (this._els.lock) this._els.lock.disabled = !!this._isProcessing;
     if (this._els.toggle) this._els.toggle.disabled = !!this._isProcessing;
 
-  // Toggle labels/ARIA
-    this._els.toggle.textContent = collapsed ? 'Show' : 'Hide';
+  // Toggle icon + labels/ARIA
+    this._els.toggle.textContent = collapsed ? '▸' : '▾';
     this._els.toggle.setAttribute('aria-expanded', String(!collapsed));
+    this._els.toggle.setAttribute('aria-label', collapsed ? 'Expand' : 'Collapse');
 
     // Determine whether action is Save vs Mark complete
     const saveMode = this._isSaveMode();
