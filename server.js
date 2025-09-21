@@ -13,16 +13,68 @@ const os = require('os');
 const express = require('express');
 const cors = require('cors');
 const { MongoClient } = require('mongodb');
+// Ensure fetch is available in Node (Node 18+ has global fetch; otherwise use undici)
+let fetchFn = global.fetch;
+if (typeof fetchFn !== 'function') {
+	try { fetchFn = require('undici').fetch; } catch (_) { /* will error on use if missing */ }
+}
+const fetch = (...args) => fetchFn(...args);
 require('dotenv').config();
 
 const app = express();
 const PORT = Number(process.env.PORT) || 8080;
 const MONGODB_URI = process.env.MONGODB_URI || '';
 const MONGODB_DB = process.env.MONGODB_DB || 'drawercount';
+const API_BASE_ENV = process.env.API_BASE || '';
 
 // Basic middleware
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
+
+// If no local DB is configured but a remote API_BASE is provided, proxy /api/* to it.
+// This lets local development load remote profiles/days without CORS issues.
+const shouldProxyApi = !MONGODB_URI && /^https?:\/\//i.test(API_BASE_ENV);
+if (shouldProxyApi) {
+	console.log(`[server] No local MONGODB_URI set. Proxying /api/* to ${API_BASE_ENV}`);
+	app.use('/api', async (req, res) => {
+		try {
+			const base = API_BASE_ENV.replace(/\/+$/, '');
+			// req.originalUrl includes the '/api' prefix; strip it for target path
+			const suffix = (req.originalUrl || req.url || '').replace(/^\/api/, '');
+			const targetUrl = base + suffix;
+
+			// Build headers: drop hop-by-hop headers
+			const headers = { ...req.headers };
+			delete headers.host; delete headers['content-length']; delete headers.connection;
+
+			// Prepare body for non-GET methods
+			let body;
+			if (req.method !== 'GET' && req.method !== 'HEAD') {
+				if (req.is('application/json')) {
+					headers['content-type'] = 'application/json';
+					body = JSON.stringify(req.body ?? {});
+				} else {
+					// Fallback: best-effort pass-through for other types
+					body = typeof req.body === 'string' ? req.body : undefined;
+				}
+			}
+
+			const r = await fetch(targetUrl, { method: req.method, headers, body });
+			// Copy select headers back
+			const outHeaders = {};
+			const copyHeaders = ['content-type', 'cache-control', 'etag', 'last-modified', 'vary'];
+			for (const h of copyHeaders) {
+				const v = r.headers.get(h);
+				if (v) outHeaders[h] = v;
+			}
+			const buf = await r.arrayBuffer();
+			res.status(r.status).set(outHeaders).send(Buffer.from(buf));
+		} catch (e) {
+			console.error('[proxy] error', e?.message || e);
+			res.status(502).json({ ok: false, error: 'Bad gateway' });
+		}
+	});
+}
 
 // Health endpoint (includes DB connectivity state if configured)
 app.get('/api/health', async (_req, res) => {
@@ -132,7 +184,22 @@ app.get('/api/kv/:key', async (req, res) => {
 	try {
 		const key = req.params.key;
 		const coll = await connectMongoOnce();
-		if (!coll) return res.status(503).json({ ok: false, error: 'DB unavailable' });
+		if (!coll) {
+			// Fallback: proxy to remote API if configured
+			if (/^https?:\/\//i.test(API_BASE_ENV)) {
+				try {
+					const base = API_BASE_ENV.replace(/\/+$/, '');
+					const url = `${base}/kv/${encodeURIComponent(key)}`;
+					const r = await fetch(url, { method: 'GET', headers: { 'accept': 'application/json' } });
+					const buf = await r.arrayBuffer();
+					res.status(r.status).set('content-type', r.headers.get('content-type') || 'application/json').send(Buffer.from(buf));
+					return;
+				} catch (e) {
+					console.warn('[api] remote GET fallback failed', e?.message || e);
+				}
+			}
+			return res.status(503).json({ ok: false, error: 'DB unavailable' });
+		}
 		// Prefer global-scoped document
 		let doc = await coll.findOne({ scope: 'global', key }, { projection: { _id: 0 } });
 		if (!doc) {
@@ -155,7 +222,21 @@ app.put('/api/kv/:key', async (req, res) => {
 		const { value } = req.body || {};
 		if (typeof value === 'undefined') return res.status(400).json({ ok: false, error: 'Missing value' });
 		const coll = await connectMongoOnce();
-		if (!coll) return res.status(503).json({ ok: false, error: 'DB unavailable' });
+		if (!coll) {
+			if (/^https?:\/\//i.test(API_BASE_ENV)) {
+				try {
+					const base = API_BASE_ENV.replace(/\/+$/, '');
+					const url = `${base}/kv/${encodeURIComponent(key)}`;
+					const r = await fetch(url, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ value, updatedAt: Date.now() }) });
+					const buf = await r.arrayBuffer();
+					res.status(r.status).set('content-type', r.headers.get('content-type') || 'application/json').send(Buffer.from(buf));
+					return;
+				} catch (e) {
+					console.warn('[api] remote PUT fallback failed', e?.message || e);
+				}
+			}
+			return res.status(503).json({ ok: false, error: 'DB unavailable' });
+		}
 		const now = Date.now();
 		const update = { $set: { scope: 'global', key, value, updatedAt: now } };
 		const opts = { upsert: true, returnDocument: 'after' };
@@ -172,7 +253,21 @@ app.put('/api/kv/:key', async (req, res) => {
 app.get('/api/kv', async (req, res) => {
 	try {
 		const coll = await connectMongoOnce();
-		if (!coll) return res.status(503).json({ ok: false, error: 'DB unavailable' });
+		if (!coll) {
+			if (/^https?:\/\//i.test(API_BASE_ENV)) {
+				try {
+					const base = API_BASE_ENV.replace(/\/+$/, '');
+					const url = `${base}/kv`;
+					const r = await fetch(url, { method: 'GET', headers: { 'accept': 'application/json' } });
+					const buf = await r.arrayBuffer();
+					res.status(r.status).set('content-type', r.headers.get('content-type') || 'application/json').send(Buffer.from(buf));
+					return;
+				} catch (e) {
+					console.warn('[api] remote LIST fallback failed', e?.message || e);
+				}
+			}
+			return res.status(503).json({ ok: false, error: 'DB unavailable' });
+		}
 		// Fetch all global and legacy docs, then reduce client-side.
 		const all = await coll.find({}, { projection: { _id: 0 } }).toArray();
 		const map = new Map();
@@ -195,7 +290,10 @@ app.get('/api/kv', async (req, res) => {
 // Runtime config for frontend: expose API base via env var
 app.get('/config.js', (req, res) => {
 	try {
-		const apiBase = process.env.API_BASE || '/api';
+		// If serving to localhost, always prefer same-origin '/api' to avoid CORS in local dev
+		const host = (req.hostname || req.headers.host || '').toString().toLowerCase();
+		const isLocalHost = /^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(host);
+		const apiBase = isLocalHost ? '/api' : (process.env.API_BASE || '/api');
 		res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
 		res.setHeader('Cache-Control', 'no-store, max-age=0');
 		res.send(`// generated at ${new Date().toISOString()}\nwindow.DCA_API_BASE = ${JSON.stringify(apiBase)};`);

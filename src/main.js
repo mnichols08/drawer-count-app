@@ -2418,7 +2418,10 @@ async function initProfilesFromRemoteIfAvailable() {
         } catch (_) { /* try next */ }
       }
     }
-    if (!remote.ok || remote.missing) return false;
+    if (!remote.ok || remote.missing) {
+      try { console.info('[profiles:init] no remote data available'); } catch(_) {}
+      return false;
+    }
 
     const rAt = Number(remote.updatedAt || 0);
     const rVal = remote.value;
@@ -2449,13 +2452,16 @@ async function initProfilesFromRemoteIfAvailable() {
     // - Otherwise, keep local
     const localLooksDefaultOnly = (localCount <= 1);
     const remoteHasMore = (remoteCount > localCount);
+    try { console.info('[profiles:init] localCount=', localCount, 'remoteCount=', remoteCount, 'rAt=', rAt, 'lAt=', lAt); } catch(_) {}
     if (!localRaw || (localLooksDefaultOnly && remoteHasMore) || (rAt > lAt)) {
       // Persist normalized remote object
       const normalized = rObj && rObj.profiles ? JSON.stringify(rObj) : rText;
       localStorage.setItem(DRAWER_PROFILES_KEY, normalized);
       _setLocalMeta(DRAWER_PROFILES_KEY, { updatedAt: rAt || Date.now() });
+      try { console.info('[profiles:init] adopted remote profiles'); } catch(_) {}
       return true;
     }
+    try { console.info('[profiles:init] kept local profiles'); } catch(_) {}
     return false;
   } catch (_) { return false; }
 }
