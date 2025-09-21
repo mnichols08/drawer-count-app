@@ -2123,19 +2123,23 @@ class CountPanel extends HTMLElement {
   this._els.complete.hidden = !started || !!completed || readOnly || !!this._state.collapsed;
     this._els.reopen.hidden = !completed;
 
-    // Cancel should only be visible when there are unsaved changes you can actually revert
+    // Cancel should only be visible when actually editing a saved day:
     // Criteria:
-    // - Panel is started
-    // - Panel is expanded (we only show controls when visible)
-    // - There is a saved snapshot for the active day AND the current state differs from that snapshot
-    //   OR (for today) the panel is completed and user reopened/edited (unsaved delta vs completed)
+    // - Panel is started and expanded
+    // - Save/Complete button is visible (i.e., not read-only, not completed, not collapsed)
+    // - We're in Save mode (viewing a past day, not today)
+    // - There is a saved snapshot AND current state differs from that snapshot (unsaved edits)
     let showCancel = false;
     try {
       if (started && !this._state.collapsed) {
-        const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
-        const hasSaved = key ? this._hasSavedDay(key) : false;
-        const hasUnsaved = this._hasUnsavedChangesComparedToSaved();
-        showCancel = !!(hasSaved && hasUnsaved);
+        const actionsVisible = !this._els.complete.hidden;
+        const saveMode = this._isSaveMode();
+        if (actionsVisible && saveMode) {
+          const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
+          const hasSaved = key ? this._hasSavedDay(key) : false;
+          const hasUnsaved = this._hasUnsavedChangesComparedToSaved();
+          showCancel = !!(hasSaved && hasUnsaved);
+        }
       }
     } catch(_) { showCancel = false; }
     this._els.cancel.hidden = !showCancel;
