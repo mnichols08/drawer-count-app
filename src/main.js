@@ -1997,7 +1997,7 @@ class CountPanel extends HTMLElement {
       const today = (typeof getTodayKey === 'function') ? getTodayKey() : '';
       if (key && today) isPast = (key !== today);
     } catch(_) { isPast = false; }
-    const reopenActive = !!(started && !completed && isPast);
+  const reopenActive = !!(started && !completed && isPast && !this._state.collapsed);
     this._els.lock.hidden = !reopenActive;
     // Hide save/complete when read-only (nothing to save)
     this._els.complete.hidden = !started || !!completed || readOnly;
