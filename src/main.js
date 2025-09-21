@@ -825,6 +825,7 @@ class UnlockConfirmModal extends HTMLElement {
         .btn:active { transform: translateY(1px); }
         .btn:focus { outline: 2px solid var(--accent, #5aa0ff); outline-offset: 2px; }
         .btn-danger { background: #5a4a2a; color: #ffe9c6; border-color: #7a5a3a; }
+        @media (max-width: 480px) { .dialog { inset: 6% auto auto 50%; padding: 12px; } }
       </style>
       <div class="backdrop" part="backdrop"></div>
       <div class="dialog" role="dialog" aria-modal="true" aria-label="Unlock edits">
@@ -906,7 +907,8 @@ class RevertConfirmModal extends HTMLElement {
         .btn:hover { filter: brightness(1.08); }
         .btn:active { transform: translateY(1px); }
         .btn:focus { outline: 2px solid var(--accent, #5aa0ff); outline-offset: 2px; }
-        .btn-danger { background: #5a2a2a; color: #ffd6d6; border-color: #7a3a3a; }
+        .btn-danger { background: #5a4a2a; color: #ffe9c6; border-color: #7a5a3a; }
+        @media (max-width: 480px) { .dialog { inset: 6% auto auto 50%; padding: 12px; } }
       </style>
       <div class="backdrop" part="backdrop"></div>
       <div class="dialog" role="dialog" aria-modal="true" aria-label="Revert changes">
@@ -931,9 +933,9 @@ class RevertConfirmModal extends HTMLElement {
       revert: this._shadow.querySelector('.btn-revert'),
       key: this._shadow.querySelector('.key'),
     };
-    this._els.backdrop?.addEventListener('click', () => this._cancel());
-    this._els.close?.addEventListener('click', () => this._cancel());
-    this._els.cancel?.addEventListener('click', () => this._cancel());
+    this._els.backdrop?.addEventListener('click', () => this.close());
+    this._els.close?.addEventListener('click', () => this.close());
+    this._els.cancel?.addEventListener('click', () => this.close());
     this._els.revert?.addEventListener('click', () => this._confirm());
   }
   open(dayKey = '') {
@@ -1457,7 +1459,7 @@ class DayPickerModal extends HTMLElement {
     this._render();
   }
   _onNext() {
-    // Only allow moving forward up to current month (offset 0). Never beyond (no future months).
+    // Only allow moving forward up to current month (offset 0). Never beyond (no future navigation allowed at all).
     this._monthOffset = Math.min(0, this._monthOffset + 1);
     this._render();
   }
@@ -1515,7 +1517,8 @@ class DayPickerModal extends HTMLElement {
         :host([open]) { display: block; }
         .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(2px); z-index: 1000; }
         .dialog { position: fixed; inset: 10% auto auto 50%; transform: translateX(-50%);
-          max-width: min(480px, 92vw); background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
+          max-width: min(480px, 92vw); max-height: min(85vh, 92vh); overflow-y: auto; overflow-x: hidden;
+          background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
           border: 1px solid var(--border, #2a345a); border-radius: 12px; padding: 12px; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
         .hd { display:flex; align-items:center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
         .title { font-size: 1.05rem; margin: 0; }
@@ -2134,7 +2137,7 @@ class CountPanel extends HTMLElement {
     this._state.started = true;
     this._state.completed = true;
     this._state.collapsed = false;
-    // Persist started/completed and expanded state so the summary is presented (not hidden)
+    // Persist normalized remote object
     this._savePersisted({ started: true, completed: true, collapsed: false });
     try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch (_) {}
     this._refresh();
@@ -2501,6 +2504,7 @@ class CountPanel extends HTMLElement {
 
   _activeDayTitle() {
     try {
+
       const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
       if (!key) return "Today's Count";
       const today = (typeof getTodayKey === 'function') ? getTodayKey() : '';
@@ -2648,13 +2652,13 @@ class CountPanel extends HTMLElement {
     this._state.reopened = true;
     this._savePersisted(this._state);
     // Keep past days read-only until explicitly unlocked
-    try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch (_) {}
+    try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch(_) {}
     try {
       const header = document.querySelector('app-header');
       applyReadOnlyByActiveDate(header);
       updateLockButtonUI(header);
     } catch(_) {}
-    try { if (typeof toast === 'function') toast('Reopened. Editing locked for past days.', { type: 'info', duration: 1800 }); } catch (_) {}
+    try { if (typeof toast === 'function') toast('Reopened. Editing locked for past days.', { type: 'info', duration: 1800 }); } catch(_) {}
     this._refresh();
     queueMicrotask(() => this._focusFirstInput());
   }
@@ -2693,7 +2697,7 @@ function loadProfilesData() {
 function saveProfilesData(data) {
   try {
     localStorage.setItem(DRAWER_PROFILES_KEY, JSON.stringify(data || {}));
-    try { _setLocalMeta(DRAWER_PROFILES_KEY, { updatedAt: Date.now() }); _scheduleSyncPush(DRAWER_PROFILES_KEY); } catch(_) {}
+    try { _setLocalMeta(DRAWER_PROFILES_KEY, { updatedAt: Date.now() }); _scheduleSyncPush(DRAWER_PROFILES_KEY); } catch (_) {}
     return true;
   } catch(_) { return false; }
 }
@@ -2999,11 +3003,7 @@ async function fetchServerHealth() {
       try {
         const url = `${base.replace(/\/+$/, '')}/health`;
         const res = await fetch(url, { cache: 'no-store' });
-        if (!res.ok) {
-          try { console.warn('[health] HTTP', res.status, res.statusText, 'url=', res.url); } catch(_) {}
-          lastErr = new Error(`HTTP ${res.status}`);
-          continue;
-        }
+        if (!res.ok) { lastErr = new Error(`HTTP ${res.status}`); continue; }
         const data = await res.json();
         // Remember working base if it differs from primary
         if (typeof window !== 'undefined' && base !== primary) {
@@ -3381,98 +3381,75 @@ function setDayLabel(key, label) {
   } catch(_) { return false; }
 }
 
-// ------------------------------
-// Test utilities — seed previous days with sample data
-// ------------------------------
-// Create a minimal but valid v2 DrawerCount state object
-function _createSampleDrawerState(seed = 1) {
-  const n = (v) => Number((v).toFixed(2));
-  const baseCash = 100 + (seed % 5) * 20;
-  const slips = (seed % 4) * 25;
-  const checks = (seed % 3) * 30;
-  const roa = (seed % 6) * 10;
-  return {
-    version: 2,
-    timestamp: Date.now() - seed * 86400000 + 18 * 3600000, // ~6pm that day
-    base: {
-      drawer: n(baseCash),
-      roa: n(roa),
-      slips: n(slips),
-      checks: n(checks),
-      hundreds: 0,
-      fifties: 0,
-      twenties: n((seed % 5) * 20),
-      tens: n((seed % 7) * 10),
-      fives: n((seed % 9) * 5),
-      dollars: n((seed % 11) * 1),
-      quarters: n(((seed + 1) % 4) * 0.25),
-      dimes: n(((seed + 2) % 5) * 0.10),
-      nickels: n(((seed + 3) % 4) * 0.05),
-      pennies: n(((seed + 4) % 10) * 0.01),
-      quarterrolls: 0,
-      dimerolls: 0,
-      nickelrolls: 0,
-      pennyrolls: 0,
-    },
-    extra: {
-      slips: (seed % 2) ? [n(12.34), n(23.45)] : [n(11.11)],
-      checks: (seed % 3) ? [n(45.67)] : [],
-    },
-    optional: {
-      charges: 0,
-      totalReceived: n(100 + seed * 3.5),
-      netSales: n(200 + seed * 5.25),
-      grossProfitAmount: n(50 + seed * 1.75),
-      grossProfitPercent: n(30 + (seed % 10) * 0.5),
-      numInvoices: (seed % 20) + 5,
-      numVoids: seed % 3,
-    },
-  };
+// Onboarding hint: emphasize header buttons and show toast if no interaction
+let onboardingInteracted = false;
+let onboardingTimeout = null;
+
+function emphasizeHeaderButtons() {
+  const header = document.querySelector('app-header');
+  if (!header) return;
+  const btns = header.querySelectorAll('.panel-toggle-btn, .optional-btn, .days-btn, .settings-btn, .theme-toggle, .info-btn');
+  btns.forEach(btn => {
+    btn.classList.add('onboarding-emphasize');
+  });
+  setTimeout(() => {
+    btns.forEach(btn => btn.classList.remove('onboarding-emphasize'));
+  }, 2000);
 }
 
-function _dateKeyNDaysAgo(daysAgo) {
-  const d = new Date();
-  d.setDate(d.getDate() - daysAgo);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+function showOnboardingToast() {
+  toast('To get started, choose one of the options in the menu above.', { type: 'info', duration: 4000 });
 }
 
-// Seed previous days for the active profile
-// Usage from console: seedPreviousDays(7) or seedPreviousDays(14, { includeToday: false, overwrite: false })
-function seedPreviousDays(count = 7, options = {}) {
-  try {
-    const opts = options || {};
-    const includeToday = !!opts.includeToday;
-    const overwrite = (opts.overwrite !== false); // default true
-    const max = Math.max(1, Math.min(90, Number(count) || 1));
+function startOnboardingHint() {
+  onboardingTimeout = setTimeout(() => {
+    if (!onboardingInteracted) {
+      emphasizeHeaderButtons();
+      showOnboardingToast();
+    }
+  }, 6000); // 6 seconds after load
+}
 
-    const { data, pid, entry } = _getActiveDaysEntry(true);
-    const seededKeys = [];
-    const start = includeToday ? 0 : 1;
-    for (let i = start; i < start + max; i++) {
-      const key = _dateKeyNDaysAgo(i);
-      if (!overwrite && entry.days[key]) continue;
-      const state = _createSampleDrawerState(i);
-      entry.days[key] = { state, savedAt: Date.now() - i * 3600000, label: `Test Day -${i}` };
-      seededKeys.push(key);
-    }
-    data[pid] = entry;
-    saveDaysData(data);
-    // Optionally, set active view to the most recent seeded day
-    if (seededKeys.length) {
-      const mostRecent = seededKeys.reduce((a, b) => (a > b ? a : b));
-      setActiveViewDateKey(mostRecent);
-    }
-    try { toast?.(`Seeded ${seededKeys.length} day(s)` , { type: 'success', duration: 1800 }); } catch(_) {}
-    return seededKeys;
-  } catch (e) {
-    try { toast?.('Seeding failed', { type: 'error', duration: 2000 }); } catch(_) {}
-    return [];
+window.addEventListener('DOMContentLoaded', () => {
+  // Hide panel and card on first load
+  const panel = document.querySelector('count-panel');
+  if (panel) {
+    panel.style.display = 'none';
+    // Hide card elements inside panel
+    const cardEls = panel.querySelectorAll('.panel-header, .panel-body, .panel-summary, .panel-actions, .panel-title');
+    cardEls.forEach(el => { el.style.display = 'none'; });
   }
-}
+  // Listen for header button clicks to mark interaction and show panel/card
+  const header = document.querySelector('app-header');
+  if (header) {
+    const btns = header.querySelectorAll('.panel-toggle-btn, .optional-btn, .days-btn, .settings-btn, .theme-toggle, .info-btn');
+    btns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        onboardingInteracted = true;
+        if (onboardingTimeout) clearTimeout(onboardingTimeout);
+        if (panel) {
+          panel.style.display = '';
+          const cardEls = panel.querySelectorAll('.panel-header, .panel-body, .panel-summary, .panel-actions, .panel-title');
+          cardEls.forEach(el => { el.style.display = ''; });
+        }
+      });
+    });
+  }
+  startOnboardingHint();
+});
 
-// Expose for easy manual testing in the browser console
-try { window.seedPreviousDays = seedPreviousDays; } catch (_) { /* ignore */ }
+// Add CSS for onboarding emphasis
+const onboardingStyle = document.createElement('style');
+onboardingStyle.textContent = `
+  .onboarding-emphasize {
+    animation: onboarding-pulse 0.5s alternate 4;
+    box-shadow: 0 0 8px 2px #ff9800;
+    outline: 2px solid #ff9800;
+  }
+  @keyframes onboarding-pulse {
+    from { transform: scale(1); }
+    to { transform: scale(1.15); }
+  }
+`;
+document.head.appendChild(onboardingStyle);
 
