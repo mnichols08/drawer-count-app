@@ -1945,8 +1945,18 @@ class NetworkStatus extends HTMLElement {
 
   _render() {
     const offline = !!this._offline;
-    const label = offline ? 'Offline' : 'Online';
     const { cls, short, title } = this._server || { cls: 'warn', short: 'N/A', title: 'Server: n/a' };
+    // Mixed state: online but server DB not connected/errored
+    const mixed = (!offline && cls !== 'ok');
+    const label = offline ? 'Offline' : (mixed ? 'Limited' : 'Online');
+
+    // Normalize classes to reflect three states: offline | online | mixed
+    try {
+      this.classList.toggle('offline', offline);
+      this.classList.toggle('mixed', mixed);
+      this.classList.toggle('online', !offline && !mixed);
+    } catch (_) { /* ignore */ }
+
     this.innerHTML = `
       <span class="dot" aria-hidden="true"></span>
       <span class="label">${label}</span>

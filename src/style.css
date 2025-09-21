@@ -275,6 +275,11 @@ network-status .dot {
 }
 network-status.online .dot { background: #10b981; border-color: rgba(16,185,129,.35); }
 network-status.offline .dot { background: #ef4444; border-color: rgba(239,68,68,.35); }
+/* Mixed: online transport OK but server DB limited/unavailable */
+network-status.mixed .dot { background: #f59e0b; border-color: rgba(245,158,11,.35); }
+/* Optional: lightly tint server badge in mixed state */
+network-status .server-badge.warn .text { color: #fcd34d; }
+network-status .server-badge.err .text { color: #fca5a5; }
 
 /*
   Responsive enhancements (progressive) 
