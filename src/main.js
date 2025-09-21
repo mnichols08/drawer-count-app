@@ -285,16 +285,21 @@ class SettingsModal extends HTMLElement {
         .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(2px); z-index: 1000; }
         .dialog { position: fixed; inset: 12% auto auto 50%; transform: translateX(-50%);
           max-width: min(560px, 92vw); max-height: min(85vh, 92vh); overflow-y: auto; overflow-x: hidden; background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
-          border: 1px solid var(--border, #2a345a); border-radius: 12px; padding: 14px; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
+          border: 1px solid var(--border, #2a345a); border-radius: 14px; padding: 1.1rem 1.1rem 1.25rem; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
         .hd { display:flex; justify-content: space-between; align-items:center; gap: 8px; margin-bottom: 10px; }
         .hd h2 { margin: 0; font-size: 1.1rem; }
-        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; cursor: pointer; }
         .section { border-top: 1px solid var(--border, #2a345a); padding-top: 10px; margin-top: 10px; }
         .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; flex-wrap: wrap; }
         .radios { display: flex; gap: 12px; align-items: center; }
         label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
-        .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 8px 12px; cursor: pointer; min-height: 40px; font-weight: 600; }
+        .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 10px; padding: 0.6rem 0.8rem; cursor: pointer; min-height: 44px; font-weight: 600; }
+        .btn:hover { filter: brightness(1.08); }
+        .btn:active { transform: translateY(1px); }
+        .btn:focus { outline: 2px solid var(--accent, #5aa0ff); outline-offset: 2px; }
         .btn[disabled] { opacity: .7; cursor: not-allowed; }
+        /* Inputs/selects to match app */
+        .day-label, .day-select { background: var(--input-bg-color, #0f1730); color: var(--input-fg-color, var(--fg)); border: 1px solid var(--border, #2a345a); border-radius: 10px; padding: 0.6rem 0.75rem; min-height: 44px; font-size: 16px; }
         /* Processing dots animation within modal shadow */
         .btn.processing { position: relative; }
         .btn .dots { display: inline-block; width: 1.5em; text-align: left; }
@@ -588,10 +593,10 @@ class NewProfileModal extends HTMLElement {
         .dialog { position: fixed; inset: 12% auto auto 50%; transform: translateX(-50%);
          max-width: min(520px, 92vw); max-height: min(85vh, 92vh); overflow-y: auto; overflow-x: hidden;
           background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
-          border: 1px solid var(--border, #2a345a); border-radius: 12px; padding: 14px; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
+          border: 1px solid var(--border, #2a345a); border-radius: 14px; padding: 1.1rem 1.1rem 1.25rem; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
         .hd { display:flex; justify-content: space-between; align-items:center; gap: 8px; margin-bottom: 10px; }
         .hd h2 { margin: 0; font-size: 1.1rem; }
-        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; cursor: pointer; }
         form { display: grid; gap: 10px; }
         label { font-size: .95rem; }
         input[type="text"] {
@@ -605,7 +610,10 @@ class NewProfileModal extends HTMLElement {
           font-size: 16px;  /* prevent iOS zoom */
         }
         .actions { display:flex; gap: 8px; justify-content: flex-end; }
-        .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 8px 12px; cursor: pointer; min-height: 40px; font-weight: 600; }
+        .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 10px; padding: 0.6rem 0.8rem; cursor: pointer; min-height: 44px; font-weight: 600; }
+        .btn:hover { filter: brightness(1.08); }
+        .btn:active { transform: translateY(1px); }
+        .btn:focus { outline: 2px solid var(--accent, #5aa0ff); outline-offset: 2px; }
         .btn[disabled] { opacity: .6; cursor: not-allowed; }
         @media (max-width: 480px) { .dialog { inset: 6% auto auto 50%; padding: 12px; } }
       </style>
@@ -703,14 +711,17 @@ class DeleteProfileModal extends HTMLElement {
         .dialog { position: fixed; inset: 12% auto auto 50%; transform: translateX(-50%);
          max-width: min(520px, 92vw); max-height: min(85vh, 92vh); overflow-y: auto; overflow-x: hidden;
           background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
-          border: 1px solid var(--border, #2a345a); border-radius: 12px; padding: 14px; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
+          border: 1px solid var(--border, #2a345a); border-radius: 14px; padding: 1.1rem 1.1rem 1.25rem; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
         .hd { display:flex; justify-content: space-between; align-items:center; gap: 8px; margin-bottom: 10px; }
         .hd h2 { margin: 0; font-size: 1.1rem; }
-        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; cursor: pointer; }
         .content { display: grid; gap: 10px; }
         .danger { color: #ffb4b4; }
         .actions { display:flex; gap: 8px; justify-content: flex-end; }
-        .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 8px 12px; cursor: pointer; min-height: 40px; font-weight: 600; }
+        .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 10px; padding: 0.6rem 0.8rem; cursor: pointer; min-height: 44px; font-weight: 600; }
+        .btn:hover { filter: brightness(1.08); }
+        .btn:active { transform: translateY(1px); }
+        .btn:focus { outline: 2px solid var(--accent, #5aa0ff); outline-offset: 2px; }
         .btn-danger { background: #5a2a2a; color: #ffd6d6; border-color: #7a3a3a; }
         @media (max-width: 480px) { .dialog { inset: 6% auto auto 50%; padding: 12px; } }
       </style>
@@ -798,14 +809,17 @@ class UnlockConfirmModal extends HTMLElement {
         .dialog { position: fixed; inset: 12% auto auto 50%; transform: translateX(-50%);
          max-width: min(520px, 92vw); max-height: min(85vh, 92vh); overflow-y: auto; overflow-x: hidden;
           background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
-          border: 1px solid var(--border, #2a345a); border-radius: 12px; padding: 14px; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
+          border: 1px solid var(--border, #2a345a); border-radius: 14px; padding: 1.1rem 1.1rem 1.25rem; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
         .hd { display:flex; justify-content: space-between; align-items:center; gap: 8px; margin-bottom: 10px; }
         .hd h2 { margin: 0; font-size: 1.1rem; }
-        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; cursor: pointer; }
         .content { display: grid; gap: 10px; }
         .warn { color: #ffd6a6; }
         .actions { display:flex; gap: 8px; justify-content: flex-end; }
-        .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 8px 12px; cursor: pointer; min-height: 40px; font-weight: 600; }
+        .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 10px; padding: 0.6rem 0.8rem; cursor: pointer; min-height: 44px; font-weight: 600; }
+        .btn:hover { filter: brightness(1.08); }
+        .btn:active { transform: translateY(1px); }
+        .btn:focus { outline: 2px solid var(--accent, #5aa0ff); outline-offset: 2px; }
         .btn-danger { background: #5a4a2a; color: #ffe9c6; border-color: #7a5a3a; }
       </style>
       <div class="backdrop" part="backdrop"></div>
@@ -877,14 +891,17 @@ class RevertConfirmModal extends HTMLElement {
         .dialog { position: fixed; inset: 12% auto auto 50%; transform: translateX(-50%);
          max-width: min(520px, 92vw); max-height: min(85vh, 92vh); overflow-y: auto; overflow-x: hidden;
           background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
-          border: 1px solid var(--border, #2a345a); border-radius: 12px; padding: 14px; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
+          border: 1px solid var(--border, #2a345a); border-radius: 14px; padding: 1.1rem 1.1rem 1.25rem; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
         .hd { display:flex; justify-content: space-between; align-items:center; gap: 8px; margin-bottom: 10px; }
         .hd h2 { margin: 0; font-size: 1.1rem; }
-        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; cursor: pointer; }
         .content { display: grid; gap: 10px; }
         .warn { color: #ffd6a6; }
         .actions { display:flex; gap: 8px; justify-content: flex-end; }
-        .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 8px 12px; cursor: pointer; min-height: 40px; font-weight: 600; }
+        .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 10px; padding: 0.6rem 0.8rem; cursor: pointer; min-height: 44px; font-weight: 600; }
+        .btn:hover { filter: brightness(1.08); }
+        .btn:active { transform: translateY(1px); }
+        .btn:focus { outline: 2px solid var(--accent, #5aa0ff); outline-offset: 2px; }
         .btn-danger { background: #5a2a2a; color: #ffd6d6; border-color: #7a3a3a; }
       </style>
       <div class="backdrop" part="backdrop"></div>
