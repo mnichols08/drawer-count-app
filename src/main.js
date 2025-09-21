@@ -1999,8 +1999,8 @@ class CountPanel extends HTMLElement {
     } catch(_) { isPast = false; }
   const reopenActive = !!(started && !completed && isPast && !this._state.collapsed);
     this._els.lock.hidden = !reopenActive;
-    // Hide save/complete when read-only (nothing to save)
-    this._els.complete.hidden = !started || !!completed || readOnly;
+  // Hide save/complete unless actively editing: started, expanded, not completed, and not read-only
+  this._els.complete.hidden = !started || !!completed || readOnly || !!this._state.collapsed;
     this._els.reopen.hidden = !completed;
 
     // Cancel should only be visible when there are unsaved changes you can actually revert
@@ -2287,11 +2287,10 @@ class CountPanel extends HTMLElement {
   _isSaveMode() {
     try {
       const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
-      if (!key) return false; // default to 'Mark complete'
+      if (!key) return false; // default to 'Mark complete' (assume today)
       const today = (typeof getTodayKey === 'function') ? getTodayKey() : '';
-      // Past day -> Save; Today -> Save only if already completed
-      if (key !== today) return true;
-      return !!this._state?.completed;
+      // Requirement: Mark complete on today's date, Save on other days
+      return key !== today;
     } catch (_) { return false; }
   }
 
