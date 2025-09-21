@@ -1978,7 +1978,7 @@ class CountPanel extends HTMLElement {
         <div class="panel-title">Today's Count</div>
         <div class="panel-actions">
           <button class="start-btn" type="button">Start count</button>
-          <button class="toggle-btn" type="button" aria-expanded="false" aria-label="Expand">▸</button>
+          <button class="toggle-btn" type="button" aria-expanded="false" aria-label="Expand">＋</button>
           <button class="lock-btn" type="button" aria-label="Toggle edit lock" title="Toggle edit lock">🔒</button>
           <button class="complete-btn" type="button">Mark complete</button>
           <button class="reopen-btn" type="button">Reopen</button>
@@ -2147,7 +2147,7 @@ class CountPanel extends HTMLElement {
     if (this._els.toggle) this._els.toggle.disabled = !!this._isProcessing;
 
   // Toggle icon + labels/ARIA
-    this._els.toggle.textContent = collapsed ? '▸' : '▾';
+    this._els.toggle.textContent = collapsed ? '＋' : '－';
     this._els.toggle.setAttribute('aria-expanded', String(!collapsed));
     this._els.toggle.setAttribute('aria-label', collapsed ? 'Expand' : 'Collapse');
 
