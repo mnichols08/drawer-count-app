@@ -477,6 +477,8 @@ class SettingsModal extends HTMLElement {
       const header = document.querySelector('app-header');
       updateStatusPill(header);
       applyReadOnlyByActiveDate(header); // ensure lock state and UI are in sync
+      // Auto-show completed summary for past days
+      try { const today = getTodayKey(); if (key !== today) { const panel = document.querySelector('count-panel'); panel?.showCompletedSummary?.(); } } catch(_) {}
       toast(ok ? `Loaded ${key}` : 'Load failed', { type: ok ? 'success' : 'error', duration: 1800 });
     } catch(_) { toast('Load failed', { type: 'error', duration: 2000 }); }
   }
@@ -721,6 +723,85 @@ function getDeleteProfileModal() {
   return m;
 }
 
+// Web Component: <unlock-confirm-modal> — confirm unlocking edits for a past day
+class UnlockConfirmModal extends HTMLElement {
+  constructor() {
+    super();
+    this._shadow = this.attachShadow({ mode: 'open' });
+    this._onKeyDown = this._onKeyDown.bind(this);
+    this._resolver = null;
+    this._dayKey = '';
+  }
+  connectedCallback() { this._render(); window.addEventListener('keydown', this._onKeyDown); }
+  disconnectedCallback() { window.removeEventListener('keydown', this._onKeyDown); }
+  _render() {
+    this._shadow.innerHTML = `
+      <style>
+        :host { display: none; }
+        :host([open]) { display: block; }
+        .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(2px); z-index: 1000; }
+        .dialog { position: fixed; inset: 12% auto auto 50%; transform: translateX(-50%);
+         max-width: min(520px, 92vw); max-height: min(85vh, 92vh); overflow-y: auto; overflow-x: hidden;
+          background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
+          border: 1px solid var(--border, #2a345a); border-radius: 12px; padding: 14px; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
+        .hd { display:flex; justify-content: space-between; align-items:center; gap: 8px; margin-bottom: 10px; }
+        .hd h2 { margin: 0; font-size: 1.1rem; }
+        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+        .content { display: grid; gap: 10px; }
+        .warn { color: #ffd6a6; }
+        .actions { display:flex; gap: 8px; justify-content: flex-end; }
+        .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 8px 12px; cursor: pointer; min-height: 40px; font-weight: 600; }
+        .btn-danger { background: #5a4a2a; color: #ffe9c6; border-color: #7a5a3a; }
+      </style>
+      <div class="backdrop" part="backdrop"></div>
+      <div class="dialog" role="dialog" aria-modal="true" aria-label="Unlock edits">
+        <div class="hd">
+          <h2>Unlock Edits?</h2>
+          <button class="close" aria-label="Close">Close</button>
+        </div>
+        <div class="content">
+          <p>Are you sure you want to unlock editing for <strong class="key"></strong>? Changes will modify the saved record for that day.</p>
+          <p class="warn">Tip: You can view the summary without unlocking. Only unlock if you need to correct data.</p>
+          <div class="actions">
+            <button type="button" class="btn btn-cancel">Cancel</button>
+            <button type="button" class="btn btn-danger btn-unlock">Unlock</button>
+          </div>
+        </div>
+      </div>
+    `;
+    this._els = {
+      backdrop: this._shadow.querySelector('.backdrop'),
+      close: this._shadow.querySelector('.close'),
+      cancel: this._shadow.querySelector('.btn-cancel'),
+      unlock: this._shadow.querySelector('.btn-unlock'),
+      key: this._shadow.querySelector('.key'),
+    };
+    this._els.backdrop?.addEventListener('click', () => this._cancel());
+    this._els.close?.addEventListener('click', () => this._cancel());
+    this._els.cancel?.addEventListener('click', () => this._cancel());
+    this._els.unlock?.addEventListener('click', () => this._confirm());
+  }
+  open(dayKey = '') {
+    if (!this._els) this._render();
+    this._dayKey = dayKey || '';
+    if (this._els.key) this._els.key.textContent = this._dayKey || 'this day';
+    this.setAttribute('open', '');
+    return new Promise((resolve) => { this._resolver = resolve; });
+  }
+  close() { this.removeAttribute('open'); }
+  _cancel() { this.close(); this._resolve(false); }
+  _confirm() { this.close(); this._resolve(true); }
+  _resolve(v) { const r = this._resolver; this._resolver = null; if (r) r(v); }
+  _onKeyDown(e) { if (e.key === 'Escape' && this.hasAttribute('open')) this._cancel(); }
+}
+customElements.define('unlock-confirm-modal', UnlockConfirmModal);
+
+function getUnlockConfirmModal() {
+  let m = document.querySelector('unlock-confirm-modal');
+  if (!m) { m = document.createElement('unlock-confirm-modal'); document.body.appendChild(m); }
+  return m;
+}
+
 // Web Component: <app-header> with title, theme toggle, and help button
 class AppHeader extends HTMLElement {
   constructor() {
@@ -735,7 +816,7 @@ class AppHeader extends HTMLElement {
     this._onDeleteProfile = this._onDeleteProfile.bind(this);
     this._onClear = this._onClear.bind(this);
     this._onOpenDays = this._onOpenDays.bind(this);
-    this._onToggleLock = this._onToggleLock.bind(this);
+  this._onToggleLock = this._onToggleLock.bind(this);
     this._onMenuToggle = this._onMenuToggle.bind(this);
     this._onWindowKey = this._onWindowKey.bind(this);
     this._onOutsideClick = this._onOutsideClick.bind(this);
@@ -896,15 +977,25 @@ class AppHeader extends HTMLElement {
       modal.open();
     } catch(_) {}
   }
-  _onToggleLock() {
+  async _onToggleLock() {
     try {
       const today = getTodayKey();
       const key = getActiveViewDateKey();
       if (key === today) { toast('Today is always editable', { type: 'info', duration: 1400 }); return; }
-      setDayEditUnlocked(!isDayEditUnlocked());
+      const unlocked = isDayEditUnlocked();
+      if (!unlocked) {
+        // Confirm before unlocking edits for past day
+        const modal = getUnlockConfirmModal();
+        const ok = await modal.open(key);
+        if (!ok) return;
+        setDayEditUnlocked(true);
+        toast('Editing unlocked for this day', { type: 'info', duration: 1600 });
+      } else {
+        setDayEditUnlocked(false);
+        toast('Editing locked for this day', { type: 'info', duration: 1600 });
+      }
       applyReadOnlyByActiveDate(this);
       updateLockButtonUI(this);
-      toast(isDayEditUnlocked() ? 'Editing unlocked for this day' : 'Editing locked for this day', { type: 'info', duration: 1600 });
     } catch(_) {}
   }
   _closeMenu() {
@@ -1988,8 +2079,14 @@ class CountPanel extends HTMLElement {
     this._state.collapsed = false;
     this._state.started = true;
     this._savePersisted(this._state);
-    try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(true); } catch (_) {}
-    try { if (typeof toast === 'function') toast('Reopened for editing.'); } catch (_) {}
+    // Keep past days read-only until explicitly unlocked
+    try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch (_) {}
+    try {
+      const header = document.querySelector('app-header');
+      applyReadOnlyByActiveDate(header);
+      updateLockButtonUI(header);
+    } catch(_) {}
+    try { if (typeof toast === 'function') toast('Reopened. Editing locked for past days.', { type: 'info', duration: 1800 }); } catch (_) {}
     this._refresh();
     queueMicrotask(() => this._focusFirstInput());
   }
