@@ -371,6 +371,35 @@ main.container > .card {
 .count-panel .panel-actions .complete-btn { filter: saturate(115%); }
 .count-panel .panel-actions .reopen-btn { filter: saturate(115%); }
 
+/* Subtle processing animation for Complete/Save button */
+.count-panel .panel-actions .complete-btn.processing {
+  position: relative;
+}
+.count-panel .panel-actions .complete-btn .dots {
+  display: inline-block;
+  width: 1.5em; /* space for three dots */
+  text-align: left;
+}
+@keyframes dca-ellipsis {
+  0% { content: ''; }
+  25% { content: '.'; }
+  50% { content: '..'; }
+  75% { content: '...'; }
+  100% { content: ''; }
+}
+/* Use pseudo content animation on a :after to avoid layout jitter */
+.count-panel .panel-actions .complete-btn.processing .dots::after {
+  content: '';
+  display: inline-block;
+  animation: dca-ellipsis 1.2s steps(4, end) infinite;
+}
+
+/* Dim disabled buttons slightly for clarity */
+.count-panel .panel-actions button[disabled] {
+  opacity: .7;
+  cursor: not-allowed;
+}
+
 /* Animate height with JS-controlled height property */
 .count-panel .panel-body {
   overflow: hidden;

@@ -2041,10 +2041,17 @@ class CountPanel extends HTMLElement {
       if (this._els.title) this._els.title.textContent = this._activeDayTitle();
     } catch(_) {}
     if (!this._els.complete.hidden) {
-      const label = this._isProcessing ? (saveMode ? 'Saving…' : 'Completing…') : (saveMode ? 'Save' : 'Mark complete');
-      this._els.complete.textContent = label;
-      this._els.complete.setAttribute('aria-label', label);
-      this._els.complete.title = label;
+      const baseLabel = saveMode ? 'Save' : 'Mark complete';
+      const processingLabel = saveMode ? 'Saving…' : 'Completing…';
+      this._els.complete.classList.toggle('processing', !!this._isProcessing);
+      if (this._isProcessing) {
+        // Include animated dots span for subtle feedback
+        this._els.complete.innerHTML = `${processingLabel} <span class="dots" aria-hidden="true"></span>`;
+      } else {
+        this._els.complete.textContent = baseLabel;
+      }
+      this._els.complete.setAttribute('aria-label', this._isProcessing ? processingLabel : baseLabel);
+      this._els.complete.title = this._isProcessing ? processingLabel : baseLabel;
     }
 
   // Decide which container is visible (summary when completed, body otherwise)
