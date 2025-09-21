@@ -1127,6 +1127,16 @@ class DayPickerModal extends HTMLElement {
     updateStatusPill(header);
     // Apply readonly rules and update lock button/icon/tooltip for the newly selected day
     applyReadOnlyByActiveDate(header);
+    // If selecting a previous date (not today), show the Completed summary panel
+    try {
+      const today = getTodayKey();
+      if (key !== today) {
+        const panel = document.querySelector('count-panel');
+        if (panel && typeof panel.showCompletedSummary === 'function') {
+          panel.showCompletedSummary();
+        }
+      }
+    } catch (_) { /* ignore */ }
     toast(ok ? `Loaded ${key}` : 'Load failed', { type: ok ? 'success' : 'error', duration: 1800 });
     this.close();
   }
@@ -1714,6 +1724,18 @@ class CountPanel extends HTMLElement {
     this._savePersisted({ collapsed: this._state.collapsed, started: this._state.started });
     this._refresh();
     return true;
+  }
+
+  // Public API: force show the Completed summary for the active profile/day
+  // Intended for when a previous date is selected so the user immediately sees the saved result
+  showCompletedSummary() {
+    this._state.started = true;
+    this._state.completed = true;
+    this._state.collapsed = false;
+    // Persist started/completed for this day; do not persist the expanded state
+    this._savePersisted({ started: true, completed: true });
+    try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch (_) {}
+    this._refresh();
   }
 
   // --- UI sync ---
