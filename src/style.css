@@ -372,10 +372,10 @@ main.container > .card {
 .count-panel .panel-actions .reopen-btn { filter: saturate(115%); }
 
 /* Subtle processing animation for Complete/Save button */
-.count-panel .panel-actions .complete-btn.processing {
+.count-panel .panel-actions button.processing {
   position: relative;
 }
-.count-panel .panel-actions .complete-btn .dots {
+.count-panel .panel-actions button .dots {
   display: inline-block;
   width: 1.5em; /* space for three dots */
   text-align: left;
@@ -388,7 +388,7 @@ main.container > .card {
   100% { content: ''; }
 }
 /* Use pseudo content animation on a :after to avoid layout jitter */
-.count-panel .panel-actions .complete-btn.processing .dots::after {
+.count-panel .panel-actions button.processing .dots::after {
   content: '';
   display: inline-block;
   animation: dca-ellipsis 1.2s steps(4, end) infinite;

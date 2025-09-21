@@ -2124,6 +2124,15 @@ class CountPanel extends HTMLElement {
       const today = getTodayKey();
       const key = getActiveViewDateKey();
       if (key === today) { toast('Today is always editable', { type: 'info', duration: 1400 }); return; }
+      // Indicate processing on the lock button during the operation
+      const btn = this._els?.lock;
+      const prevHtml = btn ? btn.innerHTML : '';
+      const prevDisabled = btn ? btn.disabled : false;
+      if (btn) {
+        btn.classList.add('processing');
+        btn.innerHTML = `${btn.textContent} <span class="dots" aria-hidden="true"></span>`;
+        btn.disabled = true;
+      }
       const unlocked = isDayEditUnlocked();
       if (!unlocked) {
         const modal = getUnlockConfirmModal();
@@ -2139,6 +2148,16 @@ class CountPanel extends HTMLElement {
       try { const header = document.querySelector('app-header'); applyReadOnlyByActiveDate(header); } catch(_) {}
       try { updateLockButtonUI(this); } catch(_) {}
       this._refresh();
+      // Small delay to let the user see the dots, then restore button
+      setTimeout(() => {
+        try {
+          if (btn) {
+            btn.classList.remove('processing');
+            btn.innerHTML = prevHtml;
+            btn.disabled = prevDisabled;
+          }
+        } catch(_) {}
+      }, 200);
     } catch(_) {}
   }
 
