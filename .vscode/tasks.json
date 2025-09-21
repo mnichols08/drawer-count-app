@@ -21,6 +21,13 @@
 			"command": "node server.js",
 			"isBackground": true,
 			"group": "build"
+		},
+		{
+			"label": "Preview server (dev)",
+			"type": "shell",
+			"command": "powershell -NoProfile -Command \"if (Test-Path .\\node_modules) { $env:PORT=8080; node server.js } else { Write-Host 'Install deps with npm i first' }\"",
+			"isBackground": true,
+			"group": "build"
 		}
 	]
 }

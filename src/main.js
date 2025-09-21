@@ -752,6 +752,7 @@ class AppHeader extends HTMLElement {
           .right.inline-actions { display: flex; }
           .right.menu-area { display: none; }
           .nav-menu { display: none !important; }
+          .menu-backdrop { display: none !important; }
         }
       </style>
       <div class="bar" role="toolbar" aria-label="App header">
