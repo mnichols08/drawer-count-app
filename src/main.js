@@ -1939,7 +1939,7 @@ class CountPanel extends HTMLElement {
   constructor() {
     super();
     this._els = {};
-    this._state = { started: false, collapsed: true, completed: false };
+  this._state = { started: false, collapsed: true, completed: false, reopened: false };
     this._isProcessing = false; // UI busy flag during save/complete
     this._onStart = this._onStart.bind(this);
     this._onToggle = this._onToggle.bind(this);
@@ -2040,9 +2040,9 @@ class CountPanel extends HTMLElement {
       const raw = localStorage.getItem('drawer-panel-v1');
       const all = raw ? JSON.parse(raw) : {};
       const key = this._panelKey();
-      return all[key] || { started: false, collapsed: true, completed: false };
+  return all[key] || { started: false, collapsed: true, completed: false, reopened: false };
     } catch (_) {
-      return { started: false, collapsed: true, completed: false };
+  return { started: false, collapsed: true, completed: false, reopened: false };
     }
   }
 
@@ -2097,7 +2097,7 @@ class CountPanel extends HTMLElement {
   // --- UI sync ---
   _refresh(noAnim = false) {
     // Merge persisted into memory state
-    this._state = { ...{ started: false, collapsed: true, completed: false }, ...this._loadPersisted() };
+  this._state = { ...{ started: false, collapsed: true, completed: false, reopened: false }, ...this._loadPersisted() };
     const { started, completed } = this._state;
     // Never show content before start; force collapsed in-memory
     if (!started) this._state.collapsed = true;
@@ -2138,12 +2138,15 @@ class CountPanel extends HTMLElement {
       if (started && !this._state.collapsed) {
         const actionsVisible = !this._els.complete.hidden;
         const saveMode = this._isSaveMode();
-        if (actionsVisible && saveMode) {
-          const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
-          const hasSaved = key ? this._hasSavedDay(key) : false;
-          const hasUnsaved = this._hasUnsavedChangesComparedToSaved();
-          showCancel = !!(hasSaved && hasUnsaved);
-        }
+        const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
+        const hasSaved = key ? this._hasSavedDay(key) : false;
+        const hasUnsaved = this._hasUnsavedChangesComparedToSaved();
+        // Show Cancel when:
+        // - Past day (Save mode) with unsaved changes vs saved snapshot
+        // - OR Today (not Save mode) only after a completed day was reopened and there are unsaved changes
+        const todayReopenCase = (!saveMode && !!this._state.reopened && hasSaved && hasUnsaved);
+        const pastSaveCase = (saveMode && hasSaved && hasUnsaved);
+        showCancel = !!(actionsVisible && (pastSaveCase || todayReopenCase));
       }
     } catch(_) { showCancel = false; }
     this._els.cancel.hidden = !showCancel;
@@ -2483,7 +2486,8 @@ class CountPanel extends HTMLElement {
     } catch(_) {}
     this._state.started = true;
     this._state.collapsed = false;
-    this._state.completed = false;
+  this._state.completed = false;
+  this._state.reopened = false;
     this._savePersisted(this._state);
     // Ensure day is editable when starting
     try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(true); } catch (_) {}
@@ -2533,9 +2537,10 @@ class CountPanel extends HTMLElement {
     }
 
     // Mark complete, collapse, and lock edits
-    this._state.completed = true;
+  this._state.completed = true;
+  this._state.reopened = false;
     // Persist only that it is completed and started
-    this._savePersisted({ completed: true, started: true });
+  this._savePersisted({ completed: true, started: true, reopened: false });
     try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch (_) {}
     // Save snapshot for current day
     try {
@@ -2557,6 +2562,7 @@ class CountPanel extends HTMLElement {
     this._state.completed = false;
     this._state.collapsed = false;
     this._state.started = true;
+    this._state.reopened = true;
     this._savePersisted(this._state);
     // Keep past days read-only until explicitly unlocked
     try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch (_) {}
