@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Bump the CACHE_VERSION string in sw.js (e.g., 'v7' -> 'v8').
+// Bump the CACHE_VERSION string in sw.js by patch (e.g., 'v0.0.25' -> 'v0.0.26').
+// Supports optional 'v' prefix: 'vX.Y.Z' or 'X.Y.Z'.
 // Usage: node scripts/bump-sw-cache.js [--dry]
 
 const fs = require('fs');
@@ -9,11 +10,14 @@ const dry = process.argv.includes('--dry');
 const swPath = path.join(__dirname, '..', 'sw.js');
 
 function bumpVersionTag(tag) {
-  // Expect 'v<number>'
-  const m = /^v(\d+)$/.exec(tag);
-  if (!m) throw new Error(`Unexpected CACHE_VERSION format: ${tag}`);
-  const n = parseInt(m[1], 10) + 1;
-  return 'v' + n;
+  // Expect semver with optional 'v' prefix, e.g., 'v0.0.25' or '0.0.25'
+  const m = /^(v)?(\d+)\.(\d+)\.(\d+)$/.exec(tag);
+  if (!m) throw new Error(`Unexpected CACHE_VERSION format (expected vX.Y.Z or X.Y.Z): ${tag}`);
+  const prefix = m[1] || '';
+  const major = parseInt(m[2], 10);
+  const minor = parseInt(m[3], 10);
+  const patch = parseInt(m[4], 10) + 1;
+  return `${prefix}${major}.${minor}.${patch}`;
 }
 
 function run() {
