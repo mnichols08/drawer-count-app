@@ -2187,8 +2187,14 @@ class CountPanel extends HTMLElement {
   this._syncContainersVisibility();
   // (Re)render summary if needed
   if (completed) this._renderSummary();
-  // Animate the currently visible container
-  if (collapsed) this._collapseEl(container, !noAnim); else this._expandEl(container, !noAnim);
+  // Avoid re-running expand/collapse if state didn't change and caller asked for no animation
+  const collapsedChanged = this._lastCollapsed !== collapsed;
+  const completedChanged = this._lastCompleted !== completed;
+  if (collapsedChanged || completedChanged || !noAnim) {
+    if (collapsed) this._collapseEl(container, !noAnim); else this._expandEl(container, !noAnim);
+  }
+  this._lastCollapsed = collapsed;
+  this._lastCompleted = completed;
 
     // Hints
     this._els.doneHint.hidden = !completed;
@@ -2583,7 +2589,8 @@ class CountPanel extends HTMLElement {
 
   _onDrawerChange(_e) {
     // When values inside <drawer-count> change, recompute unsaved delta and button visibility
-    this._refresh();
+    // Avoid re-animating the panel body on every keystroke; refresh state without animations
+    this._refresh(true);
   }
 }
 customElements.define('count-panel', CountPanel);
