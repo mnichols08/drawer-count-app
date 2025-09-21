@@ -20,6 +20,13 @@ Status: Vanilla JS + Web Components (no framework)
 
 ## Quick start (Windows PowerShell)
 
+44.226.145.213
+54.187.200.255
+34.213.214.55
+35.164.95.156
+44.230.95.183
+44.229.200.200
+
 ```powershell
 npm install
 # Optional: create a local .env from the example
