@@ -1808,8 +1808,8 @@ class CountPanel extends HTMLElement {
     // Set to current pixel height if auto
     const current = el.scrollHeight;
     el.style.height = `${current}px`;
-    // Force reflow
-    // eslint-disable-next-line no-unused-expressions
+    // Force a browser reflow by reading offsetHeight.
+    // This ensures the transition from the current height to 0px is properly animated.
     el.offsetHeight;
     requestAnimationFrame(() => {
       el.style.height = '0px';
