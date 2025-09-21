@@ -1769,6 +1769,7 @@ class CountPanel extends HTMLElement {
       <div class="panel-body" aria-hidden="true"></div>
       <div class="panel-summary" aria-hidden="true" hidden></div>
       <p class="hint done-hint" hidden>Completed for this day. Tap Reopen to edit.</p>
+      <p class="hint lock-hint" hidden>Editing is locked for this saved day. To make changes, click the lock button (🔒) in the header to unlock.</p>
     `;
   }
 
@@ -1783,6 +1784,7 @@ class CountPanel extends HTMLElement {
     this._els.body = this.querySelector('.panel-body');
     this._els.doneHint = this.querySelector('.done-hint');
     this._els.summary = this.querySelector('.panel-summary');
+    this._els.lockHint = this.querySelector('.lock-hint');
   }
 
   _bind() {
@@ -1872,15 +1874,17 @@ class CountPanel extends HTMLElement {
     // Never show content before start; force collapsed in-memory
     if (!started) this._state.collapsed = true;
     const collapsed = this._state.collapsed;
+    const readOnly = this._computeReadOnly();
 
     // Classes
     this.classList.toggle('collapsed', !!collapsed);
     this.classList.toggle('completed', !!completed);
 
     // Buttons visibility
-    this._els.start.hidden = !!started;
-    this._els.toggle.hidden = !started; // only makes sense after start
-    this._els.complete.hidden = !started || !!completed;
+  this._els.start.hidden = !!started;
+  this._els.toggle.hidden = !started; // only makes sense after start
+  // Hide save/complete when read-only (nothing to save)
+  this._els.complete.hidden = !started || !!completed || readOnly;
     this._els.reopen.hidden = !completed;
 
     // Toggle labels/ARIA
@@ -1904,8 +1908,9 @@ class CountPanel extends HTMLElement {
   // Animate the currently visible container
   if (collapsed) this._collapseEl(container, !noAnim); else this._expandEl(container, !noAnim);
 
-    // Done hint
+    // Hints
     this._els.doneHint.hidden = !completed;
+    if (this._els.lockHint) this._els.lockHint.hidden = !(started && !completed && readOnly);
   }
 
   _expandBody(animate = true) { this._expandEl(this._els.body, animate); }
@@ -2030,6 +2035,17 @@ class CountPanel extends HTMLElement {
         ${optList ? `<div class="section"><h4>Optional Fields</h4>${optList}</div>` : ''}
       `;
     } catch (_) { /* ignore */ }
+  }
+
+  _computeReadOnly() {
+    try {
+      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
+      const today = (typeof getTodayKey === 'function') ? getTodayKey() : '';
+      if (!key) return false;
+      const past = key !== today;
+      const unlocked = (typeof isDayEditUnlocked === 'function') ? isDayEditUnlocked() : false;
+      return past && !unlocked;
+    } catch (_) { return false; }
   }
 
   _hasSavedDay(key) {
