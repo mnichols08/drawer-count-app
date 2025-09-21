@@ -1989,8 +1989,16 @@ class CountPanel extends HTMLElement {
     // Buttons visibility
     this._els.start.hidden = !!started;
     this._els.toggle.hidden = !started; // only makes sense after start
-    // Lock button visible when not today (to reflect lock state) and after start; still show for today to communicate state
-    this._els.lock.hidden = !started;
+    // Show the lock button ONLY when the "Reopen" edit screen is active:
+    // i.e., started, not completed, and viewing a past day (not today)
+    let isPast = false;
+    try {
+      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
+      const today = (typeof getTodayKey === 'function') ? getTodayKey() : '';
+      if (key && today) isPast = (key !== today);
+    } catch(_) { isPast = false; }
+    const reopenActive = !!(started && !completed && isPast);
+    this._els.lock.hidden = !reopenActive;
     // Hide save/complete when read-only (nothing to save)
     this._els.complete.hidden = !started || !!completed || readOnly;
     this._els.reopen.hidden = !completed;
