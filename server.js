@@ -16,7 +16,7 @@ const { MongoClient } = require('mongodb');
 // Ensure fetch is available in Node (Node 18+ has global fetch; otherwise use undici)
 let fetchFn = global.fetch;
 if (typeof fetchFn !== 'function') {
-	try { fetchFn = require('undici').fetch; } catch (_) { /* will error on use if missing */ }
+	try { fetchFn = require('undici').fetch; } catch (_) { throw new Error("Fetch API is not available. Please use Node.js v18+ or install the 'undici' package."); }
 }
 const fetch = (...args) => fetchFn(...args);
 require('dotenv').config();
