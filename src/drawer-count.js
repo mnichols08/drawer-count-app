@@ -109,11 +109,17 @@ class DrawerCount extends HTMLElement {
       const b = state.base || {};
       const setVal = (sel, v) => {
         const el = this._root.querySelector(sel + ' input');
-        if (el) { el.value = (Number(v) || 0); el.dispatchEvent(new Event('input', { bubbles: true })); }
+        if (el) {
+          el.value = (v === null || v === undefined || v === '') ? '' : Number(v);
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+        }
       };
       const setOpt = (sel, v) => {
         const el = this._root.querySelector(sel);
-        if (el) { el.value = (Number(v) || 0); el.dispatchEvent(new Event('input', { bubbles: true })); }
+        if (el) {
+          el.value = (v === null || v === undefined || v === '') ? '' : Number(v);
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+        }
       };
       // Set base inputs
       setVal('#drawer', b.drawer);
@@ -147,7 +153,10 @@ class DrawerCount extends HTMLElement {
         const rows = Array.from(this._root.querySelectorAll('.wrap .' + type));
         const last = rows[rows.length - 1];
         const inp = last?.querySelector('input');
-        if (inp) { inp.value = Number(value) || 0; inp.dispatchEvent(new Event('input', { bubbles: true })); }
+        if (inp) {
+          inp.value = (value === null || value === undefined || value === '') ? '' : Number(value);
+          inp.dispatchEvent(new Event('input', { bubbles: true }));
+        }
       };
       (Array.isArray(ex.slips) ? ex.slips : []).forEach((v) => add('slip', v));
       (Array.isArray(ex.checks) ? ex.checks : []).forEach((v) => add('check', v));
@@ -175,21 +184,21 @@ class DrawerCount extends HTMLElement {
 
   // Public API: reset all inputs and dynamic rows to zero/empty
   reset() {
-    const zero = 0;
+    const empty = null;
     const state = {
       version: 2,
       timestamp: Date.now(),
       base: {
-        drawer: zero, roa: zero, slips: zero, checks: zero,
-        hundreds: zero, fifties: zero, twenties: zero, tens: zero,
-        fives: zero, dollars: zero, quarters: zero, dimes: zero, nickels: zero, pennies: zero,
-        quarterrolls: zero, dimerolls: zero, nickelrolls: zero, pennyrolls: zero
+        drawer: empty, roa: empty, slips: empty, checks: empty,
+        hundreds: empty, fifties: empty, twenties: empty, tens: empty,
+        fives: empty, dollars: empty, quarters: empty, dimes: empty, nickels: empty, pennies: empty,
+        quarterrolls: empty, dimerolls: empty, nickelrolls: empty, pennyrolls: empty
       },
       extra: { slips: [], checks: [] },
       optional: {
-        charges: zero, totalReceived: zero, netSales: zero,
-        grossProfitAmount: zero, grossProfitPercent: zero,
-        numInvoices: zero, numVoids: zero
+        charges: empty, totalReceived: empty, netSales: empty,
+        grossProfitAmount: empty, grossProfitPercent: empty,
+        numInvoices: empty, numVoids: empty
       }
     };
     this.setState(state);
@@ -249,6 +258,10 @@ class DrawerCount extends HTMLElement {
       </style>
 
       <div class="wrap">
+        <div class="panel-actions" style="display: flex; gap: 8px; margin-bottom: 10px;">
+          <button class="icon-btn clear-btn" aria-label="Clear inputs" title="Clear inputs">🧹</button>
+          <button class="icon-btn optional-btn" aria-label="Optional fields" title="Optional fields">🧾</button>
+        </div>
         <div class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
         <div class="output" id="total">Count: $<total>0.00</total></div>
         <div class="output" id="cash">Remove: $<cash>0.00</cash></div>
@@ -395,6 +408,23 @@ class DrawerCount extends HTMLElement {
     // Add-input buttons
     $('#slips .add-slip')?.addEventListener('click', () => this._newInput('#checks'));
     $('#checks .add-check')?.addEventListener('click', () => this._newInput('#hundreds'));
+
+    // Panel action buttons
+    this._root.querySelector('.clear-btn')?.addEventListener('click', () => {
+      this.reset();
+      try { toast('Cleared', { type: 'info', duration: 1500 }); } catch(_) {}
+      // focus first input for convenience
+      setTimeout(() => { try { this._root.querySelector('input')?.focus(); } catch(_) {} }, 0);
+    });
+    this._root.querySelector('.optional-btn')?.addEventListener('click', () => {
+      try {
+        if (typeof getOptionalFieldsModal === 'function') {
+          getOptionalFieldsModal().open();
+        } else if (window.getOptionalFieldsModal) {
+          window.getOptionalFieldsModal().open();
+        }
+      } catch(_) {}
+    });
 
     // Delegated input handler on each .input block
     $$('.input').forEach((block) => block.addEventListener('input', this._onInputEvent));

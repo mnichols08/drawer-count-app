@@ -1042,9 +1042,8 @@ class AppHeader extends HTMLElement {
         <h1 class="title">${title}</h1>
         <div class="actions right inline-actions">
           <button class="icon-btn panel-toggle-btn" aria-label="Today’s count" title="Today’s count">⬒</button>
-          <button class="icon-btn optional-btn" aria-label="Optional fields" title="Optional fields">🧾</button>
           <button class="icon-btn days-btn" aria-label="Daily history" title="Daily history">📅</button>
-          <button class="icon-btn clear-btn" aria-label="Clear inputs" title="Clear inputs">🧹</button>
+          <!-- Optional and Clear buttons moved to drawer panel -->
           <button class="icon-btn settings-btn" aria-label="Settings" title="Settings">⚙️</button>
           <button class="icon-btn theme-toggle" aria-label="Toggle theme" title="Toggle theme">${(document.documentElement.getAttribute('data-theme')||getPreferredTheme())==='dark'?'🌙':'☀️'}</button>
           <button class="icon-btn info-btn" aria-label="Help" title="Help">?</button>
@@ -1054,9 +1053,8 @@ class AppHeader extends HTMLElement {
           <div class="nav-menu" role="menu">
             <div class="row">
               <button class="icon-btn panel-toggle-btn" role="menuitem" aria-label="Today’s count" title="Today’s count">⬒</button>
-              <button class="icon-btn optional-btn" role="menuitem" aria-label="Optional fields" title="Optional fields">🧾</button>
               <button class="icon-btn days-btn" role="menuitem" aria-label="Daily history" title="Daily history">📅</button>
-              <button class="icon-btn clear-btn" role="menuitem" aria-label="Clear inputs" title="Clear inputs">🧹</button>
+              <!-- Optional and Clear buttons moved to drawer panel -->
               <button class="icon-btn settings-btn" role="menuitem" aria-label="Settings" title="Settings">⚙️</button>
               <button class="icon-btn theme-toggle" role="menuitem" aria-label="Toggle theme" title="Toggle theme">${(document.documentElement.getAttribute('data-theme')||getPreferredTheme())==='dark'?'🌙':'☀️'}</button>
               <button class="icon-btn info-btn" role="menuitem" aria-label="Help" title="Help">?</button>
@@ -1074,8 +1072,7 @@ class AppHeader extends HTMLElement {
     this.querySelector('.profile-select')?.addEventListener('change', this._onProfileChange);
     this.querySelector('.new-profile-btn')?.addEventListener('click', this._onNewProfile);
     this.querySelector('.delete-profile-btn')?.addEventListener('click', this._onDeleteProfile);
-    this.querySelectorAll('.clear-btn')?.forEach((el) => el.addEventListener('click', this._onClear));
-    this.querySelectorAll('.optional-btn')?.forEach((el) => el.addEventListener('click', this._onOptional));
+  // Clear and Optional buttons now handled in drawer panel
   this.querySelectorAll('.days-btn')?.forEach((el) => el.addEventListener('click', this._onOpenDays));
     // Menu interactions
     this.querySelector('.menu-toggle')?.addEventListener('click', this._onMenuToggle);
@@ -1394,6 +1391,10 @@ function getOptionalFieldsModal() {
   if (!m) { m = document.createElement('optional-fields-modal'); document.body.appendChild(m); }
   return m;
 }
+
+// Ensure global access for shadowRoot event handlers
+window.getOptionalFieldsModal = getOptionalFieldsModal;
+
 
 // Web Component: <day-picker-modal> — calendar UI for picking saved days
 class DayPickerModal extends HTMLElement {
@@ -3394,6 +3395,19 @@ function showOnboardingOverlay() {
 function removeOnboardingOverlay() {
   const overlay = document.getElementById('onboarding-overlay');
   if (overlay) overlay.remove();
+  // Show today's panel and expand it
+  const panel = document.querySelector('count-panel');
+  if (panel) {
+    panel.classList.remove('hidden-on-load');
+    if (typeof panel.expand === 'function') panel.expand();
+    // If panel is not started, start it for today
+    if (typeof getTodayKey === 'function' && typeof setActiveViewDateKey === 'function') {
+      const today = getTodayKey();
+      setActiveViewDateKey(today);
+    }
+  }
+  const cardSection = document.querySelector('section.card');
+  if (cardSection) cardSection.classList.remove('hidden-on-load');
 }
 
 // Add onboarding overlay CSS
