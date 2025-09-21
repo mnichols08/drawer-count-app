@@ -941,18 +941,7 @@ class RevertConfirmModal extends HTMLElement {
   open(dayKey = '') {
     if (!this._els) this._render();
     this._dayKey = dayKey || '';
-    // Friendly label: Today/Yesterday/key
-    try {
-      const today = getTodayKey();
-      let label = dayKey || today;
-      if (dayKey === today) label = "today";
-      else {
-        const d = new Date(); d.setDate(d.getDate()-1);
-        const yk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-        if (dayKey === yk) label = "yesterday";
-      }
-      if (this._els.key) this._els.key.textContent = label;
-    } catch(_) { if (this._els?.key) this._els.key.textContent = dayKey || 'this day'; }
+    if (this._els.key) this._els.key.textContent = this._dayKey || 'this day';
     this.setAttribute('open', '');
     return new Promise((resolve) => { this._resolver = resolve; });
   }
@@ -2296,8 +2285,10 @@ class CountPanel extends HTMLElement {
         this._savePersisted({ started: true, completed: true, collapsed: false });
         // Lock edits for past days
         try { setDayEditUnlocked(false); } catch(_) {}
+        // Update status pill and apply read-only to inputs
         try {
           const header = document.querySelector('app-header');
+          updateStatusPill(header);
           applyReadOnlyByActiveDate(header);
           updateLockButtonUI(header);
         } catch(_) {}
@@ -2497,6 +2488,7 @@ class CountPanel extends HTMLElement {
       const today = (typeof getTodayKey === 'function') ? getTodayKey() : '';
       if (!key) return false;
       const past = key !== today;
+     
       const unlocked = (typeof isDayEditUnlocked === 'function') ? isDayEditUnlocked() : false;
       return past && !unlocked;
     } catch (_) { return false; }
@@ -2951,7 +2943,7 @@ function _apiCandidatesFor(path) {
         const altFull = `${alt.replace(/\/+$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
         if (altFull !== primaryFull) candidates.push(altFull);
       }
-    } catch (_) {}
+    } catch(_) {}
     // If we're using local '/api', try the known production default as a fallback
     try {
       const base = getApiBase();
@@ -2965,7 +2957,7 @@ function _apiCandidatesFor(path) {
         const prodAltFull = `${prodAlt.replace(/\/+$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
         if (!candidates.includes(prodAltFull)) candidates.push(prodAltFull);
       }
-    } catch (_) {}
+    } catch(_) {}
     return candidates;
   } catch (_) { return [apiUrl(path)]; }
 }
@@ -3381,73 +3373,112 @@ function setDayLabel(key, label) {
   } catch(_) { return false; }
 }
 
-// Onboarding hint: emphasize header buttons and show toast if no interaction
-let onboardingInteracted = false;
-let onboardingTimeout = null;
-
-function emphasizeHeaderButtons() {
-  const header = document.querySelector('app-header');
-  if (!header) return;
-  const btns = header.querySelectorAll('.panel-toggle-btn, .optional-btn, .days-btn, .settings-btn, .theme-toggle, .info-btn');
-  btns.forEach(btn => {
-    btn.classList.add('onboarding-emphasize');
-  });
-  setTimeout(() => {
-    btns.forEach(btn => btn.classList.remove('onboarding-emphasize'));
-  }, 2000);
+// --- Onboarding Overlay ---
+function showOnboardingOverlay() {
+  if (document.getElementById('onboarding-overlay')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'onboarding-overlay';
+  overlay.innerHTML = `
+    <div class="onboarding-content">
+      <h2>Welcome!</h2>
+      <p>To get started, choose an option from the menu above.</p>
+      <div class="onboarding-arrow" aria-hidden="true"></div>
+      <button class="onboarding-dismiss" type="button">Got it!</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  // Dismiss on button click or overlay click
+  overlay.addEventListener('click', removeOnboardingOverlay);
+  overlay.querySelector('.onboarding-dismiss').addEventListener('click', removeOnboardingOverlay);
+}
+function removeOnboardingOverlay() {
+  const overlay = document.getElementById('onboarding-overlay');
+  if (overlay) overlay.remove();
 }
 
-function showOnboardingToast() {
-  toast('To get started, choose one of the options in the menu above.', { type: 'info', duration: 4000 });
-}
+// Add onboarding overlay CSS
+const onboardingOverlayStyle = document.createElement('style');
+onboardingOverlayStyle.textContent = `
+  #onboarding-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(21,28,53,0.85);
+    z-index: 99999;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    animation: fadeIn 0.5s;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  #onboarding-overlay .onboarding-content {
+    margin-top: 12vh;
+    background: rgba(255,255,255,0.08);
+    border-radius: 18px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    padding: 2.5rem 2rem 2rem 2rem;
+    text-align: center;
+    color: #fff;
+    max-width: 340px;
+    position: relative;
+  }
+  #onboarding-overlay h2 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  #onboarding-overlay p {
+    font-size: 1.15rem;
+    margin-bottom: 1.5rem;
+    color: #ffe;
+  }
+  #onboarding-overlay .onboarding-arrow {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 1.5rem auto;
+    background: url('data:image/svg+xml;utf8,<svg width="48" height="48" xmlns="http://www.w3.org/2000/svg"><path d="M24 6v30M24 36l-12-12M24 36l12-12" stroke="%23ff9800" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>') no-repeat center center;
+    animation: arrowPulse 1.2s infinite alternate;
+  }
+  @keyframes arrowPulse { from { transform: translateY(0); opacity: 0.7; } to { transform: translateY(12px); opacity: 1; } }
+  #onboarding-overlay .onboarding-dismiss {
+    margin-top: 0.5rem;
+    background: #ff9800;
+    color: #151c35;
+    border: none;
+    border-radius: 999px;
+    padding: 0.7rem 1.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    transition: background 0.2s;
+  }
+  #onboarding-overlay .onboarding-dismiss:hover {
+    background: #ffc107;
+  }
+`;
+document.head.appendChild(onboardingOverlayStyle);
 
-function startOnboardingHint() {
-  onboardingTimeout = setTimeout(() => {
-    if (!onboardingInteracted) {
-      emphasizeHeaderButtons();
-      showOnboardingToast();
-    }
-  }, 6000); // 6 seconds after load
-}
-
+// Show overlay on first load, remove on interaction
 window.addEventListener('DOMContentLoaded', () => {
-  // Hide panel and card on first load using .hidden-on-load class
+  showOnboardingOverlay();
   const panel = document.querySelector('count-panel');
   if (panel) {
     panel.classList.add('hidden-on-load');
-    // Also add to section.card if present
     const cardSection = document.querySelector('section.card');
     if (cardSection) cardSection.classList.add('hidden-on-load');
   }
-  // Listen for header button clicks to mark interaction and show panel/card
   const header = document.querySelector('app-header');
   if (header) {
     const btns = header.querySelectorAll('.panel-toggle-btn, .optional-btn, .days-btn, .settings-btn, .theme-toggle, .info-btn');
     btns.forEach(btn => {
       btn.addEventListener('click', () => {
-        onboardingInteracted = true;
-        if (onboardingTimeout) clearTimeout(onboardingTimeout);
         if (panel) panel.classList.remove('hidden-on-load');
         const cardSection = document.querySelector('section.card');
         if (cardSection) cardSection.classList.remove('hidden-on-load');
+        removeOnboardingOverlay();
       });
     });
   }
-  startOnboardingHint();
 });
-
-// Add CSS for onboarding emphasis
-const onboardingStyle = document.createElement('style');
-onboardingStyle.textContent = `
-  .onboarding-emphasize {
-    animation: onboarding-pulse 0.5s alternate 4;
-    box-shadow: 0 0 8px 2px #ff9800;
-    outline: 2px solid #ff9800;
-  }
-  @keyframes onboarding-pulse {
-    from { transform: scale(1); }
-    to { transform: scale(1.15); }
-  }
-`;
-document.head.appendChild(onboardingStyle);
 
