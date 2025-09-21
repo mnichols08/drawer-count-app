@@ -1605,6 +1605,7 @@ class CountPanel extends HTMLElement {
         </div>
       </div>
       <div class="panel-body" aria-hidden="true"></div>
+      <div class="panel-summary" aria-hidden="true" hidden></div>
       <p class="hint done-hint" hidden>Completed for this day. Tap Reopen to edit.</p>
     `;
   }
@@ -1619,6 +1620,7 @@ class CountPanel extends HTMLElement {
     this._els.reopen = this.querySelector('.reopen-btn');
     this._els.body = this.querySelector('.panel-body');
     this._els.doneHint = this.querySelector('.done-hint');
+    this._els.summary = this.querySelector('.panel-summary');
   }
 
   _bind() {
@@ -1683,15 +1685,40 @@ class CountPanel extends HTMLElement {
     this._els.toggle.textContent = collapsed ? 'Show' : 'Hide';
     this._els.toggle.setAttribute('aria-expanded', String(!collapsed));
 
-    // Body visibility with animation
-    if (collapsed) this._collapseBody(!noAnim); else this._expandBody(!noAnim);
+  // Decide which container is visible (summary when completed, body otherwise)
+  const container = this._visibleContainer();
+  this._syncContainersVisibility();
+  // (Re)render summary if needed
+  if (completed) this._renderSummary();
+  // Animate the currently visible container
+  if (collapsed) this._collapseEl(container, !noAnim); else this._expandEl(container, !noAnim);
 
     // Done hint
     this._els.doneHint.hidden = !completed;
   }
 
-  _expandBody(animate = true) {
-    const el = this._els.body;
+  _expandBody(animate = true) { this._expandEl(this._els.body, animate); }
+  _collapseBody(animate = true) { this._collapseEl(this._els.body, animate); }
+
+  _visibleContainer() { return this._state.completed ? this._els.summary : this._els.body; }
+
+  _syncContainersVisibility() {
+    const { completed, collapsed } = this._state;
+    // When completed: show summary container, hide body content fully
+    if (completed) {
+      this._els.body.hidden = true;
+      this._els.body.setAttribute('aria-hidden', 'true');
+      this._els.summary.hidden = !!collapsed; // hidden when collapsed
+      this._els.summary.setAttribute('aria-hidden', String(!!collapsed));
+    } else {
+      this._els.summary.hidden = true;
+      this._els.summary.setAttribute('aria-hidden', 'true');
+      this._els.body.hidden = !!collapsed;
+      this._els.body.setAttribute('aria-hidden', String(!!collapsed));
+    }
+  }
+
+  _expandEl(el, animate = true) {
     el.setAttribute('aria-hidden', 'false');
     el.hidden = false;
     // If no animation, snap open
@@ -1714,8 +1741,7 @@ class CountPanel extends HTMLElement {
     });
   }
 
-  _collapseBody(animate = true) {
-    const el = this._els.body;
+  _collapseEl(el, animate = true) {
     el.setAttribute('aria-hidden', 'true');
     // If no animation, snap closed
     if (!animate) {
@@ -1738,6 +1764,61 @@ class CountPanel extends HTMLElement {
       };
       el.addEventListener('transitionend', onEnd);
     });
+  }
+
+  _renderSummary() {
+    try {
+      const dc = this.querySelector('drawer-count');
+      if (!dc || !dc.getCount) return;
+      const c = dc.getCount();
+      // Optional details require full state
+      let st = null;
+      try { st = dc.getState?.(); } catch(_) { st = null; }
+      const fmt = (n) => {
+        const v = Number(n || 0);
+        return v.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
+      };
+      const ts = c.timestamp ? new Date(c.timestamp) : new Date();
+      const cashTotal = [c.hundreds, c.fifties, c.twenties, c.tens, c.fives, c.ones, c.quarters, c.dimes, c.nickels, c.pennies, c.qRolls, c.dRolls, c.nRolls, c.pRolls]
+        .map((x) => Number(x || 0)).reduce((a, b) => a + b, 0);
+      // Build slips and checks detailed lists if present in state.extra
+      const slipsList = Array.isArray(st?.extra?.slips) && st.extra.slips.length
+        ? `<ul class="list">${st.extra.slips.map((v,i) => `<li><span class="label">Slip ${i+1}</span><span class="val">${fmt(v)}</span></li>`).join('')}</ul>`
+        : '';
+      const checksList = Array.isArray(st?.extra?.checks) && st.extra.checks.length
+        ? `<ul class="list">${st.extra.checks.map((v,i) => `<li><span class="label">Check ${i+1}</span><span class="val">${fmt(v)}</span></li>`).join('')}</ul>`
+        : '';
+      // Optional fields if any (non-zero)
+      const opt = st?.optional || {};
+      const optEntries = [
+        ['Charges', opt.charges],
+        ['Total Received', opt.totalReceived],
+        ['Net Sales', opt.netSales],
+        ['Gross Profit ($)', opt.grossProfitAmount],
+        ['Gross Profit (%)', opt.grossProfitPercent],
+        ['# Invoices', opt.numInvoices],
+        ['# Voids', opt.numVoids],
+      ].filter(([,v]) => Number(v || 0) !== 0);
+      const optList = optEntries.length
+        ? `<ul class="list">${optEntries.map(([k,v]) => `<li><span class="label">${k}</span><span class="val">${k.includes('%') ? (Number(v||0).toLocaleString(undefined, { maximumFractionDigits: 2 }) + '%') : (k.startsWith('#') ? Number(v||0).toLocaleString() : fmt(v))}</span></li>`).join('')}</ul>`
+        : '';
+
+      // Build a richer summary
+      this._els.summary.innerHTML = `
+        <div class="sum-grid">
+          <div class="row"><span class="k">Total Count</span><span class="v">${fmt(c.count)}</span></div>
+          <div class="row"><span class="k">Cash</span><span class="v">${fmt(cashTotal)}</span></div>
+          <div class="row"><span class="k">Slips</span><span class="v">${fmt(c.slips)}</span></div>
+          <div class="row"><span class="k">Checks</span><span class="v">${fmt(c.checks)}</span></div>
+          <div class="row"><span class="k">ROA</span><span class="v">${fmt(c.roa)}</span></div>
+          <div class="row"><span class="k">Balance</span><span class="v">${fmt(c.balance)}</span></div>
+          <div class="row ts"><span class="k">Counted</span><span class="v">${ts.toLocaleString()}</span></div>
+        </div>
+        ${slipsList ? `<div class="section"><h4>Recorded Slips</h4>${slipsList}</div>` : ''}
+        ${checksList ? `<div class="section"><h4>Recorded Checks</h4>${checksList}</div>` : ''}
+        ${optList ? `<div class="section"><h4>Optional Fields</h4>${optList}</div>` : ''}
+      `;
+    } catch (_) { /* ignore */ }
   }
 
   _focusFirstInput() {
@@ -1771,7 +1852,8 @@ class CountPanel extends HTMLElement {
   _onComplete() {
     // Mark complete, collapse, and lock edits
     this._state.completed = true;
-    this._state.collapsed = true;
+    // Auto-expand summary when completed
+    this._state.collapsed = false;
     this._savePersisted(this._state);
     try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch (_) {}
     // Save snapshot for current day if helpers exist

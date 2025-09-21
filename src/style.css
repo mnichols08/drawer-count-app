@@ -378,6 +378,39 @@ main.container > .card {
   transition: height 220ms ease;
 }
 
+.count-panel .panel-summary {
+  overflow: hidden;
+  height: 0;
+  transition: height 220ms ease;
+}
+.count-panel .panel-summary .sum-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 12px;
+}
+.count-panel .panel-summary .row { display: contents; }
+.count-panel .panel-summary .k { color: var(--panel-muted); }
+.count-panel .panel-summary .v { font-weight: 600; }
+.count-panel .panel-summary .row.ts .k { opacity: 0.9; }
+
+.count-panel .panel-summary .section { margin-top: 10px; }
+.count-panel .panel-summary h4 {
+  margin: 0 0 4px 0;
+  font-size: 0.95rem;
+  color: var(--panel-fg);
+}
+.count-panel .panel-summary .list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+}
+.count-panel .panel-summary .list li { display: contents; }
+.count-panel .panel-summary .list .label { color: var(--panel-muted); }
+.count-panel .panel-summary .list .val { font-weight: 600; }
+
 .count-panel.completed .panel-title::after {
   content: ' • Completed';
   color: var(--panel-muted);
