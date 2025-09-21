@@ -277,6 +277,7 @@ class SettingsModal extends HTMLElement {
     // system if no explicit localStorage setting
     let mode = 'system';
     try { const stored = localStorage.getItem(THEME_KEY); if (stored === 'light' || stored === 'dark') mode = stored; } catch(_) {}
+    const devMode = (() => { try { return !!window.DCA_DEV; } catch(_) { return false; } })();
     this._shadow.innerHTML = `
       <style>
         :host { display: none; }
@@ -344,6 +345,18 @@ class SettingsModal extends HTMLElement {
               </div>
             </div>
           </div>
+          ${devMode ? `
+          <div class="section">
+            <div class="row" style="align-items: center; gap: 12px;">
+              <div>Developer</div>
+              <div style="display:flex; gap:8px; flex-wrap: wrap; align-items: center;">
+                <button class="btn dev-seed-7" aria-label="Seed last 7 days">Seed last 7 days</button>
+                <button class="btn dev-seed-14" aria-label="Seed last 14 days">Seed last 14 days</button>
+                <button class="btn dev-clear-days" aria-label="Clear seeded days">Clear all days</button>
+              </div>
+            </div>
+          </div>
+          ` : ''}
         </div>
       </div>
     `;
@@ -361,6 +374,9 @@ class SettingsModal extends HTMLElement {
       dayDeleteBtn: this._shadow.querySelector('.day-delete-btn'),
       dayLabel: this._shadow.querySelector('.day-label'),
       dayRenameBtn: this._shadow.querySelector('.day-rename-btn'),
+      seed7: this._shadow.querySelector('.dev-seed-7'),
+      seed14: this._shadow.querySelector('.dev-seed-14'),
+      clearDays: this._shadow.querySelector('.dev-clear-days'),
     };
     // Init radio state
     const chosen = mode || currentTheme;
@@ -394,6 +410,25 @@ class SettingsModal extends HTMLElement {
       } catch(_) {}
     });
     this._els.dayRenameBtn?.addEventListener('click', this._onDayRename);
+    // Dev-only actions
+    if (devMode) {
+      this._els.seed7?.addEventListener('click', () => {
+        try { const keys = seedPreviousDays(7, { includeToday: false, overwrite: true }); this._populateDaysSelect(); toast(`Seeded ${keys.length} day(s)`, { type: 'success', duration: 1600 }); } catch(_) { toast('Seed failed', { type: 'error', duration: 1800 }); }
+      });
+      this._els.seed14?.addEventListener('click', () => {
+        try { const keys = seedPreviousDays(14, { includeToday: false, overwrite: true }); this._populateDaysSelect(); toast(`Seeded ${keys.length} day(s)`, { type: 'success', duration: 1600 }); } catch(_) { toast('Seed failed', { type: 'error', duration: 1800 }); }
+      });
+      this._els.clearDays?.addEventListener('click', () => {
+        try {
+          const { data, pid, entry } = _getActiveDaysEntry(true);
+          entry.days = {};
+          data[pid] = entry;
+          saveDaysData(data);
+          this._populateDaysSelect();
+          toast('Cleared all days for profile', { type: 'warning', duration: 1600 });
+        } catch(_) { toast('Clear failed', { type: 'error', duration: 1800 }); }
+      });
+    }
     // Initialize the days UI state
     this._populateDaysSelect();
     if (this._els.dayLoadBtn) this._els.dayLoadBtn.disabled = !this._els.daySelect?.value;

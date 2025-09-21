@@ -295,13 +295,15 @@ app.get('/config.js', (req, res) => {
 		const host = (req.hostname || req.headers.host || '').toString().toLowerCase();
 		const isLocalHost = /^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(host);
 		const apiBase = isLocalHost ? '/api' : (process.env.API_BASE || '/api');
+		// Determine dev mode: true when started via `npm run dev`, or NODE_ENV=development, or explicit DCA_DEV
+		const isDev = (process.env.npm_lifecycle_event === 'dev') || (String(process.env.NODE_ENV).toLowerCase() === 'development') || (String(process.env.DCA_DEV).toLowerCase() === 'true');
 		res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
 		res.setHeader('Cache-Control', 'no-store, max-age=0');
-		res.send(`// generated at ${new Date().toISOString()}\nwindow.DCA_API_BASE = ${JSON.stringify(apiBase)};`);
+		res.send(`// generated at ${new Date().toISOString()}\nwindow.DCA_API_BASE = ${JSON.stringify(apiBase)};\nwindow.DCA_DEV = ${isDev ? 'true' : 'false'};`);
 	} catch (_) {
 		res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
 		res.setHeader('Cache-Control', 'no-store, max-age=0');
-		res.send('window.DCA_API_BASE = "/api";');
+		res.send('window.DCA_API_BASE = "/api";\nwindow.DCA_DEV = false;');
 	}
 });
 
