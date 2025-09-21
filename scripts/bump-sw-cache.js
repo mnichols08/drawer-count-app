@@ -7,6 +7,17 @@ const fs = require('fs');
 const path = require('path');
 
 const dry = process.argv.includes('--dry');
+// Accept an explicit target version via --set X.Y.Z (or vX.Y.Z). Also allow a positional version.
+let setIdx = process.argv.indexOf('--set');
+let explicitVersion = null;
+if (setIdx !== -1 && process.argv[setIdx + 1]) {
+  explicitVersion = process.argv[setIdx + 1];
+}
+// If not provided via --set, check for a bare semver positional arg.
+if (!explicitVersion) {
+  const maybe = process.argv.find(a => /^(v)?\d+\.\d+\.\d+$/.test(a));
+  if (maybe) explicitVersion = maybe;
+}
 const swPath = path.join(__dirname, '..', 'sw.js');
 const rootDir = path.join(__dirname, '..');
 const htmlFiles = [
@@ -32,7 +43,19 @@ function run() {
   if (!match) throw new Error('CACHE_VERSION not found in sw.js');
 
   const current = match[2];
-  const next = bumpVersionTag(current);
+  // Determine next version: either explicit or bumped patch.
+  let next = explicitVersion ? explicitVersion : bumpVersionTag(current);
+  // Normalize: if current had a 'v' prefix and explicitVersion lacks it, preserve 'v'.
+  const currentHasV = /^v/.test(current);
+  const nextHasV = /^v/.test(next);
+  if (currentHasV && !nextHasV) next = `v${next}`;
+  if (!currentHasV && nextHasV) next = next.replace(/^v/, '');
+
+  // Basic validation
+  if (!/^(v)?\d+\.\d+\.\d+$/.test(next)) {
+    throw new Error(`Invalid target version: ${next}`);
+  }
+
   const updated = src.replace(re, `$1${next}$3`);
 
   if (dry) {
