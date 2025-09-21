@@ -182,19 +182,19 @@ This app remains fully functional offline using `localStorage`. If you provide a
 	- When offline, changes are saved locally and pushed on reconnect
 
 	API base (different origin/backend):
-	- If you host the backend separately (e.g., Render at `https://drawer-counter.onrender.app`), set the API base via environment variable:
+	- If you host the backend separately (e.g., Render at `https://drawer-count-app.onrender.com`), set the API base via environment variable:
 		- Server reads `API_BASE` and serves it at `/config.js`, which is loaded before the app.
 		- Example (PowerShell):
 			```powershell
-			$env:API_BASE = 'https://drawer-counter.onrender.app/api'; npm start
+			$env:API_BASE = 'https://drawer-count-app.onrender.com/api'; npm start
 			```
 		- On Render, set `API_BASE` in the service’s environment variables.
 		- You can still override locally at runtime if needed:
 			```js
-			localStorage.setItem('dca.apiBase', 'https://drawer-counter.onrender.app/api'); location.reload();
+			localStorage.setItem('dca.apiBase', 'https://drawer-count-app.onrender.com/api'); location.reload();
 			```
 		- Default is same-origin `'/api'` when no env or override is provided.
-			- Additionally, the app has a built-in production fallback: when not on `localhost`, it defaults to `https://drawer-counter.onrender.app/api` unless overridden by `API_BASE` or the localStorage override.
+			- Additionally, the app has a built-in production fallback: when not on `localhost`, it defaults to `https://drawer-count-app.onrender.com/api` unless overridden by `API_BASE` or the localStorage override.
 
 Run locally with a Mongo connection (PowerShell):
 

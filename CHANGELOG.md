@@ -12,6 +12,7 @@
 
 ### Docs
 - README: correct Quick Start (remove non-existent `dev:static` script), update SW cache version reference to `v17`, and document the Install/Open-in-App flow.
+ - Correct API base URL references to use `https://drawer-count-app.onrender.com/api` (replacing previous `*.onrender.app` examples). Also updated the production default fallback URL in docs.
 
 ## v0.1.4 - 2025-09-20
 ### Added
@@ -43,7 +44,7 @@
 ### Added
 - Backend runtime config endpoint: `GET /config.js` exposes `window.DCA_API_BASE` derived from the `API_BASE` environment variable.
 - Client-side API base resolution: app now reads `window.DCA_API_BASE`, optional `localStorage['dca.apiBase']`, and defaults to `'/api'`.
- - Production default: when not on localhost, the app falls back to `https://drawer-counter.onrender.app/api` unless overridden.
+ - Production default: when not on localhost, the app falls back to `https://drawer-count-app.onrender.com/api` unless overridden.
 
 ### Changed
 - Backend storage is now global/shared across all clients (no `X-Client-Id` needed). Legacy per-client records are still read if a global value is missing.

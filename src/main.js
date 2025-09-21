@@ -2181,7 +2181,7 @@ function getApiBase() {
     const winBase = (typeof window !== 'undefined' && window.DCA_API_BASE) ? String(window.DCA_API_BASE) : '';
     const lsBase = (typeof localStorage !== 'undefined') ? (localStorage.getItem('dca.apiBase') || '') : '';
     const isLocal = typeof location !== 'undefined' && /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(location.hostname);
-    const defaultBase = isLocal ? '/api' : 'https://drawer-counter.onrender.app/api';
+  const defaultBase = isLocal ? '/api' : 'https://drawer-count-app.onrender.com/api';
     const base = (winBase || lsBase || defaultBase).trim();
     return base || defaultBase;
   } catch (_) { return '/api'; }
@@ -2214,7 +2214,7 @@ function _apiCandidatesFor(path) {
       const base = getApiBase();
       const isLocalBase = !/^https?:\/\//i.test(base); // '/api' or similar
       if (isLocalBase) {
-        const prod = 'https://drawer-counter.onrender.app/api';
+        const prod = 'https://drawer-count-app.onrender.com/api';
         const prodFull = `${prod.replace(/\/+$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
         if (!candidates.includes(prodFull)) candidates.push(prodFull);
         // also add toggled render domain
@@ -2399,17 +2399,39 @@ function initOnlineSync() {
 // Attempt to prime local profiles from remote before UI renders, so all server profiles appear
 async function initProfilesFromRemoteIfAvailable() {
   try {
-    // Fetch remote first
-    const remote = await _fetchRemoteKV(DRAWER_PROFILES_KEY);
+    // Try primary remote key first, then fall back to known legacy aliases
+    const candidateKeys = [
+      DRAWER_PROFILES_KEY,
+      'drawer-profiles',
+      'drawer_profiles',
+      'profiles',
+      'drawer-profiles-v0'
+    ];
+
+    let remote = await _fetchRemoteKV(DRAWER_PROFILES_KEY);
+    if (!remote.ok || remote.missing) {
+      for (const altKey of candidateKeys) {
+        if (altKey === DRAWER_PROFILES_KEY) continue;
+        try {
+          const r = await _fetchRemoteKV(altKey);
+          if (r.ok && !r.missing) { remote = r; break; }
+        } catch (_) { /* try next */ }
+      }
+    }
     if (!remote.ok || remote.missing) return false;
+
     const rAt = Number(remote.updatedAt || 0);
     const rVal = remote.value;
     const rText = (typeof rVal === 'string') ? rVal : JSON.stringify(rVal);
     let rObj = null;
     try { rObj = JSON.parse(rText); } catch (_) { rObj = null; }
+    // If remote stored just the profiles map (legacy), wrap it to expected shape
+    if (rObj && !rObj.profiles && typeof rObj === 'object') {
+      rObj = { profiles: rObj, activeId: Object.keys(rObj)[0] || 'default', updatedAt: rAt || Date.now() };
+    }
 
     // Inspect local
-    const localRaw = localStorage.getItem(DRAWER_PROFILES_KEY);
+  const localRaw = localStorage.getItem(DRAWER_PROFILES_KEY);
     const localMeta = _getLocalMeta(DRAWER_PROFILES_KEY) || { updatedAt: 0 };
     const lAt = Number(localMeta.updatedAt || 0);
     let lObj = null;
@@ -2428,7 +2450,9 @@ async function initProfilesFromRemoteIfAvailable() {
     const localLooksDefaultOnly = (localCount <= 1);
     const remoteHasMore = (remoteCount > localCount);
     if (!localRaw || (localLooksDefaultOnly && remoteHasMore) || (rAt > lAt)) {
-      localStorage.setItem(DRAWER_PROFILES_KEY, rText);
+      // Persist normalized remote object
+      const normalized = rObj && rObj.profiles ? JSON.stringify(rObj) : rText;
+      localStorage.setItem(DRAWER_PROFILES_KEY, normalized);
       _setLocalMeta(DRAWER_PROFILES_KEY, { updatedAt: rAt || Date.now() });
       return true;
     }
