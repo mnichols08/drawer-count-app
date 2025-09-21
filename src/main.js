@@ -1946,6 +1946,7 @@ class CountPanel extends HTMLElement {
     this._onComplete = this._onComplete.bind(this);
     this._onReopen = this._onReopen.bind(this);
     this._onVisibilityRefresh = this._onVisibilityRefresh.bind(this);
+    this._onDrawerChange = this._onDrawerChange.bind(this);
   }
 
   connectedCallback() {
@@ -1962,11 +1963,14 @@ class CountPanel extends HTMLElement {
     // Keep in sync if profile/day changes elsewhere
     window.addEventListener('storage', this._onVisibilityRefresh);
     window.addEventListener('focus', this._onVisibilityRefresh);
+    // Listen for drawer edits to update Cancel visibility immediately
+    try { this._dc = this.querySelector('drawer-count'); this._dc?.addEventListener('change', this._onDrawerChange); } catch(_) {}
   }
 
   disconnectedCallback() {
     window.removeEventListener('storage', this._onVisibilityRefresh);
     window.removeEventListener('focus', this._onVisibilityRefresh);
+    try { this._dc?.removeEventListener('change', this._onDrawerChange); } catch(_) {}
   }
 
   // --- Rendering ---
@@ -2568,6 +2572,11 @@ class CountPanel extends HTMLElement {
 
   _onVisibilityRefresh() {
     // Recalculate in case active profile/day changed
+    this._refresh();
+  }
+
+  _onDrawerChange(_e) {
+    // When values inside <drawer-count> change, recompute unsaved delta and button visibility
     this._refresh();
   }
 }
