@@ -1578,8 +1578,8 @@ class CountPanel extends HTMLElement {
       const dc = document.createElement('drawer-count');
       this._els.body.appendChild(dc);
     }
-    // Initial hydrate from persisted state
-    this._refresh();
+  // Initial hydrate from persisted state (no animation on first paint)
+  this._refresh(true);
     // Keep in sync if profile/day changes elsewhere
     window.addEventListener('storage', this._onVisibilityRefresh);
     window.addEventListener('focus', this._onVisibilityRefresh);
@@ -1664,7 +1664,7 @@ class CountPanel extends HTMLElement {
   }
 
   // --- UI sync ---
-  _refresh() {
+  _refresh(noAnim = false) {
     // Merge persisted into memory state
     this._state = { ...{ started: false, collapsed: true, completed: false }, ...this._loadPersisted() };
     const { started, collapsed, completed } = this._state;
@@ -1683,18 +1683,61 @@ class CountPanel extends HTMLElement {
     this._els.toggle.textContent = collapsed ? 'Show' : 'Hide';
     this._els.toggle.setAttribute('aria-expanded', String(!collapsed));
 
-    // Body visibility
-    this._els.body.setAttribute('aria-hidden', String(!!collapsed));
-    if (collapsed) {
-      this._els.body.style.maxHeight = '0px';
-      this._els.body.style.overflow = 'hidden';
-    } else {
-      this._els.body.style.maxHeight = '9999px';
-      this._els.body.style.overflow = '';
-    }
+    // Body visibility with animation
+    if (collapsed) this._collapseBody(!noAnim); else this._expandBody(!noAnim);
 
     // Done hint
     this._els.doneHint.hidden = !completed;
+  }
+
+  _expandBody(animate = true) {
+    const el = this._els.body;
+    el.setAttribute('aria-hidden', 'false');
+    el.hidden = false;
+    // If no animation, snap open
+    if (!animate) {
+      el.style.height = 'auto';
+      return;
+    }
+    // Prepare from 0 to scrollHeight
+    el.style.overflow = 'hidden';
+    // If height is 'auto', compute current height first
+    const target = el.scrollHeight;
+    el.style.height = '0px';
+    requestAnimationFrame(() => {
+      el.style.height = `${target}px`;
+      const onEnd = () => {
+        el.style.height = 'auto';
+        el.removeEventListener('transitionend', onEnd);
+      };
+      el.addEventListener('transitionend', onEnd);
+    });
+  }
+
+  _collapseBody(animate = true) {
+    const el = this._els.body;
+    el.setAttribute('aria-hidden', 'true');
+    // If no animation, snap closed
+    if (!animate) {
+      el.style.height = '0px';
+      el.hidden = false; // keep in DOM for a11y and animations
+      return;
+    }
+    // From current height (might be auto) to 0
+    el.style.overflow = 'hidden';
+    // Set to current pixel height if auto
+    const current = el.scrollHeight;
+    el.style.height = `${current}px`;
+    // Force reflow
+    // eslint-disable-next-line no-unused-expressions
+    el.offsetHeight;
+    requestAnimationFrame(() => {
+      el.style.height = '0px';
+      const onEnd = () => {
+        el.removeEventListener('transitionend', onEnd);
+      };
+      el.addEventListener('transitionend', onEnd);
+    });
   }
 
   _focusFirstInput() {
