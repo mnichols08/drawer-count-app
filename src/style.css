@@ -161,9 +161,6 @@ drawer-count {
   --button-rem-color: #b91c1c;
 }
 
-.count-display {
-}
-
 input[type="number"] {
   background: #0f1730;
   color: var(--fg);

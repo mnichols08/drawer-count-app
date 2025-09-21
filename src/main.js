@@ -3339,6 +3339,26 @@ function saveDay(key) {
     const comp = getDrawerComponent(); const state = comp?.getState?.(); if (!state) return false;
     const { data, pid, entry } = _getActiveDaysEntry(true);
     entry.days[k] = entry.days[k] || { state: null, savedAt: 0 };
+    // Ensure optional fields are always present and empty if missing
+    if (!state.optional) {
+      state.optional = {
+        charges: '', totalReceived: '', netSales: '',
+        grossProfitAmount: '', grossProfitPercent: '',
+        numInvoices: '', numVoids: ''
+      };
+    } else {
+      // Fill any missing optional fields with empty string
+      const defaults = {
+        charges: '', totalReceived: '', netSales: '',
+        grossProfitAmount: '', grossProfitPercent: '',
+        numInvoices: '', numVoids: ''
+      };
+      for (const key in defaults) {
+        if (typeof state.optional[key] === 'undefined' || state.optional[key] === null) {
+          state.optional[key] = '';
+        }
+      }
+    }
     entry.days[k].state = state;
     entry.days[k].savedAt = Date.now();
     data[pid] = entry; return saveDaysData(data);
