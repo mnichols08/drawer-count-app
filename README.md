@@ -27,23 +27,14 @@ Copy-Item .env.example .env -ErrorAction SilentlyContinue
 # Start with backend API + static hosting (recommended)
 npm start
 
-# Or just run the static dev server
-npm run dev:static
+# Or run with auto-reload during development
+npm run dev
 ```
 
 By default `npm start` runs an Express server at `http://127.0.0.1:8080/` that serves the app and exposes a small API used for sync.
 The service worker only works when served via HTTP(S) or `localhost`.
 
-Alternative local servers:
-
-- Node (no global install):
-	```powershell
-	npx http-server -p 8080 -c-1
-	```
-- Python:
-	```powershell
-	python -m http.server 8080
-	```
+Alternative: if you only need to serve static files, any simple HTTP server on port 8080 works. Ensure the service worker is reachable at the root scope.
 
 ## Using the app
 
@@ -74,8 +65,9 @@ Keyboard Shortcuts:
 - `Alt`+`Backspace` (focused in a row) → Remove that row
 
 Install/Open as app:
-- In Chrome/Edge, use the in-app `Install` button (when shown) or your browser’s menu.
-- After installing, visiting the website shows an `Open in App` button that focuses the installed window (supported in Chromium via `launch_handler`/`capture_links`).
+- The app shows a small install banner when eligible. After install, it automatically switches to an `Open in App` action that focuses an existing window when possible.
+- Chromium-based browsers use `launch_handler: focus-existing` and `capture_links: existing-client-nav` to reduce duplicate windows.
+- iOS Safari doesn’t prompt; the banner provides a brief “how to install” helper.
 
 Background & images:
 - A random background image is selected from `src/images/` on each load.
@@ -84,7 +76,7 @@ Background & images:
 
 Network and Server status:
 - A single pill at the bottom-right shows both network status and a server health badge.
-- Badge codes: `OK` (connected), `NODB` (configured but DB not connected), `ERR` (health check failed), `OFF` (offline), `N/A` (not configured).
+- Badge codes: `OK` (connected), `NODB` (configured but DB not connected), `ERR` (health check failed), `OFF` (browser offline), `N/A` (not configured).
 - Updates every ~20 seconds and also responds immediately to online/offline events; tooltip shows the API base.
 
 ## Project structure
@@ -105,10 +97,10 @@ Network and Server status:
 - HTTPS/localhost required: service workers and install only work over HTTPS or `http://localhost`.
 - Updates: after changing `sw.js`, reload and close/reopen the page to activate. In DevTools → Application → Service Workers you can `Update`/`Skip waiting`.
 - Cache versioning: bump `CACHE_VERSION` in `sw.js` when you need to invalidate old caches.
-	- Currently set to `v10`. Changing this forces clients to fetch new assets after activation.
+	- Currently set to `v17`. Changing this forces clients to fetch new assets after activation.
 - Query busting: `index.html` may add a version query (e.g., `src/main.js?v=5`). The SW handles this and serves the cached file correctly.
 - Scope-aware paths: the SW normalizes URLs to its scope so cached assets work even under a subpath.
-- API responses and config are not cached: the SW always fetches `/api/*` and `/config.js` from the network (JSON `503` when offline).
+- API responses and config are not cached: the SW always fetches `/api/*` and `/config.js` from the network (JSON `503` when offline). The SW also broadcasts connectivity state to the page so the UI reflects network changes quickly.
 - Manifest scope and paths are now relative (e.g., `./manifest.webmanifest`, `./src/...`) so deployment under a subpath (like GitHub Pages `/your-repo/`) works out of the box. If you customize the base path, ensure `start_url`/`scope` in the manifest still point to `./` for your chosen directory.
 
 ## Icons

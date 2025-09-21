@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.1.5 - 2025-09-20
+### Added
+- Install banner that offers Install (when supported) or Open in App once installed; persists dismissal and supports iOS “how to install” guidance.
+- Service Worker message channel to focus an existing client window (OPEN_APP), used by the banner’s Open in App action.
+
+### Changed
+- Service worker cache bumped to `v17`; improved scope-aware precache and navigation fallbacks for subpath deployments.
+- Always bypass cache for `/config.js` and all `/api/*` requests; SW now broadcasts connectivity changes to clients.
+- Title shows a subtle "• Offline" suffix when offline.
+
+### Docs
+- README: correct Quick Start (remove non-existent `dev:static` script), update SW cache version reference to `v17`, and document the Install/Open-in-App flow.
+
+## v0.1.4 - 2025-09-20
+### Added
+- Collapsible Count Panel wrapper around the drawer component with a Show/Hide toggle; state persists per profile/day.
+- Manifest enhancements: `launch_handler: { client_mode: "focus-existing" }` and `capture_links: "existing-client-nav"` for better installed-app behavior.
+
+### UI
+- Background image fade-in refined and overlay contrast tuned for light/dark themes.
+- Minor accessibility and keyboard interaction polish across header actions and modals.
+
 ## v0.1.3 - 2025-09-20
 ### Changed
 - Server status is now displayed inside the same bottom-right network status pill as a small badge (icon + short code).
