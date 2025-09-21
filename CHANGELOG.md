@@ -1,5 +1,71 @@
 # Changelog
 
+## v0.2.1 - 2025-09-21
+### Features & Enhancements
+- Onboarding overlay for improved user guidance
+- Completed summary panel for previous date selection
+- Developer mode for seeding and clearing days
+- Test utilities for seeding previous days
+- Seed previous days with random data for testing
+- Service worker registration and cache version bump
+
+## v0.2.2 - 2025-09-21
+### Refactors & UI Improvements
+- Refactored DrawerCount component for better null/undefined handling
+- Moved action buttons to drawer panel for improved UI
+- Enhanced modals with responsive design and onboarding hints
+- Improved network status tooltip and mixed state display
+- Updated DB connection state tracking and full sync logic
+- Enhanced dry run mode in bump-sw-cache.js
+- Optimized expand/collapse animations and refresh logic in CountPanel
+- Improved cancel button visibility logic
+- Updated toggle button icons and panel toggle functionality
+- Enhanced button styles and accessibility in modals
+- Improved persistence logic in CountPanel
+- Save/mark complete toggle functionality in CountPanel
+- Unlock confirmation modal for editing past days
+- Auto-show completed summary for previous days
+
+## v0.2.3 - 2025-09-21
+### Bugfixes & Maintenance
+- Fixed save mode logic in CountPanel to default to 'Mark complete' when no active view date is set
+- Prevented unnecessary state changes in CountPanel
+- Updated lock button visibility logic
+- Fixed environment configuration for MongoDB settings
+- Improved UI clarity and read-only state handling
+
+## v0.2.1 - 2025-09-21
+### Added
+- Seed previous days with random data for testing
+- Onboarding overlay for improved user guidance
+- Service worker registration and cache version bump
+- Completed summary panel for previous date selection
+- Developer mode for seeding and clearing days
+- Test utilities for seeding previous days
+
+### Changed
+- Refactored DrawerCount component for better null/undefined handling
+- Moved action buttons to drawer panel for improved UI
+- Enhanced modals with responsive design and onboarding hints
+- Improved network status tooltip and mixed state display
+- Updated DB connection state tracking and full sync logic
+- Enhanced dry run mode in bump-sw-cache.js
+- Optimized expand/collapse animations and refresh logic in CountPanel
+- Improved cancel button visibility logic
+- Updated toggle button icons and panel toggle functionality
+- Enhanced button styles and accessibility in modals
+- Improved persistence logic in CountPanel
+- Save/mark complete toggle functionality in CountPanel
+- Unlock confirmation modal for editing past days
+- Auto-show completed summary for previous days
+
+### Fixed
+- Fixed save mode logic in CountPanel to default to 'Mark complete' when no active view date is set
+- Prevented unnecessary state changes in CountPanel
+- Updated lock button visibility logic
+- Fixed environment configuration for MongoDB settings
+- Improved UI clarity and read-only state handling
+
 ## v0.1.5 - 2025-09-20
 ### Added
 - Install banner that offers Install (when supported) or Open in App once installed; persists dismissal and supports iOS “how to install” guidance.
