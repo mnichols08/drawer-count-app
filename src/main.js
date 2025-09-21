@@ -2664,3 +2664,98 @@ function setDayLabel(key, label) {
   } catch(_) { return false; }
 }
 
+// ------------------------------
+// Test utilities — seed previous days with sample data
+// ------------------------------
+// Create a minimal but valid v2 DrawerCount state object
+function _createSampleDrawerState(seed = 1) {
+  const n = (v) => Number((v).toFixed(2));
+  const baseCash = 100 + (seed % 5) * 20;
+  const slips = (seed % 4) * 25;
+  const checks = (seed % 3) * 30;
+  const roa = (seed % 6) * 10;
+  return {
+    version: 2,
+    timestamp: Date.now() - seed * 86400000 + 18 * 3600000, // ~6pm that day
+    base: {
+      drawer: n(baseCash),
+      roa: n(roa),
+      slips: n(slips),
+      checks: n(checks),
+      hundreds: 0,
+      fifties: 0,
+      twenties: n((seed % 5) * 20),
+      tens: n((seed % 7) * 10),
+      fives: n((seed % 9) * 5),
+      dollars: n((seed % 11) * 1),
+      quarters: n(((seed + 1) % 4) * 0.25),
+      dimes: n(((seed + 2) % 5) * 0.10),
+      nickels: n(((seed + 3) % 4) * 0.05),
+      pennies: n(((seed + 4) % 10) * 0.01),
+      quarterrolls: 0,
+      dimerolls: 0,
+      nickelrolls: 0,
+      pennyrolls: 0,
+    },
+    extra: {
+      slips: (seed % 2) ? [n(12.34), n(23.45)] : [n(11.11)],
+      checks: (seed % 3) ? [n(45.67)] : [],
+    },
+    optional: {
+      charges: 0,
+      totalReceived: n(100 + seed * 3.5),
+      netSales: n(200 + seed * 5.25),
+      grossProfitAmount: n(50 + seed * 1.75),
+      grossProfitPercent: n(30 + (seed % 10) * 0.5),
+      numInvoices: (seed % 20) + 5,
+      numVoids: seed % 3,
+    },
+  };
+}
+
+function _dateKeyNDaysAgo(daysAgo) {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// Seed previous days for the active profile
+// Usage from console: seedPreviousDays(7) or seedPreviousDays(14, { includeToday: false, overwrite: false })
+function seedPreviousDays(count = 7, options = {}) {
+  try {
+    const opts = options || {};
+    const includeToday = !!opts.includeToday;
+    const overwrite = (opts.overwrite !== false); // default true
+    const max = Math.max(1, Math.min(90, Number(count) || 1));
+
+    const { data, pid, entry } = _getActiveDaysEntry(true);
+    const seededKeys = [];
+    const start = includeToday ? 0 : 1;
+    for (let i = start; i < start + max; i++) {
+      const key = _dateKeyNDaysAgo(i);
+      if (!overwrite && entry.days[key]) continue;
+      const state = _createSampleDrawerState(i);
+      entry.days[key] = { state, savedAt: Date.now() - i * 3600000, label: `Test Day -${i}` };
+      seededKeys.push(key);
+    }
+    data[pid] = entry;
+    saveDaysData(data);
+    // Optionally, set active view to the most recent seeded day
+    if (seededKeys.length) {
+      const mostRecent = seededKeys.reduce((a, b) => (a > b ? a : b));
+      setActiveViewDateKey(mostRecent);
+    }
+    try { toast?.(`Seeded ${seededKeys.length} day(s)` , { type: 'success', duration: 1800 }); } catch(_) {}
+    return seededKeys;
+  } catch (e) {
+    try { toast?.('Seeding failed', { type: 'error', duration: 2000 }); } catch(_) {}
+    return [];
+  }
+}
+
+// Expose for easy manual testing in the browser console
+try { window.seedPreviousDays = seedPreviousDays; } catch (_) { /* ignore */ }
+
