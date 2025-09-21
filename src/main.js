@@ -732,9 +732,10 @@ class AppHeader extends HTMLElement {
         .nav-menu .row { display: contents; }
         .nav-menu .icon-btn { width: 100%; min-height: 40px; }
 
-        /* Backdrop for focus when menu open with fade */
-        .menu-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.25); backdrop-filter: blur(1px); z-index: 40; opacity: 0; visibility: hidden; transition: opacity 140ms ease, visibility 0s linear 140ms; }
-        .menu-backdrop.show { opacity: 1; visibility: visible; transition-delay: 0s; }
+  /* Backdrop for focus when menu open with fade */
+  /* Note: keep blur only when visible to avoid lingering blur artifacts on some browsers */
+  .menu-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.25); z-index: 40; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 140ms ease, visibility 0s linear 140ms; }
+  .menu-backdrop.show { opacity: 1; visibility: visible; transition-delay: 0s; backdrop-filter: blur(1px); pointer-events: auto; }
 
         /* Very small screens: single column for larger tap targets */
         @media (max-width: 380px) {
@@ -852,6 +853,7 @@ class AppHeader extends HTMLElement {
       if (menu && menu.classList.contains('open')) {
         menu.classList.remove('open');
         btn?.setAttribute('aria-expanded', 'false');
+        this.querySelector('.menu-backdrop')?.classList.remove('show');
       }
     } catch(_) {}
   }
