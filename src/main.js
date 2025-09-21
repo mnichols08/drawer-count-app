@@ -1554,370 +1554,213 @@ class NetworkStatus extends HTMLElement {
 }
 customElements.define('network-status', NetworkStatus);
 
-// PWA: register service worker (unchanged)
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('./sw.js')
-      .catch((err) => console.error('SW registration failed', err));
-  });
-}
+// Collapsible wrapper for <drawer-count>: <count-panel>
+// Allows a simple flow: Start → (counting) → Mark complete → Reopen, with Hide/Show toggle.
+// Persists UI state per active profile and day.
+class CountPanel extends HTMLElement {
+  constructor() {
+    super();
+    this._els = {};
+    this._state = { started: false, collapsed: true, completed: false };
+    this._onStart = this._onStart.bind(this);
+    this._onToggle = this._onToggle.bind(this);
+    this._onComplete = this._onComplete.bind(this);
+    this._onReopen = this._onReopen.bind(this);
+    this._onVisibilityRefresh = this._onVisibilityRefresh.bind(this);
+  }
 
-// Drawer persistence — profiles
-const DRAWER_PROFILES_KEY = 'drawer-profiles-v1';
-// Daily history storage key (used by sync section below; must be defined before use)
-const DRAWER_DAYS_KEY = 'drawer-days-v1';
-function getDrawerComponent() { return document.querySelector('drawer-count'); }
-function loadProfilesData() {
-  try {
-    const raw = localStorage.getItem(DRAWER_PROFILES_KEY);
-    if (!raw) return { activeId: 'default', profiles: {} };
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return { activeId: 'default', profiles: {} };
-    parsed.profiles = parsed.profiles || {};
-    parsed.activeId = parsed.activeId || 'default';
-    return parsed;
-  } catch (_) { return { activeId: 'default', profiles: {} }; }
-}
-function saveProfilesData(data) {
-  try {
-    localStorage.setItem(DRAWER_PROFILES_KEY, JSON.stringify(data));
-    try { _setLocalMeta(DRAWER_PROFILES_KEY, { updatedAt: Date.now() }); _scheduleSyncPush(DRAWER_PROFILES_KEY); } catch(_) {}
-    return true;
-  } catch(_) { return false; }
-}
-function ensureProfilesInitialized() {
-  const comp = getDrawerComponent();
-  let data = loadProfilesData();
-  if (!data.profiles || Object.keys(data.profiles).length === 0) {
-    data = { activeId: 'default', profiles: { default: { id: 'default', name: 'Default', state: comp?.getState?.() || null, updatedAt: Date.now() } } };
-    saveProfilesData(data);
+  connectedCallback() {
+    this._render();
+    this._cacheEls();
+    this._bind();
+    // Ensure a drawer element exists inside panel body (light DOM so existing code sees it)
+    if (!this.querySelector('drawer-count')) {
+      const dc = document.createElement('drawer-count');
+      this._els.body.appendChild(dc);
+    }
+    // Initial hydrate from persisted state
+    this._refresh();
+    // Keep in sync if profile/day changes elsewhere
+    window.addEventListener('storage', this._onVisibilityRefresh);
+    window.addEventListener('focus', this._onVisibilityRefresh);
   }
-  if (!data.profiles[data.activeId]) {
-    data.activeId = Object.keys(data.profiles)[0];
-    saveProfilesData(data);
+
+  disconnectedCallback() {
+    window.removeEventListener('storage', this._onVisibilityRefresh);
+    window.removeEventListener('focus', this._onVisibilityRefresh);
   }
-}
-function getActiveProfileId() { return loadProfilesData().activeId; }
-function setActiveProfile(id) { const data = loadProfilesData(); if (!data.profiles[id]) return; data.activeId = id; saveProfilesData(data); }
-function saveToActiveProfile() {
-  const comp = getDrawerComponent(); if (!comp?.getState) return false;
-  const data = loadProfilesData(); const id = data.activeId; if (!id) return false;
-  const state = comp.getState();
-  data.profiles[id] = { id, name: data.profiles[id]?.name || id, state, updatedAt: Date.now() };
-  return saveProfilesData(data);
-}
-function restoreActiveProfile() {
-  const comp = getDrawerComponent(); if (!comp?.setState) return false;
-  const data = loadProfilesData(); const id = data.activeId; const prof = data.profiles[id]; if (!prof || !prof.state) return false;
-  try { comp.setState(prof.state); return true; } catch(_) { return false; }
-}
-function createProfile(name) {
-  const data = loadProfilesData();
-  const idBase = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g,'') || 'profile';
-  let id = idBase; let i = 1; while (data.profiles[id]) { id = `${idBase}-${i++}`; }
-  data.profiles[id] = { id, name, state: null, updatedAt: Date.now() };
-  saveProfilesData(data);
-  return id;
-}
-function populateProfilesSelect(headerEl) {
-  try {
-    const sel = headerEl.querySelector('.profile-select'); if (!sel) return;
-    const data = loadProfilesData(); const { profiles, activeId } = data;
-    sel.innerHTML = '';
-    Object.values(profiles).forEach((p) => {
-      const opt = document.createElement('option'); opt.value = p.id; opt.textContent = p.name || p.id; if (p.id === activeId) opt.selected = true; sel.appendChild(opt);
-    });
-  } catch(_){}
-}
-function updateStatusPill(headerEl) {
-  try {
-    const pill = headerEl.querySelector('.status-pill'); if (!pill) return;
-    const comp = getDrawerComponent(); if (!comp?.getState) return;
-    const cur = comp.getState();
-    const data = loadProfilesData(); const prof = data.profiles[data.activeId];
-    // Normalize states so structural/version differences (e.g., new optional fields) don't show as dirty
-    const normalize = (s) => {
-      if (!s || typeof s !== 'object') return null;
-      const z = 0;
-      const base = s.base || {};
-      const extra = s.extra || { slips: [], checks: [] };
-      const optional = s.optional || {
-        charges: z, totalReceived: z, netSales: z,
-        grossProfitAmount: z, grossProfitPercent: z,
-        numInvoices: z, numVoids: z
-      };
-      return {
-        version: 2,
-        timestamp: 0, // ignore timestamp in equality
-        base: {
-          drawer: base.drawer || z, roa: base.roa || z, slips: base.slips || z, checks: base.checks || z,
-          hundreds: base.hundreds || z, fifties: base.fifties || z, twenties: base.twenties || z, tens: base.tens || z,
-          fives: base.fives || z, dollars: base.dollars || z, quarters: base.quarters || z, dimes: base.dimes || z,
-          nickels: base.nickels || z, pennies: base.pennies || z, quarterrolls: base.quarterrolls || z,
-          dimerolls: base.dimerolls || z, nickelrolls: base.nickelrolls || z, pennyrolls: base.pennyrolls || z
-        },
-        extra: { slips: Array.isArray(extra.slips) ? extra.slips : [], checks: Array.isArray(extra.checks) ? extra.checks : [] },
-        optional
-      };
-    };
-    const saved = JSON.stringify(normalize((prof && prof.state) || null));
-    const now = JSON.stringify(normalize(cur));
-    const isSaved = saved === now;
-    pill.textContent = isSaved ? `Saved${prof?.updatedAt ? ' • ' + new Date(prof.updatedAt).toLocaleTimeString() : ''}` : 'Unsaved changes';
-    pill.classList.toggle('saved', isSaved);
-    pill.classList.toggle('dirty', !isSaved);
-  } catch(_){}
-}
-function exportProfilesToFile() {
-  // Export both profiles and daily history in one file (backward compatible import)
-  const profiles = loadProfilesData();
-  const days = loadDaysData();
-  const payload = { version: 1, profilesData: profiles, daysData: days };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = 'drawer-data.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-  toast('Exported data', { type: 'success', duration: 1800 });
-}
-function openImportDialog(headerEl) {
-  let inp = document.getElementById('import-profiles-input');
-  if (!inp) { inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/json'; inp.id = 'import-profiles-input'; inp.style.display = 'none'; document.body.appendChild(inp); }
-  inp.onchange = async () => {
+
+  // --- Rendering ---
+  _render() {
+    // Simple light-DOM markup so other modules can query <drawer-count>
+    this.classList.add('count-panel');
+    this.innerHTML = `
+      <div class="panel-header" role="group" aria-label="Drawer count controls">
+        <div class="panel-title">Today's Count</div>
+        <div class="panel-actions">
+          <button class="start-btn" type="button">Start count</button>
+          <button class="toggle-btn" type="button" aria-expanded="false">Show</button>
+          <button class="complete-btn" type="button">Mark complete</button>
+          <button class="reopen-btn" type="button">Reopen</button>
+        </div>
+      </div>
+      <div class="panel-body" aria-hidden="true"></div>
+      <p class="hint done-hint" hidden>Completed for this day. Tap Reopen to edit.</p>
+    `;
+  }
+
+  _cacheEls() {
+    this._els.header = this.querySelector('.panel-header');
+    this._els.title = this.querySelector('.panel-title');
+    this._els.actions = this.querySelector('.panel-actions');
+    this._els.start = this.querySelector('.start-btn');
+    this._els.toggle = this.querySelector('.toggle-btn');
+    this._els.complete = this.querySelector('.complete-btn');
+    this._els.reopen = this.querySelector('.reopen-btn');
+    this._els.body = this.querySelector('.panel-body');
+    this._els.doneHint = this.querySelector('.done-hint');
+  }
+
+  _bind() {
+    this._els.start.addEventListener('click', this._onStart);
+    this._els.toggle.addEventListener('click', this._onToggle);
+    this._els.complete.addEventListener('click', this._onComplete);
+    this._els.reopen.addEventListener('click', this._onReopen);
+  }
+
+  // --- Persistence helpers (local to this component) ---
+  _panelKey() {
     try {
-      const file = inp.files && inp.files[0]; if (!file) return;
-      const text = await file.text();
-      const imported = JSON.parse(text);
-      if (!imported || typeof imported !== 'object') { toast('Invalid import file', { type: 'error', duration: 2500 }); return; }
-      // Support new combined format { version, profilesData, daysData }
-      if (imported.profilesData || imported.daysData) {
-        const pCurrent = loadProfilesData();
-        const dCurrent = loadDaysData();
-        const pIn = imported.profilesData || { profiles: {}, activeId: 'default' };
-        const dIn = imported.daysData || {};
-        // Merge profiles
-        pCurrent.profiles = { ...pCurrent.profiles, ...(pIn.profiles || {}) };
-        if (pIn.activeId) pCurrent.activeId = pIn.activeId;
-        saveProfilesData(pCurrent);
-        // Merge days
-        const dMerged = { ...dCurrent };
-        for (const pid of Object.keys(dIn)) {
-          const curEntry = dMerged[pid] || { lastVisitedDate: null, days: {} };
-          const inEntry = dIn[pid] || { lastVisitedDate: null, days: {} };
-          curEntry.days = { ...curEntry.days, ...(inEntry.days || {}) };
-          // Prefer imported lastVisitedDate if provided
-          curEntry.lastVisitedDate = inEntry.lastVisitedDate || curEntry.lastVisitedDate || null;
-          dMerged[pid] = curEntry;
-        }
-        saveDaysData(dMerged);
-  populateProfilesSelect(headerEl);
-  restoreActiveProfile();
-  updateStatusPill(headerEl);
-  applyReadOnlyByActiveDate(headerEl);
-        toast('Imported data', { type: 'success', duration: 2000 });
-      } else if (imported.profiles) {
-        // Backward-compat: old profiles-only format
-        const current = loadProfilesData();
-        current.profiles = { ...current.profiles, ...imported.profiles };
-        if (imported.activeId) current.activeId = imported.activeId;
-        saveProfilesData(current);
-  populateProfilesSelect(headerEl);
-  restoreActiveProfile();
-  updateStatusPill(headerEl);
-  applyReadOnlyByActiveDate(headerEl);
-        toast('Imported profiles', { type: 'success', duration: 2000 });
-      } else {
-        toast('Invalid import file', { type: 'error', duration: 2500 });
-        return;
-      }
-    } catch(_) { toast('Import failed', { type: 'error', duration: 2500 }); }
-    finally { inp.value = ''; }
-  };
-  inp.click();
-}
+      // Prefer existing helpers if present in this module
+      const pid = (typeof getActiveProfileId === 'function') ? getActiveProfileId() : null;
+      const dkey = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
+      if (pid && dkey) return `${pid}::${dkey}`;
+    } catch (_) {}
+    // Fallback to today + default profile
+    const today = new Date();
+    const d = today.toISOString().slice(0,10);
+    return `default::${d}`;
+  }
 
-// Auto-save on changes (debounced) per active profile
-let _saveTimer = null;
-function _debouncedSaveWithProfiles(headerEl) {
-  if (_saveTimer) clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(() => { saveToActiveProfile(); if (headerEl) updateStatusPill(headerEl); }, 500);
-}
-window.addEventListener('DOMContentLoaded', () => {
-  // Update CSS var for header height so content padding matches fixed header
-  const root = document.documentElement;
-  const hdr = document.querySelector('header.app-header');
-  const bannerHost = document.querySelector('app-install-banner');
-  const setHeaderVar = () => {
-    if (!hdr) return;
-    const h = hdr.offsetHeight || 64;
-    root.style.setProperty('--header-h', `${h}px`);
-  };
-  const setBannerVar = () => {
-    // The banner element renders its visible area inside a wrapper; measuring host is ok as it's sticky and sized by content
-    if (!bannerHost) { root.style.setProperty('--banner-h', '0px'); return; }
-    // If the banner is hidden via display:none, offsetHeight will be 0
-    const h = bannerHost.offsetHeight || 0;
-    root.style.setProperty('--banner-h', `${h}px`);
-  };
-  setHeaderVar();
-  setBannerVar();
-  // Observe header size changes (e.g., responsive wraps)
-  try {
-    if (window.ResizeObserver && hdr) {
-      const ro = new ResizeObserver(() => setHeaderVar());
-      ro.observe(hdr);
-      // Observe banner visibility/size changes
-      if (bannerHost) {
-        const rb = new ResizeObserver(() => setBannerVar());
-        rb.observe(bannerHost);
-      }
+  _loadPersisted() {
+    try {
+      const raw = localStorage.getItem('drawer-panel-v1');
+      const all = raw ? JSON.parse(raw) : {};
+      const key = this._panelKey();
+      return all[key] || { started: false, collapsed: true, completed: false };
+    } catch (_) {
+      return { started: false, collapsed: true, completed: false };
+    }
+  }
+
+  _savePersisted(next) {
+    try {
+      const raw = localStorage.getItem('drawer-panel-v1');
+      const all = raw ? JSON.parse(raw) : {};
+      const key = this._panelKey();
+      all[key] = { ...all[key], ...next };
+      localStorage.setItem('drawer-panel-v1', JSON.stringify(all));
+    } catch (_) {}
+  }
+
+  // --- UI sync ---
+  _refresh() {
+    // Merge persisted into memory state
+    this._state = { ...{ started: false, collapsed: true, completed: false }, ...this._loadPersisted() };
+    const { started, collapsed, completed } = this._state;
+
+    // Classes
+    this.classList.toggle('collapsed', !!collapsed);
+    this.classList.toggle('completed', !!completed);
+
+    // Buttons visibility
+    this._els.start.hidden = !!started;
+    this._els.toggle.hidden = !started; // only makes sense after start
+    this._els.complete.hidden = !started || !!completed;
+    this._els.reopen.hidden = !completed;
+
+    // Toggle labels/ARIA
+    this._els.toggle.textContent = collapsed ? 'Show' : 'Hide';
+    this._els.toggle.setAttribute('aria-expanded', String(!collapsed));
+
+    // Body visibility
+    this._els.body.setAttribute('aria-hidden', String(!!collapsed));
+    if (collapsed) {
+      this._els.body.style.maxHeight = '0px';
+      this._els.body.style.overflow = 'hidden';
     } else {
-      window.addEventListener('resize', setHeaderVar);
-      window.addEventListener('resize', setBannerVar);
-      setTimeout(setHeaderVar, 250); // after fonts/layout settle
-      setTimeout(setBannerVar, 260);
+      this._els.body.style.maxHeight = '9999px';
+      this._els.body.style.overflow = '';
     }
-  } catch(_) { /* no-op */ }
 
-  const comp = getDrawerComponent();
-  if (!comp) return;
-  ensureProfilesInitialized();
-  // Restore from active profile if exists
-  restoreActiveProfile();
-  // If it's a new day, start fresh automatically
-  ensureDayResetIfNeeded(document.querySelector('app-header'));
-  // Ensure view date defaults to today on fresh load
-  setActiveViewDateKey(getTodayKey());
-  applyReadOnlyByActiveDate(document.querySelector('app-header'));
-  const header = document.querySelector('app-header');
-  // Update initial status
-  if (header) { populateProfilesSelect(header); updateStatusPill(header); }
-  // Listen for changes to update status and auto-save
-  comp.addEventListener('change', () => {
-    _debouncedSaveWithProfiles(header);
-    // Auto-save snapshot for the active view day
+    // Done hint
+    this._els.doneHint.hidden = !completed;
+  }
+
+  _focusFirstInput() {
     try {
-      const key = getActiveViewDateKey();
-      saveDay(key);
-    } catch(_) {}
-  });
-});
+      const dc = this.querySelector('drawer-count');
+      const first = dc?.shadowRoot?.querySelector('input, button, [tabindex="0"]')
+        || dc?.querySelector('input, button, [tabindex="0"]');
+      if (first && typeof first.focus === 'function') first.focus();
+    } catch (_) {}
+  }
 
-function saveDay(key) {
-  const comp = getDrawerComponent(); if (!comp?.getState) return false;
-  const { data, pid, entry } = _getActiveDaysEntry(true);
-  const k = key || getTodayKey();
-  entry.days = entry.days || {};
-  const prev = entry.days[k] || {};
-  entry.days[k] = { state: comp.getState(), savedAt: Date.now(), label: prev.label || '' };
-  data[pid] = entry; return _saveDaysDataAndSync(data);
-}
-function restoreDay(key) {
-  const comp = getDrawerComponent(); if (!comp?.setState) return false;
-  const { data, pid, entry } = _getActiveDaysEntry(false);
-  const rec = entry.days?.[key]; if (!rec || !rec.state) return false;
-  try { comp.setState(rec.state); // Update lastVisited to this key so subsequent loads don't auto-clear immediately
-    entry.lastVisitedDate = getTodayKey(); // still track today for auto-clear behavior
-  data[pid] = entry; _saveDaysDataAndSync(data);
-    return true; } catch(_) { return false; }
-}
-function deleteDay(key) {
-  const { data, pid, entry } = _getActiveDaysEntry(false);
-  if (!entry.days || !entry.days[key]) return false;
-  try { delete entry.days[key]; data[pid] = entry; return _saveDaysDataAndSync(data); } catch(_) { return false; }
-}
-function setDayLabel(key, label) {
-  try {
-    const { data, pid, entry } = _getActiveDaysEntry(false);
-    if (!entry.days || !entry.days[key]) return false;
-    entry.days[key].label = String(label || '');
-    data[pid] = entry;
-    return _saveDaysDataAndSync(data);
-  } catch(_) { return false; }
-}
-function ensureDayResetIfNeeded(headerEl) {
-  try {
-    const { data, pid, entry } = _getActiveDaysEntry(true);
-    const today = getTodayKey();
-    if (entry.lastVisitedDate !== today) {
-      const comp = getDrawerComponent();
-      comp?.reset?.();
-      entry.lastVisitedDate = today;
-      data[pid] = entry;
-      saveDaysData(data);
-      if (headerEl) updateStatusPill(headerEl);
-      toast('New day detected. Starting fresh.', { type: 'info', duration: 2200 });
-    }
-  } catch(_) { /* ignore */ }
-}
+  // --- Event handlers ---
+  _onStart() {
+    this._state.started = true;
+    this._state.collapsed = false;
+    this._state.completed = false;
+    this._savePersisted(this._state);
+    // Ensure day is editable when starting
+    try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(true); } catch (_) {}
+    this._refresh();
+    // Focus the first input for quick entry
+    queueMicrotask(() => this._focusFirstInput());
+  }
 
-// Active view date + edit lock management (per profile)
-function getActiveViewDateKey() {
-  try {
-    const { data, pid, entry } = _getActiveDaysEntry(true);
-    entry._activeViewDateKey = entry._activeViewDateKey || getTodayKey();
-    data[pid] = entry; _saveDaysDataAndSync(data);
-    return entry._activeViewDateKey;
-  } catch(_) { return getTodayKey(); }
-}
-function setActiveViewDateKey(key) {
-  try {
-    const { data, pid, entry } = _getActiveDaysEntry(true);
-    entry._activeViewDateKey = key || getTodayKey();
-    data[pid] = entry; _saveDaysDataAndSync(data);
-  } catch(_) { /* ignore */ }
-}
-function isDayEditUnlocked() {
-  try {
-    const { entry } = _getActiveDaysEntry(true);
-    return !!entry._editUnlocked;
-  } catch(_) { return false; }
-}
-function setDayEditUnlocked(flag) {
-  try {
-    const { data, pid, entry } = _getActiveDaysEntry(true);
-    entry._editUnlocked = !!flag;
-    data[pid] = entry; _saveDaysDataAndSync(data);
-  } catch(_) { /* ignore */ }
-}
-function applyReadOnlyByActiveDate(headerEl) {
-  try {
-    const comp = getDrawerComponent(); if (!comp?.setReadOnly) return;
-    const today = getTodayKey();
-    const key = getActiveViewDateKey();
-    const ro = key !== today && !isDayEditUnlocked();
-    comp.setReadOnly(ro);
-    updateLockButtonUI(headerEl);
-  } catch(_) {}
-}
-function updateLockButtonUI(headerEl) {
-  try {
-    const header = headerEl || document.querySelector('app-header');
-    const btns = header ? Array.from(header.querySelectorAll('.lock-btn')) : [];
-    const optBtns = header ? Array.from(header.querySelectorAll('.optional-btn')) : [];
-    const today = getTodayKey();
-    const key = getActiveViewDateKey();
-    const ro = key !== today && !isDayEditUnlocked();
-    btns.forEach((btn) => {
-      const isToday = (key === today);
-      btn.textContent = ro ? '🔒' : '🔓';
-      if (isToday) {
-        btn.title = 'Today is always editable';
-        btn.setAttribute('aria-label', 'Today is always editable');
-      } else {
-        const stateTxt = ro ? 'locked' : 'unlocked';
-        const tip = `Toggle edit lock (${stateTxt})`;
-        btn.title = tip;
-        btn.setAttribute('aria-label', tip);
+  _onToggle() {
+    this._state.collapsed = !this._state.collapsed;
+    this._savePersisted({ collapsed: this._state.collapsed, started: this._state.started });
+    this._refresh();
+  }
+
+  _onComplete() {
+    // Mark complete, collapse, and lock edits
+    this._state.completed = true;
+    this._state.collapsed = true;
+    this._savePersisted(this._state);
+    try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch (_) {}
+    // Save snapshot for current day if helpers exist
+    try {
+      if (typeof getActiveViewDateKey === 'function' && typeof saveSpecificDay === 'function') {
+        const key = getActiveViewDateKey();
+        if (key) saveSpecificDay(key);
       }
-      btn.disabled = isToday;
-    });
-    optBtns.forEach((optBtn) => {
-      optBtn.disabled = ro;
-      optBtn.title = ro ? 'Optional fields (read-only)' : 'Optional fields';
-      optBtn.setAttribute('aria-label', optBtn.title);
-    });
-  } catch(_) {}
+    } catch (_) {}
+    // Toast if available
+    try { if (typeof toast === 'function') toast('Marked complete for this day.'); } catch (_) {}
+    this._refresh();
+  }
+
+  _onReopen() {
+    // Reopen edits, expand
+    this._state.completed = false;
+    this._state.collapsed = false;
+    this._state.started = true;
+    this._savePersisted(this._state);
+    try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(true); } catch (_) {}
+    try { if (typeof toast === 'function') toast('Reopened for editing.'); } catch (_) {}
+    this._refresh();
+    queueMicrotask(() => this._focusFirstInput());
+  }
+
+  _onVisibilityRefresh() {
+    // Recalculate in case active profile/day changed
+    this._refresh();
+  }
 }
+customElements.define('count-panel', CountPanel);
 
 // --- Server status pill ---
 // API base resolution: window.DCA_API_BASE or localStorage override; default
@@ -2088,24 +1931,6 @@ async function _syncKeyOnce(key) {
     return true;
   } catch(_) { return false; }
 }
-
-function _scheduleSyncPush(key) {
-  try {
-    if (!navigator.onLine) return;
-    _debouncedPushers = _debouncedPushers || {};
-    clearTimeout(_debouncedPushers[key]);
-    _debouncedPushers[key] = setTimeout(async () => {
-      try {
-        const raw = localStorage.getItem(key);
-        const meta = _getLocalMeta(key) || { updatedAt: Date.now() };
-        if (raw == null) return;
-        const push = await _pushRemoteKV(key, raw, meta.updatedAt || Date.now());
-        if (push.ok) _setLocalMeta(key, { updatedAt: push.updatedAt });
-      } catch(_) { /* ignore */ }
-    }, 400);
-  } catch(_) { /* ignore */ }
-}
-let _debouncedPushers = {};
 
 async function _syncAllKeys() {
   for (const k of SYNC_KEYS) { try { await _syncKeyOnce(k); } catch(_) {} }
