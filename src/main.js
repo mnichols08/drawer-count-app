@@ -694,6 +694,7 @@ class AppHeader extends HTMLElement {
     this._onHelp = this._onHelp.bind(this);
     this._onSettings = this._onSettings.bind(this);
     this._onOptional = this._onOptional.bind(this);
+    this._onPanelToggle = this._onPanelToggle.bind(this);
     this._onProfileChange = this._onProfileChange.bind(this);
     this._onNewProfile = this._onNewProfile.bind(this);
     this._onDeleteProfile = this._onDeleteProfile.bind(this);
@@ -766,6 +767,7 @@ class AppHeader extends HTMLElement {
         </div>
         <h1 class="title">${title}</h1>
         <div class="actions right inline-actions">
+          <button class="icon-btn panel-toggle-btn" aria-label="Show/Hide count panel" title="Show/Hide count panel">⬒</button>
           <button class="icon-btn optional-btn" aria-label="Optional fields" title="Optional fields">🧾</button>
           <button class="icon-btn days-btn" aria-label="Daily history" title="Daily history">📅</button>
           <button class="icon-btn lock-btn" aria-label="Toggle edit lock" title="Toggle edit lock">🔒</button>
@@ -778,6 +780,7 @@ class AppHeader extends HTMLElement {
           <button class="menu-toggle" aria-label="Menu" aria-expanded="false" aria-haspopup="true">☰</button>
           <div class="nav-menu" role="menu">
             <div class="row">
+              <button class="icon-btn panel-toggle-btn" role="menuitem" aria-label="Show/Hide count panel" title="Show/Hide count panel">⬒</button>
               <button class="icon-btn optional-btn" role="menuitem" aria-label="Optional fields" title="Optional fields">🧾</button>
               <button class="icon-btn days-btn" role="menuitem" aria-label="Daily history" title="Daily history">📅</button>
               <button class="icon-btn lock-btn" role="menuitem" aria-label="Toggle edit lock" title="Toggle edit lock">🔒</button>
@@ -794,6 +797,7 @@ class AppHeader extends HTMLElement {
     this.querySelectorAll('.settings-btn')?.forEach((el) => el.addEventListener('click', this._onSettings));
     this.querySelectorAll('.theme-toggle')?.forEach((el) => el.addEventListener('click', this._onTheme));
     this.querySelectorAll('.info-btn')?.forEach((el) => el.addEventListener('click', this._onHelp));
+  this.querySelectorAll('.panel-toggle-btn')?.forEach((el) => el.addEventListener('click', this._onPanelToggle));
     // actions moved into settings modal
     this.querySelector('.profile-select')?.addEventListener('change', this._onProfileChange);
     this.querySelector('.new-profile-btn')?.addEventListener('click', this._onNewProfile);
@@ -815,6 +819,22 @@ class AppHeader extends HTMLElement {
   _onHelp() { getHelpModal().open(); }
   _onSettings() { getSettingsModal().open(); }
   _onOptional() { getOptionalFieldsModal().open(); }
+  _onPanelToggle() {
+    try {
+      const panel = document.querySelector('count-panel');
+      if (panel && typeof panel.toggleCollapsed === 'function') {
+        panel.toggleCollapsed();
+      } else if (panel) {
+        // Fallback: flip aria-expanded based on current state
+        const body = panel.querySelector('.panel-body');
+        const summary = panel.querySelector('.panel-summary');
+        const visible = panel.classList.contains('completed') ? summary : body;
+        const isCollapsed = (visible?.getAttribute('aria-hidden') === 'true') || (visible?.hidden === true);
+        const btn = panel.querySelector('.toggle-btn');
+        btn?.click?.(); // reuse panel’s own toggle logic
+      }
+    } catch(_) {}
+  }
   // data actions now live in settings modal
   _onProfileChange(e) { try { const id = e.target?.value; if (!id) return; setActiveProfile(id); restoreActiveProfile(); ensureDayResetIfNeeded(this); setActiveViewDateKey(getTodayKey()); applyReadOnlyByActiveDate(this); populateProfilesSelect(this); updateStatusPill(this); toast('Switched profile', { type:'info', duration: 1200}); } catch(_){} }
   async _onNewProfile() { try { const modal = getNewProfileModal(); const name = await modal.open(''); if (!name) return; const id = createProfile(name); setActiveProfile(id); saveToActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); applyReadOnlyByActiveDate(this); toast('Profile created', { type: 'success', duration: 1800 }); } catch(_){} }
@@ -1665,11 +1685,39 @@ class CountPanel extends HTMLElement {
     } catch (_) {}
   }
 
+  // Public API for external controls (header toggle)
+  isCollapsed() { return !!this._state.collapsed; }
+  expand() {
+    // Do not auto-start; expand only if already started, otherwise keep hidden
+    if (!this._state.started) return false;
+    this._state.collapsed = false;
+    // Do not persist transient expands triggered externally
+    this._refresh();
+    return true;
+  }
+  collapse() {
+    if (!this._state.started) return false;
+    this._state.collapsed = true;
+    this._refresh();
+    return true;
+  }
+  toggleCollapsed() {
+    if (!this._state.started) return false; // require Start first
+    this._state.collapsed = !this._state.collapsed;
+    // Persist user-driven toggles during the session/day
+    this._savePersisted({ collapsed: this._state.collapsed, started: this._state.started });
+    this._refresh();
+    return true;
+  }
+
   // --- UI sync ---
   _refresh(noAnim = false) {
     // Merge persisted into memory state
     this._state = { ...{ started: false, collapsed: true, completed: false }, ...this._loadPersisted() };
-    const { started, collapsed, completed } = this._state;
+    const { started, completed } = this._state;
+    // Never show content before start; force collapsed in-memory
+    if (!started) this._state.collapsed = true;
+    const collapsed = this._state.collapsed;
 
     // Classes
     this.classList.toggle('collapsed', !!collapsed);
@@ -1844,6 +1892,7 @@ class CountPanel extends HTMLElement {
   }
 
   _onToggle() {
+    if (!this._state.started) return; // ignore toggles before Start
     this._state.collapsed = !this._state.collapsed;
     this._savePersisted({ collapsed: this._state.collapsed, started: this._state.started });
     this._refresh();
@@ -1852,9 +1901,9 @@ class CountPanel extends HTMLElement {
   _onComplete() {
     // Mark complete, collapse, and lock edits
     this._state.completed = true;
-    // Auto-expand summary when completed
-    this._state.collapsed = false;
-    this._savePersisted(this._state);
+    // Auto-expand summary for this session ONLY; do not persist collapsed=false
+    // Persist only that it is completed and started
+    this._savePersisted({ completed: true, started: true });
     try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch (_) {}
     // Save snapshot for current day if helpers exist
     try {
@@ -1865,6 +1914,8 @@ class CountPanel extends HTMLElement {
     } catch (_) {}
     // Toast if available
     try { if (typeof toast === 'function') toast('Marked complete for this day.'); } catch (_) {}
+    // Show summary now but don't save that it's expanded
+    this._state.collapsed = false;
     this._refresh();
   }
 
