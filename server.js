@@ -4,7 +4,7 @@
 // Env:
 // - PORT: port to listen on (default 8080)
 // - MONGODB_URI: full MongoDB connection string (required for API)
-// - MONGODB_DB: database name (default 'drawercount')
+// - MONGODB_DB: database name (default 'drawer-count-app')
 
 /* eslint-disable no-console */
 const path = require('path');
@@ -24,7 +24,7 @@ require('dotenv').config();
 const app = express();
 const PORT = Number(process.env.PORT) || 8080;
 const MONGODB_URI = process.env.MONGODB_URI || '';
-const MONGODB_DB = process.env.MONGODB_DB || 'drawercount';
+const MONGODB_DB = process.env.MONGODB_DB || 'drawer-count-app';
 const API_BASE_ENV = process.env.API_BASE || '';
 
 // Basic middleware
@@ -100,7 +100,7 @@ let kvCollection = null;
 // Build MongoClient options from environment to support TLS configs on various providers
 let cachedTlsCAFilePath = null;
 function buildMongoClientOptions() {
-	const opts = { serverSelectionTimeoutMS: Number(process.env.MONGODB_SERVER_SELECTION_TIMEOUT_MS) || 5000 };
+	const opts = { serverSelectionTimeoutMS: Number(process.env.MONGODB_SERVER_SELECTION_TIMEOUT_MS) || 3000 };
 
 	// Force TLS if requested (some providers require explicit tls=true with mongodb:// URIs)
 	if (String(process.env.MONGODB_TLS || '').toLowerCase() === 'true') {

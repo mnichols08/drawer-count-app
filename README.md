@@ -41,6 +41,14 @@ npm run dev
 By default `npm start` runs an Express server at `http://127.0.0.1:8080/` that serves the app and exposes a small API used for sync.
 The service worker only works when served via HTTP(S) or `localhost`.
 
+Port already in use? Pick a different port:
+
+```powershell
+$env:PORT=8081; npm start
+# or during development with auto-reload
+$env:PORT=8081; npm run dev
+```
+
 Local API base note (avoiding CORS): when the app is served to `localhost` (or `127.0.0.1`), the server responds from `/config.js` with `window.DCA_API_BASE = '/api'` regardless of any `API_BASE` environment variable. This ensures the frontend talks to the same-origin Express API during local development and avoids browser CORS errors. In production (non-localhost), `API_BASE` will be respected if set; otherwise it defaults to the built-in Render URL.
 
 Alternative: if you only need to serve static files, any simple HTTP server on port 8080 works. Ensure the service worker is reachable at the root scope.
@@ -151,9 +159,10 @@ Adding new background images:
 
 1) Create a new Web Service on Render pointing to this repo.
 2) Environment → add:
-	- `MONGODB_URI` = Atlas SRV URI (e.g., `mongodb+srv://...mongodb.net/drawercount?retryWrites=true&w=majority`)
-	- `MONGODB_DB` = `drawercount`
+	- `MONGODB_URI` = Atlas SRV URI (e.g., `mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/`)
+	- `MONGODB_DB` = `drawer-count-app`
 	- `MONGODB_TLS` = `true`
+	- Optional: `MONGODB_SERVER_SELECTION_TIMEOUT_MS` = `3000`
 	- Optional: `API_BASE` = `https://<your-service>.onrender.com/api`
 3) Start command: `npm start` (default in `package.json`).
 4) In Atlas → Network Access: allow Render’s egress IP or temporarily `0.0.0.0/0` to validate.
@@ -175,7 +184,9 @@ This app remains fully functional offline using `localStorage`. If you provide a
 	- Env vars:
 		- `PORT` (default `8080`)
 		- `MONGODB_URI` (required to enable API)
-		- `MONGODB_DB` (default `drawercount`)
+		- `MONGODB_DB` (default `drawer-count-app`)
+		- `MONGODB_TLS` (`false` locally; set `true` for most cloud providers like Atlas)
+		- `MONGODB_SERVER_SELECTION_TIMEOUT_MS` (default `3000`)
 	- Endpoints:
 		- `GET /api/health`
 		- `GET /api/kv` (list all keys with values; shared/global scope)
@@ -208,7 +219,7 @@ This app remains fully functional offline using `localStorage`. If you provide a
 Run locally with a Mongo connection (PowerShell):
 
 ```powershell
-$env:MONGODB_URI = "mongodb+srv://<user>:<pass>@<cluster>/?retryWrites=true&w=majority"; npm start
+$env:MONGODB_URI = "mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/"; $env:MONGODB_DB = "drawer-count-app"; $env:MONGODB_TLS = "true"; npm start
 ```
 
 If `MONGODB_URI` is not set, the API returns `503` and the app continues to operate offline against `localStorage`.
@@ -220,14 +231,15 @@ If you host the Express server on Render and your database is MongoDB Atlas, use
 Environment variables (Render → your service → Environment):
 
 - `MONGODB_URI` = your Atlas SRV URI, for example:
-	- `mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/drawercount?retryWrites=true&w=majority`
-- `MONGODB_DB` = `drawercount`
+	- `mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/`
+- `MONGODB_DB` = `drawer-count-app`
 - `MONGODB_TLS` = `true`
 - Optional: `API_BASE` = your Render service URL + `/api` (e.g., `https://your-service.onrender.com/api`)
+ - Optional: `MONGODB_SERVER_SELECTION_TIMEOUT_MS` = `3000`
 
 Notes for Atlas:
 - Atlas uses public certificate authorities; you do NOT need to provide a custom CA for Atlas. Leave the `MONGODB_TLS_CA_*` variables unset.
-- Prefer the `mongodb+srv://` URI. If you must use `mongodb://` hosts, ensure `tls=true` is present in the URI or keep `MONGODB_TLS=true` set.
+- Prefer the `mongodb+srv://` URI. If you must use `mongodb://` hosts, ensure `tls=true` is present in the URI or keep `MONGODB_TLS=true` set. Do not include the database path in the URI; set it via `MONGODB_DB`.
 - Do not use `MONGODB_TLS_INSECURE` in production. It’s only for short-term diagnostics.
 
 Render service basics:
