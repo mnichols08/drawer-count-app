@@ -1917,6 +1917,8 @@ class NetworkStatus extends HTMLElement {
       let cls = 'warn';
       let short = 'N/A';
       let title = 'Server: n/a';
+      // Track previous DB-connected state to detect transitions
+      const prevDbConnected = !!(this._server && this._server.cls === 'ok');
       if (offline) { cls = 'warn'; short = 'OFF'; title = 'Server: offline'; }
       else {
         const health = await fetchServerHealth();
@@ -1927,6 +1929,17 @@ class NetworkStatus extends HTMLElement {
       }
       this._server = { cls, short, title };
       this._render();
+
+      // If DB just became available (transition from not-ok to ok) trigger a full sync.
+      try {
+        const nowDbConnected = (cls === 'ok');
+        if (!prevDbConnected && nowDbConnected) {
+          // Push pending local changes and pull latest from server
+          if (typeof _syncAllKeys === 'function') {
+            _syncAllKeys();
+          }
+        }
+      } catch (_) { /* ignore */ }
     } catch (_) { /* ignore */ }
   }
 
