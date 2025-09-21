@@ -294,6 +294,12 @@ class SettingsModal extends HTMLElement {
         .radios { display: flex; gap: 12px; align-items: center; }
         label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
         .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 8px 12px; cursor: pointer; min-height: 40px; font-weight: 600; }
+        .btn[disabled] { opacity: .7; cursor: not-allowed; }
+        /* Processing dots animation within modal shadow */
+        .btn.processing { position: relative; }
+        .btn .dots { display: inline-block; width: 1.5em; text-align: left; }
+        @keyframes dca-ellipsis { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } 100% { content: ''; } }
+        .btn.processing .dots::after { content: ''; display: inline-block; animation: dca-ellipsis 1.2s steps(4, end) infinite; }
       </style>
       <div class="backdrop" part="backdrop"></div>
       <div class="dialog" role="dialog" aria-modal="true" aria-label="Settings">
@@ -444,8 +450,22 @@ class SettingsModal extends HTMLElement {
       else if (val === 'light' || val === 'dark') { applyTheme(val); toast(`Theme: ${val[0].toUpperCase()}${val.slice(1)}`, { type:'info', duration: 1200}); }
     } catch (_) { /* ignore */ }
   }
-  _onExport() { try { exportProfilesToFile(); } catch(_) { toast('Export failed', { type: 'error', duration: 2500 }); } }
-  _onImport() { try { const header = document.querySelector('app-header'); openImportDialog(header); } catch(_) { toast('Import failed to start', { type: 'error', duration: 2500 }); } }
+  async _onExport() {
+    const btn = this._els?.exportBtn;
+    await this._withProcessing(btn, async () => {
+      try { exportProfilesToFile(); } catch(_) { toast('Export failed', { type: 'error', duration: 2500 }); }
+      // brief visibility for the animation
+      await this._sleep(350);
+    });
+  }
+  async _onImport() {
+    const btn = this._els?.importBtn;
+    await this._withProcessing(btn, async () => {
+      try { const header = document.querySelector('app-header'); openImportDialog(header); } catch(_) { toast('Import failed to start', { type: 'error', duration: 2500 }); }
+      // file dialog is async; show a short cue only
+      await this._sleep(600);
+    });
+  }
   _populateDaysSelect() {
     try {
       const sel = this._els?.daySelect; if (!sel) return;
@@ -492,18 +512,48 @@ class SettingsModal extends HTMLElement {
       toast(ok ? 'Deleted day' : 'Delete failed', { type: ok ? 'success' : 'error', duration: 1800 });
     } catch(_) { toast('Delete failed', { type: 'error', duration: 2000 }); }
   }
-  _onDayRename() {
-    try {
-      const key = this._els?.daySelect?.value || getActiveViewDateKey();
-      const today = getTodayKey();
-      // If renaming a past day, keep UX consistent by showing completed summary
-      if (key && key !== today) { const panel = document.querySelector('count-panel'); panel?.showCompletedSummary?.(); }
-      const label = (this._els?.dayLabel?.value || '').trim();
-      const ok = setDayLabel(key, label);
-      this._populateDaysSelect();
-      toast(ok ? 'Renamed day' : 'Rename failed', { type: ok ? 'success' : 'error', duration: 1600 });
-    } catch(_) { toast('Rename failed', { type: 'error', duration: 2000 }); }
+  async _onDayRename() {
+    const btn = this._els?.dayRenameBtn;
+    await this._withProcessing(btn, async () => {
+      try {
+        const key = this._els?.daySelect?.value || getActiveViewDateKey();
+        const today = getTodayKey();
+        // If renaming a past day, keep UX consistent by showing completed summary
+        if (key && key !== today) { const panel = document.querySelector('count-panel'); panel?.showCompletedSummary?.(); }
+        const label = (this._els?.dayLabel?.value || '').trim();
+        const ok = setDayLabel(key, label);
+        this._populateDaysSelect();
+        toast(ok ? 'Renamed day' : 'Rename failed', { type: ok ? 'success' : 'error', duration: 1600 });
+      } catch(_) { toast('Rename failed', { type: 'error', duration: 2000 }); }
+      await this._sleep(250);
+    });
   }
+
+  async _withProcessing(btn, fn) {
+    try {
+      if (!btn) { await fn?.(); return; }
+      const prev = { html: btn.innerHTML, disabled: btn.disabled, label: btn.textContent };
+      btn.classList.add('processing');
+      btn.innerHTML = `${prev.label} <span class="dots" aria-hidden="true"></span>`;
+      btn.disabled = true;
+      await fn?.();
+      // small extra frame to allow last dot to render
+      await this._sleep(120);
+      btn.classList.remove('processing');
+      btn.innerHTML = prev.html;
+      btn.disabled = prev.disabled;
+    } catch(_) {
+      try {
+        // Attempt to restore on error
+        if (btn) {
+          btn.classList.remove('processing');
+          btn.disabled = false;
+        }
+      } catch(_) {}
+    }
+  }
+
+  _sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 }
 customElements.define('settings-modal', SettingsModal);
 
