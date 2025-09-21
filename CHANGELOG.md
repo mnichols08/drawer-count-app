@@ -1,5 +1,61 @@
 # Changelog
 
+## v0.1.5 - 2025-09-20
+### Added
+- Install banner that offers Install (when supported) or Open in App once installed; persists dismissal and supports iOS “how to install” guidance.
+- Service Worker message channel to focus an existing client window (OPEN_APP), used by the banner’s Open in App action.
+
+### Changed
+- Service worker cache bumped to `v17`; improved scope-aware precache and navigation fallbacks for subpath deployments.
+- Always bypass cache for `/config.js` and all `/api/*` requests; SW now broadcasts connectivity changes to clients.
+- Title shows a subtle "• Offline" suffix when offline.
+
+### Docs
+- README: correct Quick Start (remove non-existent `dev:static` script), update SW cache version reference to `v17`, and document the Install/Open-in-App flow.
+ - Correct API base URL references to use `https://drawer-count-app.onrender.com/api` (replacing previous `*.onrender.app` examples). Also updated the production default fallback URL in docs.
+
+## v0.1.4 - 2025-09-20
+### Added
+- Collapsible Count Panel wrapper around the drawer component with a Show/Hide toggle; state persists per profile/day.
+- Manifest enhancements: `launch_handler: { client_mode: "focus-existing" }` and `capture_links: "existing-client-nav"` for better installed-app behavior.
+
+### UI
+- Background image fade-in refined and overlay contrast tuned for light/dark themes.
+- Minor accessibility and keyboard interaction polish across header actions and modals.
+
+## v0.1.3 - 2025-09-20
+### Changed
+- Server status is now displayed inside the same bottom-right network status pill as a small badge (icon + short code).
+- Removed the separate server status pill from the header and the temporary floating server pill.
+
+### UI
+- The combined pill updates every 20s and on online/offline events. Badge codes: `OK`, `NODB`, `ERR`, `OFF`, and `N/A`.
+
+## v0.1.2 - 2025-09-20
+### Added
+- Server supports configurable MongoDB TLS via env vars: `MONGODB_TLS`, `MONGODB_TLS_INSECURE`, and optional CA inputs (`MONGODB_TLS_CA_FILE`, `MONGODB_TLS_CA_PEM`, `MONGODB_TLS_CA_BASE64`).
+- `.env.example` with local and Render/Atlas-friendly defaults.
+- README: new sections for Render + Atlas deployment and a quick deploy checklist.
+
+### Fixed
+- Avoid TLS handshake failures on providers that require explicit TLS flags by allowing configuration via env vars.
+
+## v0.1.1 - 2025-09-20
+### Added
+- Backend runtime config endpoint: `GET /config.js` exposes `window.DCA_API_BASE` derived from the `API_BASE` environment variable.
+- Client-side API base resolution: app now reads `window.DCA_API_BASE`, optional `localStorage['dca.apiBase']`, and defaults to `'/api'`.
+ - Production default: when not on localhost, the app falls back to `https://drawer-count-app.onrender.com/api` unless overridden.
+
+### Changed
+- Backend storage is now global/shared across all clients (no `X-Client-Id` needed). Legacy per-client records are still read if a global value is missing.
+- Frontend sync switched to the new global scope and uses `apiUrl()` for all requests (`/health`, `/kv/:key`).
+
+### PWA
+- Service worker always bypasses caching for `/api/*` requests and for `/config.js`; returns JSON `503` when offline.
+
+### Docs
+- README updated with environment-based `API_BASE` config (works with Render), global/shared data behavior, and SW caching notes.
+
 ## v0.0.11 - 2025-09-20
 ### Added
 - Random background image chosen from `src/images/` on load.

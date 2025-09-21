@@ -1,12 +1,12 @@
 {
   "name": "drawer-count-app",
-  "version": "0.0.10",
+  "version": "0.1.6",
   "description": "A minimal, installable PWA to help myself and coworkers count drawers at the end of the day.",
   "main": "index.html",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "live-server --port=8080 --open=index.html --watch=src",
-    "start": "npm run dev",
+    "dev": "nodemon server.js",
+    "start": "node server.js",
     "build": "echo \"No build step needed; this is a static app. Use 'npm run dev' for local preview.\"",
     "icons": "node ./scripts/generate-icons.js",
     "bump-sw": "node ./scripts/bump-sw-cache.js",
@@ -28,9 +28,16 @@
     "url": "https://github.com/mnichols08/drawer-count-app/issues"
   },
   "homepage": "https://github.com/mnichols08/drawer-count-app#readme",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mongodb": "^6.9.0",
+    "undici": "^6.19.8"
+  },
   "devDependencies": {
-    "live-server": "^1.2.2",
     "favicons": "^7.2.0",
+    "nodemon": "^3.1.10",
     "sharp": "^0.33.5"
   }
 }

@@ -1,6 +1,6 @@
 {
-  "name": "Drawer Count",
-  "short_name": "Drawers",
+  "name": "Drawer Count App",
+  "short_name": "Drawer Count",
   "id": "./",
   "start_url": "./",
   "scope": "./",

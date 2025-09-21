@@ -90,8 +90,10 @@ function applyTheme(theme, persist = true) {
   document.documentElement.setAttribute('data-theme', t);
   if (persist) { try { localStorage.setItem(THEME_KEY, t); } catch (_) {} }
   // Update header icon if present
-  const btn = document.querySelector('app-header .theme-toggle');
-  if (btn) btn.textContent = t === 'dark' ? '🌙' : '☀️';
+  try {
+    document.querySelectorAll('app-header .theme-toggle')
+      .forEach((btn) => { btn.textContent = t === 'dark' ? '🌙' : '☀️'; });
+  } catch (_) {}
   // Update theme-color meta for consistent PWA UI
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', t === 'dark' ? '#0b132b' : '#f7f9ff');
@@ -692,12 +694,16 @@ class AppHeader extends HTMLElement {
     this._onHelp = this._onHelp.bind(this);
     this._onSettings = this._onSettings.bind(this);
     this._onOptional = this._onOptional.bind(this);
+    this._onPanelToggle = this._onPanelToggle.bind(this);
     this._onProfileChange = this._onProfileChange.bind(this);
     this._onNewProfile = this._onNewProfile.bind(this);
     this._onDeleteProfile = this._onDeleteProfile.bind(this);
     this._onClear = this._onClear.bind(this);
     this._onOpenDays = this._onOpenDays.bind(this);
     this._onToggleLock = this._onToggleLock.bind(this);
+    this._onMenuToggle = this._onMenuToggle.bind(this);
+    this._onWindowKey = this._onWindowKey.bind(this);
+    this._onOutsideClick = this._onOutsideClick.bind(this);
   }
   connectedCallback() {
     const title = this.getAttribute('title') || 'Drawer Count';
@@ -705,23 +711,50 @@ class AppHeader extends HTMLElement {
       <style>
         :host { display: block; width: 100%; }
         /* Mobile-first: stack title on first row, actions below, allow wrapping */
-        .bar { display: grid; align-items: center; gap: .35rem; grid-template-columns: 1fr auto; grid-template-areas: "title title" "left right"; }
+        .bar { display: grid; align-items: center; gap: .35rem; grid-template-columns: 1fr auto; grid-template-areas: "title title" "left right"; position: relative; }
         .title { grid-area: title; text-align: center; margin: 0; font-size: clamp(1rem, 3.5vw, 1.1rem); letter-spacing: .2px; }
         .left { grid-area: left; justify-self: start; display: flex; gap: .35rem; align-items: center; flex-wrap: wrap; }
         .right { grid-area: right; justify-self: end; display: flex; gap: .35rem; align-items: center; flex-wrap: wrap; }
         .icon-btn, .action-btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 10px; cursor: pointer; min-height: 44px; }
         .action-btn { font-weight: 600; }
-        select.profile-select { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 10px; min-height: 44px; min-width: 0; max-width: min(55vw, 320px); }
-        .status-pill { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border, #2a345a); font-size: .85rem; }
+    select.profile-select { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 10px; min-height: 44px; min-width: 0; max-width: min(55vw, 320px); }
+  .status-pill { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border, #2a345a); font-size: .85rem; }
         .status-pill.saved { background: #12371f; color: #baf0c3; border-color: #2a5a3a; }
         .status-pill.dirty { background: #42201e; color: #ffd6d6; border-color: #5a2a2a; }
+  /* server status pill moved out of header */
         /* Visually hidden but accessible label */
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,1px,1px); white-space: nowrap; border: 0; }
+
+        /* Hamburger + menu (mobile) */
+        .menu-toggle { display: inline-flex; align-items: center; justify-content: center; background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 10px; cursor: pointer; min-height: 44px; }
+        .menu-toggle[aria-expanded="true"] { filter: brightness(1.08); }
+        .nav-menu { position: absolute; right: 0; top: 100%; margin-top: 8px; background: var(--card, #1c2541); color: var(--fg, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 12px; padding: 8px; z-index: 50; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); min-width: 220px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; opacity: 0; transform: translateY(-6px) scale(0.98); visibility: hidden; pointer-events: none; transition: opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms; }
+  .nav-menu.open { opacity: 1; transform: translateY(0) scale(1); visibility: visible; pointer-events: auto; transition-delay: 0s; }
+        .nav-menu .row { display: contents; }
+        .nav-menu .icon-btn { width: 100%; min-height: 40px; }
+
+  /* Backdrop for focus when menu open with fade */
+  /* Note: keep blur only when visible to avoid lingering blur artifacts on some browsers */
+  .menu-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.25); z-index: 40; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 140ms ease, visibility 0s linear 140ms; }
+  .menu-backdrop.show { opacity: 1; visibility: visible; transition-delay: 0s; backdrop-filter: blur(1px); pointer-events: auto; }
+
+        /* Very small screens: single column for larger tap targets */
+        @media (max-width: 380px) {
+          .nav-menu { grid-template-columns: 1fr; min-width: 180px; }
+        }
+
+        /* On small screens, hide the inline right actions and show hamburger */
+        .right.inline-actions { display: none; }
+        .right.menu-area { display: inline-flex; }
         
         /* Wider screens: put left | title | right on one row */
         @media (min-width: 600px) {
           .bar { grid-template-columns: 1fr auto 1fr; grid-template-areas: "left title right"; }
           .left, .right { flex-wrap: nowrap; }
+          .right.inline-actions { display: flex; }
+          .right.menu-area { display: none; }
+          .nav-menu { display: none !important; }
+          .menu-backdrop { display: none !important; }
         }
       </style>
       <div class="bar" role="toolbar" aria-label="App header">
@@ -733,7 +766,8 @@ class AppHeader extends HTMLElement {
           <span class="status-pill" aria-live="polite">—</span>
         </div>
         <h1 class="title">${title}</h1>
-        <div class="actions right">
+        <div class="actions right inline-actions">
+          <button class="icon-btn panel-toggle-btn" aria-label="Show/Hide count panel" title="Show/Hide count panel">⬒</button>
           <button class="icon-btn optional-btn" aria-label="Optional fields" title="Optional fields">🧾</button>
           <button class="icon-btn days-btn" aria-label="Daily history" title="Daily history">📅</button>
           <button class="icon-btn lock-btn" aria-label="Toggle edit lock" title="Toggle edit lock">🔒</button>
@@ -742,26 +776,71 @@ class AppHeader extends HTMLElement {
           <button class="icon-btn theme-toggle" aria-label="Toggle theme" title="Toggle theme">${(document.documentElement.getAttribute('data-theme')||getPreferredTheme())==='dark'?'🌙':'☀️'}</button>
           <button class="icon-btn info-btn" aria-label="Help" title="Help">?</button>
         </div>
+        <div class="right menu-area">
+          <button class="menu-toggle" aria-label="Menu" aria-expanded="false" aria-haspopup="true">☰</button>
+          <div class="nav-menu" role="menu">
+            <div class="row">
+              <button class="icon-btn panel-toggle-btn" role="menuitem" aria-label="Show/Hide count panel" title="Show/Hide count panel">⬒</button>
+              <button class="icon-btn optional-btn" role="menuitem" aria-label="Optional fields" title="Optional fields">🧾</button>
+              <button class="icon-btn days-btn" role="menuitem" aria-label="Daily history" title="Daily history">📅</button>
+              <button class="icon-btn lock-btn" role="menuitem" aria-label="Toggle edit lock" title="Toggle edit lock">🔒</button>
+              <button class="icon-btn clear-btn" role="menuitem" aria-label="Clear inputs" title="Clear inputs">🧹</button>
+              <button class="icon-btn settings-btn" role="menuitem" aria-label="Settings" title="Settings">⚙️</button>
+              <button class="icon-btn theme-toggle" role="menuitem" aria-label="Toggle theme" title="Toggle theme">${(document.documentElement.getAttribute('data-theme')||getPreferredTheme())==='dark'?'🌙':'☀️'}</button>
+              <button class="icon-btn info-btn" role="menuitem" aria-label="Help" title="Help">?</button>
+            </div>
+          </div>
+          <div class="menu-backdrop" aria-hidden="true"></div>
+        </div>
       </div>`;
-    this.querySelector('.settings-btn')?.addEventListener('click', this._onSettings);
-    this.querySelector('.theme-toggle')?.addEventListener('click', this._onTheme);
-    this.querySelector('.info-btn')?.addEventListener('click', this._onHelp);
+    // Bind events for actions (both inline and in menu)
+    this.querySelectorAll('.settings-btn')?.forEach((el) => el.addEventListener('click', this._onSettings));
+    this.querySelectorAll('.theme-toggle')?.forEach((el) => el.addEventListener('click', this._onTheme));
+    this.querySelectorAll('.info-btn')?.forEach((el) => el.addEventListener('click', this._onHelp));
+  this.querySelectorAll('.panel-toggle-btn')?.forEach((el) => el.addEventListener('click', this._onPanelToggle));
     // actions moved into settings modal
     this.querySelector('.profile-select')?.addEventListener('change', this._onProfileChange);
     this.querySelector('.new-profile-btn')?.addEventListener('click', this._onNewProfile);
     this.querySelector('.delete-profile-btn')?.addEventListener('click', this._onDeleteProfile);
-    this.querySelector('.clear-btn')?.addEventListener('click', this._onClear);
-  this.querySelector('.optional-btn')?.addEventListener('click', this._onOptional);
-  this.querySelector('.days-btn')?.addEventListener('click', this._onOpenDays);
-  this.querySelector('.lock-btn')?.addEventListener('click', this._onToggleLock);
+    this.querySelectorAll('.clear-btn')?.forEach((el) => el.addEventListener('click', this._onClear));
+    this.querySelectorAll('.optional-btn')?.forEach((el) => el.addEventListener('click', this._onOptional));
+    this.querySelectorAll('.days-btn')?.forEach((el) => el.addEventListener('click', this._onOpenDays));
+    this.querySelectorAll('.lock-btn')?.forEach((el) => el.addEventListener('click', this._onToggleLock));
+    // Menu interactions
+    this.querySelector('.menu-toggle')?.addEventListener('click', this._onMenuToggle);
+  window.addEventListener('keydown', this._onWindowKey);
+  window.addEventListener('click', this._onOutsideClick, true);
+  this.querySelector('.menu-backdrop')?.addEventListener('click', () => this._closeMenu());
 
-    // Initialize profiles UI
-    try { ensureProfilesInitialized(); populateProfilesSelect(this); updateStatusPill(this); updateLockButtonUI(this); } catch(_) {}
+    // Initialize profiles UI (prefer remote if available before seeding defaults)
+    (async () => {
+      try {
+        await initProfilesFromRemoteIfAvailable();
+      } catch (_) { /* ignore */ }
+      try { ensureProfilesInitialized(); } catch (_) {}
+      try { populateProfilesSelect(this); updateStatusPill(this); updateLockButtonUI(this); } catch (_) {}
+    })();
   }
   _onTheme() { toggleTheme(); }
   _onHelp() { getHelpModal().open(); }
   _onSettings() { getSettingsModal().open(); }
   _onOptional() { getOptionalFieldsModal().open(); }
+  _onPanelToggle() {
+    try {
+      const panel = document.querySelector('count-panel');
+      if (panel && typeof panel.toggleCollapsed === 'function') {
+        panel.toggleCollapsed();
+      } else if (panel) {
+        // Fallback: flip aria-expanded based on current state
+        const body = panel.querySelector('.panel-body');
+        const summary = panel.querySelector('.panel-summary');
+        const visible = panel.classList.contains('completed') ? summary : body;
+        const isCollapsed = (visible?.getAttribute('aria-hidden') === 'true') || (visible?.hidden === true);
+        const btn = panel.querySelector('.toggle-btn');
+        btn?.click?.(); // reuse panel’s own toggle logic
+      }
+    } catch(_) {}
+  }
   // data actions now live in settings modal
   _onProfileChange(e) { try { const id = e.target?.value; if (!id) return; setActiveProfile(id); restoreActiveProfile(); ensureDayResetIfNeeded(this); setActiveViewDateKey(getTodayKey()); applyReadOnlyByActiveDate(this); populateProfilesSelect(this); updateStatusPill(this); toast('Switched profile', { type:'info', duration: 1200}); } catch(_){} }
   async _onNewProfile() { try { const modal = getNewProfileModal(); const name = await modal.open(''); if (!name) return; const id = createProfile(name); setActiveProfile(id); saveToActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); applyReadOnlyByActiveDate(this); toast('Profile created', { type: 'success', duration: 1800 }); } catch(_){} }
@@ -791,6 +870,65 @@ class AppHeader extends HTMLElement {
       applyReadOnlyByActiveDate(this);
       updateLockButtonUI(this);
       toast(isDayEditUnlocked() ? 'Editing unlocked for this day' : 'Editing locked for this day', { type: 'info', duration: 1600 });
+    } catch(_) {}
+  }
+  _closeMenu() {
+    try {
+      const menu = this.querySelector('.nav-menu');
+      const btn = this.querySelector('.menu-toggle');
+      if (menu && menu.classList.contains('open')) {
+        menu.classList.remove('open');
+        btn?.setAttribute('aria-expanded', 'false');
+        this.querySelector('.menu-backdrop')?.classList.remove('show');
+      }
+    } catch(_) {}
+  }
+  disconnectedCallback() {
+    // Clean up global listeners added for menu
+    window.removeEventListener('keydown', this._onWindowKey);
+    window.removeEventListener('click', this._onOutsideClick, true);
+  }
+  _onMenuToggle(e) {
+    try {
+      const btn = this.querySelector('.menu-toggle');
+      const menu = this.querySelector('.nav-menu');
+      if (!btn || !menu) return;
+  const open = menu.classList.toggle('open');
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  const backdrop = this.querySelector('.menu-backdrop');
+  if (backdrop) backdrop.classList.toggle('show', open);
+      if (open) {
+        // focus first item for accessibility
+        setTimeout(() => { try { menu.querySelector('button')?.focus(); } catch(_) {} }, 0);
+      }
+      e?.stopPropagation?.();
+    } catch(_) {}
+  }
+  _onWindowKey(e) {
+    if (e.key === 'Escape') {
+      const menu = this.querySelector('.nav-menu');
+      const btn = this.querySelector('.menu-toggle');
+      if (menu && menu.classList.contains('open')) {
+        menu.classList.remove('open');
+        btn?.setAttribute('aria-expanded', 'false');
+        this.querySelector('.menu-backdrop')?.classList.remove('show');
+      }
+    }
+  }
+  _onOutsideClick(e) {
+    try {
+      const menu = this.querySelector('.nav-menu');
+      const btn = this.querySelector('.menu-toggle');
+      if (!menu || !btn) return;
+      if (!menu.classList.contains('open')) return;
+      const path = e.composedPath ? e.composedPath() : [];
+      const backdrop = this.querySelector('.menu-backdrop');
+      const clickedInside = path.includes(menu) || path.includes(btn) || path.includes(backdrop);
+      if (!clickedInside) {
+        menu.classList.remove('open');
+        btn.setAttribute('aria-expanded', 'false');
+        this.querySelector('.menu-backdrop')?.classList.remove('show');
+      }
     } catch(_) {}
   }
 }
@@ -1331,7 +1469,10 @@ class NetworkStatus extends HTMLElement {
     this._update = this._update.bind(this);
     this._onSwMessage = this._onSwMessage.bind(this);
     this._askSwStatus = this._askSwStatus.bind(this);
+    this._tickHealth = this._tickHealth.bind(this);
     this._offline = null; // unknown initially
+    this._server = { cls: 'warn', short: 'N/A', title: 'Server: n/a' };
+    this._timer = null;
   }
 
   connectedCallback() {
@@ -1349,6 +1490,10 @@ class NetworkStatus extends HTMLElement {
 
     // Set initial state from navigator, will be corrected by SW if needed
     this._setStatus(!navigator.onLine);
+
+    // Start server health polling
+    this._tickHealth();
+    this._timer = setInterval(this._tickHealth, 20000);
   }
 
   disconnectedCallback() {
@@ -1358,6 +1503,7 @@ class NetworkStatus extends HTMLElement {
       navigator.serviceWorker.removeEventListener('message', this._onSwMessage);
       navigator.serviceWorker.removeEventListener('controllerchange', this._askSwStatus);
     }
+    if (this._timer) { clearInterval(this._timer); this._timer = null; }
   }
 
   _update() {
@@ -1375,7 +1521,7 @@ class NetworkStatus extends HTMLElement {
     this.classList.toggle('online', !offline);
     this.setAttribute('aria-live', 'polite');
     this.setAttribute('role', 'status');
-    this.innerHTML = `<span class="dot" aria-hidden="true"></span><span class="label">${offline ? 'Offline' : 'Online'}</span>`;
+    this._render();
   }
 
   _onSwMessage(event) {
@@ -1401,414 +1547,1098 @@ class NetworkStatus extends HTMLElement {
       // ignore
     }
   }
+
+  async _tickHealth() {
+    try {
+      const offline = !navigator.onLine;
+      let cls = 'warn';
+      let short = 'N/A';
+      let title = 'Server: n/a';
+      if (offline) { cls = 'warn'; short = 'OFF'; title = 'Server: offline'; }
+      else {
+        const health = await fetchServerHealth();
+        if (!health || health.ok !== true) { cls = 'err'; short = 'ERR'; title = 'Server: error'; }
+        else if (health.db && health.db.configured && health.db.connected) { cls = 'ok'; short = 'OK'; title = 'Server: connected'; }
+        else if (health.db && health.db.configured && !health.db.connected) { cls = 'warn'; short = 'NODB'; title = 'Server: DB not connected'; }
+        else { cls = 'warn'; short = 'N/A'; title = 'Server: not configured'; }
+      }
+      this._server = { cls, short, title };
+      this._render();
+    } catch (_) { /* ignore */ }
+  }
+
+  _render() {
+    const offline = !!this._offline;
+    const label = offline ? 'Offline' : 'Online';
+    const { cls, short, title } = this._server || { cls: 'warn', short: 'N/A', title: 'Server: n/a' };
+    this.innerHTML = `
+      <span class="dot" aria-hidden="true"></span>
+      <span class="label">${label}</span>
+      <span class="server-badge ${cls}" title="${title}"><span class="icon" aria-hidden="true">🗄️</span><span class="text">${short}</span></span>
+    `;
+  }
 }
 customElements.define('network-status', NetworkStatus);
 
-// PWA: register service worker (unchanged)
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('./sw.js')
-      .catch((err) => console.error('SW registration failed', err));
-  });
-}
+// Collapsible wrapper for <drawer-count>: <count-panel>
+// Allows a simple flow: Start → (counting) → Mark complete → Reopen, with Hide/Show toggle.
+// Persists UI state per active profile and day.
+class CountPanel extends HTMLElement {
+  constructor() {
+    super();
+    this._els = {};
+    this._state = { started: false, collapsed: true, completed: false };
+    this._onStart = this._onStart.bind(this);
+    this._onToggle = this._onToggle.bind(this);
+    this._onComplete = this._onComplete.bind(this);
+    this._onReopen = this._onReopen.bind(this);
+    this._onVisibilityRefresh = this._onVisibilityRefresh.bind(this);
+  }
 
-// Drawer persistence — profiles
+  connectedCallback() {
+    this._render();
+    this._cacheEls();
+    this._bind();
+    // Ensure a drawer element exists inside panel body (light DOM so existing code sees it)
+    if (!this.querySelector('drawer-count')) {
+      const dc = document.createElement('drawer-count');
+      this._els.body.appendChild(dc);
+    }
+  // Initial hydrate from persisted state (no animation on first paint)
+  this._refresh(true);
+    // Keep in sync if profile/day changes elsewhere
+    window.addEventListener('storage', this._onVisibilityRefresh);
+    window.addEventListener('focus', this._onVisibilityRefresh);
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener('storage', this._onVisibilityRefresh);
+    window.removeEventListener('focus', this._onVisibilityRefresh);
+  }
+
+  // --- Rendering ---
+  _render() {
+    // Simple light-DOM markup so other modules can query <drawer-count>
+    this.classList.add('count-panel');
+    this.innerHTML = `
+      <div class="panel-header" role="group" aria-label="Drawer count controls">
+        <div class="panel-title">Today's Count</div>
+        <div class="panel-actions">
+          <button class="start-btn" type="button">Start count</button>
+          <button class="toggle-btn" type="button" aria-expanded="false">Show</button>
+          <button class="complete-btn" type="button">Mark complete</button>
+          <button class="reopen-btn" type="button">Reopen</button>
+        </div>
+      </div>
+      <div class="panel-body" aria-hidden="true"></div>
+      <div class="panel-summary" aria-hidden="true" hidden></div>
+      <p class="hint done-hint" hidden>Completed for this day. Tap Reopen to edit.</p>
+    `;
+  }
+
+  _cacheEls() {
+    this._els.header = this.querySelector('.panel-header');
+    this._els.title = this.querySelector('.panel-title');
+    this._els.actions = this.querySelector('.panel-actions');
+    this._els.start = this.querySelector('.start-btn');
+    this._els.toggle = this.querySelector('.toggle-btn');
+    this._els.complete = this.querySelector('.complete-btn');
+    this._els.reopen = this.querySelector('.reopen-btn');
+    this._els.body = this.querySelector('.panel-body');
+    this._els.doneHint = this.querySelector('.done-hint');
+    this._els.summary = this.querySelector('.panel-summary');
+  }
+
+  _bind() {
+    this._els.start.addEventListener('click', this._onStart);
+    this._els.toggle.addEventListener('click', this._onToggle);
+    this._els.complete.addEventListener('click', this._onComplete);
+    this._els.reopen.addEventListener('click', this._onReopen);
+  }
+
+  // --- Persistence helpers (local to this component) ---
+  _panelKey() {
+    try {
+      // Prefer existing helpers if present in this module
+      const pid = (typeof getActiveProfileId === 'function') ? getActiveProfileId() : null;
+      const dkey = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
+      if (pid && dkey) return `${pid}::${dkey}`;
+    } catch (_) {}
+    // Fallback to today + default profile
+    const today = new Date();
+    const d = today.toISOString().slice(0,10);
+    return `default::${d}`;
+  }
+
+  _loadPersisted() {
+    try {
+      const raw = localStorage.getItem('drawer-panel-v1');
+      const all = raw ? JSON.parse(raw) : {};
+      const key = this._panelKey();
+      return all[key] || { started: false, collapsed: true, completed: false };
+    } catch (_) {
+      return { started: false, collapsed: true, completed: false };
+    }
+  }
+
+  _savePersisted(next) {
+    try {
+      const raw = localStorage.getItem('drawer-panel-v1');
+      const all = raw ? JSON.parse(raw) : {};
+      const key = this._panelKey();
+      all[key] = { ...all[key], ...next };
+      localStorage.setItem('drawer-panel-v1', JSON.stringify(all));
+    } catch (_) {}
+  }
+
+  // Public API for external controls (header toggle)
+  isCollapsed() { return !!this._state.collapsed; }
+  expand() {
+    // Do not auto-start; expand only if already started, otherwise keep hidden
+    if (!this._state.started) return false;
+    this._state.collapsed = false;
+    // Do not persist transient expands triggered externally
+    this._refresh();
+    return true;
+  }
+  collapse() {
+    if (!this._state.started) return false;
+    this._state.collapsed = true;
+    this._refresh();
+    return true;
+  }
+  toggleCollapsed() {
+    if (!this._state.started) return false; // require Start first
+    this._state.collapsed = !this._state.collapsed;
+    // Persist user-driven toggles during the session/day
+    this._savePersisted({ collapsed: this._state.collapsed, started: this._state.started });
+    this._refresh();
+    return true;
+  }
+
+  // --- UI sync ---
+  _refresh(noAnim = false) {
+    // Merge persisted into memory state
+    this._state = { ...{ started: false, collapsed: true, completed: false }, ...this._loadPersisted() };
+    const { started, completed } = this._state;
+    // Never show content before start; force collapsed in-memory
+    if (!started) this._state.collapsed = true;
+    const collapsed = this._state.collapsed;
+
+    // Classes
+    this.classList.toggle('collapsed', !!collapsed);
+    this.classList.toggle('completed', !!completed);
+
+    // Buttons visibility
+    this._els.start.hidden = !!started;
+    this._els.toggle.hidden = !started; // only makes sense after start
+    this._els.complete.hidden = !started || !!completed;
+    this._els.reopen.hidden = !completed;
+
+    // Toggle labels/ARIA
+    this._els.toggle.textContent = collapsed ? 'Show' : 'Hide';
+    this._els.toggle.setAttribute('aria-expanded', String(!collapsed));
+
+  // Decide which container is visible (summary when completed, body otherwise)
+  const container = this._visibleContainer();
+  this._syncContainersVisibility();
+  // (Re)render summary if needed
+  if (completed) this._renderSummary();
+  // Animate the currently visible container
+  if (collapsed) this._collapseEl(container, !noAnim); else this._expandEl(container, !noAnim);
+
+    // Done hint
+    this._els.doneHint.hidden = !completed;
+  }
+
+  _expandBody(animate = true) { this._expandEl(this._els.body, animate); }
+  _collapseBody(animate = true) { this._collapseEl(this._els.body, animate); }
+
+  _visibleContainer() { return this._state.completed ? this._els.summary : this._els.body; }
+
+  _syncContainersVisibility() {
+    const { completed, collapsed } = this._state;
+    // When completed: show summary container, hide body content fully
+    if (completed) {
+      this._els.body.hidden = true;
+      this._els.body.setAttribute('aria-hidden', 'true');
+      this._els.summary.hidden = !!collapsed; // hidden when collapsed
+      this._els.summary.setAttribute('aria-hidden', String(!!collapsed));
+    } else {
+      this._els.summary.hidden = true;
+      this._els.summary.setAttribute('aria-hidden', 'true');
+      this._els.body.hidden = !!collapsed;
+      this._els.body.setAttribute('aria-hidden', String(!!collapsed));
+    }
+  }
+
+  _expandEl(el, animate = true) {
+    el.setAttribute('aria-hidden', 'false');
+    el.hidden = false;
+    // If no animation, snap open
+    if (!animate) {
+      el.style.height = 'auto';
+      return;
+    }
+    // Prepare from 0 to scrollHeight
+    el.style.overflow = 'hidden';
+    // If height is 'auto', compute current height first
+    const target = el.scrollHeight;
+    el.style.height = '0px';
+    requestAnimationFrame(() => {
+      el.style.height = `${target}px`;
+      const onEnd = () => {
+        el.style.height = 'auto';
+        el.removeEventListener('transitionend', onEnd);
+      };
+      el.addEventListener('transitionend', onEnd);
+    });
+  }
+
+  _collapseEl(el, animate = true) {
+    el.setAttribute('aria-hidden', 'true');
+    // If no animation, snap closed
+    if (!animate) {
+      el.style.height = '0px';
+      el.hidden = false; // keep in DOM for a11y and animations
+      return;
+    }
+    // From current height (might be auto) to 0
+    el.style.overflow = 'hidden';
+    // Set to current pixel height if auto
+    const current = el.scrollHeight;
+    el.style.height = `${current}px`;
+    // Force a browser reflow by reading offsetHeight.
+    // This ensures the transition from the current height to 0px is properly animated.
+    el.offsetHeight;
+    requestAnimationFrame(() => {
+      el.style.height = '0px';
+      const onEnd = () => {
+        el.removeEventListener('transitionend', onEnd);
+      };
+      el.addEventListener('transitionend', onEnd);
+    });
+  }
+
+  _renderSummary() {
+    try {
+      const dc = this.querySelector('drawer-count');
+      if (!dc || !dc.getCount) return;
+      const c = dc.getCount();
+      // Optional details require full state
+      let st = null;
+      try { st = dc.getState?.(); } catch(_) { st = null; }
+      const fmt = (n) => {
+        const v = Number(n || 0);
+        return v.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
+      };
+      const ts = c.timestamp ? new Date(c.timestamp) : new Date();
+      const cashTotal = [c.hundreds, c.fifties, c.twenties, c.tens, c.fives, c.ones, c.quarters, c.dimes, c.nickels, c.pennies, c.qRolls, c.dRolls, c.nRolls, c.pRolls]
+        .map((x) => Number(x || 0)).reduce((a, b) => a + b, 0);
+      // Build slips and checks detailed lists if present in state.extra
+      const slipsList = Array.isArray(st?.extra?.slips) && st.extra.slips.length
+        ? `<ul class="list">${st.extra.slips.map((v,i) => `<li><span class="label">Slip ${i+1}</span><span class="val">${fmt(v)}</span></li>`).join('')}</ul>`
+        : '';
+      const checksList = Array.isArray(st?.extra?.checks) && st.extra.checks.length
+        ? `<ul class="list">${st.extra.checks.map((v,i) => `<li><span class="label">Check ${i+1}</span><span class="val">${fmt(v)}</span></li>`).join('')}</ul>`
+        : '';
+      // Optional fields if any (non-zero)
+      const opt = st?.optional || {};
+      const optEntries = [
+        ['Charges', opt.charges],
+        ['Total Received', opt.totalReceived],
+        ['Net Sales', opt.netSales],
+        ['Gross Profit ($)', opt.grossProfitAmount],
+        ['Gross Profit (%)', opt.grossProfitPercent],
+        ['# Invoices', opt.numInvoices],
+        ['# Voids', opt.numVoids],
+      ].filter(([,v]) => Number(v || 0) !== 0);
+      const optList = optEntries.length
+        ? `<ul class="list">${optEntries.map(([k,v]) => `<li><span class="label">${k}</span><span class="val">${k.includes('%') ? (Number(v||0).toLocaleString(undefined, { maximumFractionDigits: 2 }) + '%') : (k.startsWith('#') ? Number(v||0).toLocaleString() : fmt(v))}</span></li>`).join('')}</ul>`
+        : '';
+
+      // Build a richer summary
+      this._els.summary.innerHTML = `
+        <div class="sum-grid">
+          <div class="row"><span class="k">Total Count</span><span class="v">${fmt(c.count)}</span></div>
+          <div class="row"><span class="k">Cash</span><span class="v">${fmt(cashTotal)}</span></div>
+          <div class="row"><span class="k">Slips</span><span class="v">${fmt(c.slips)}</span></div>
+          <div class="row"><span class="k">Checks</span><span class="v">${fmt(c.checks)}</span></div>
+          <div class="row"><span class="k">ROA</span><span class="v">${fmt(c.roa)}</span></div>
+          <div class="row"><span class="k">Balance</span><span class="v">${fmt(c.balance)}</span></div>
+          <div class="row ts"><span class="k">Counted</span><span class="v">${ts.toLocaleString()}</span></div>
+        </div>
+        ${slipsList ? `<div class="section"><h4>Recorded Slips</h4>${slipsList}</div>` : ''}
+        ${checksList ? `<div class="section"><h4>Recorded Checks</h4>${checksList}</div>` : ''}
+        ${optList ? `<div class="section"><h4>Optional Fields</h4>${optList}</div>` : ''}
+      `;
+    } catch (_) { /* ignore */ }
+  }
+
+  _focusFirstInput() {
+    try {
+      const dc = this.querySelector('drawer-count');
+      const first = dc?.shadowRoot?.querySelector('input, button, [tabindex="0"]')
+        || dc?.querySelector('input, button, [tabindex="0"]');
+      if (first && typeof first.focus === 'function') first.focus();
+    } catch (_) {}
+  }
+
+  // --- Event handlers ---
+  _onStart() {
+    this._state.started = true;
+    this._state.collapsed = false;
+    this._state.completed = false;
+    this._savePersisted(this._state);
+    // Ensure day is editable when starting
+    try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(true); } catch (_) {}
+    this._refresh();
+    // Focus the first input for quick entry
+    queueMicrotask(() => this._focusFirstInput());
+  }
+
+  _onToggle() {
+    if (!this._state.started) return; // ignore toggles before Start
+    this._state.collapsed = !this._state.collapsed;
+    this._savePersisted({ collapsed: this._state.collapsed, started: this._state.started });
+    this._refresh();
+  }
+
+  _onComplete() {
+    // Mark complete, collapse, and lock edits
+    this._state.completed = true;
+    // Auto-expand summary for this session ONLY; do not persist collapsed=false
+    // Persist only that it is completed and started
+    this._savePersisted({ completed: true, started: true });
+    try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch (_) {}
+    // Save snapshot for current day if helpers exist
+    try {
+      if (typeof getActiveViewDateKey === 'function' && typeof saveSpecificDay === 'function') {
+        const key = getActiveViewDateKey();
+        if (key) saveSpecificDay(key);
+      }
+    } catch (_) {}
+    // Toast if available
+    try { if (typeof toast === 'function') toast('Marked complete for this day.'); } catch (_) {}
+    // Show summary now but don't save that it's expanded
+    this._state.collapsed = false;
+    this._refresh();
+  }
+
+  _onReopen() {
+    // Reopen edits, expand
+    this._state.completed = false;
+    this._state.collapsed = false;
+    this._state.started = true;
+    this._savePersisted(this._state);
+    try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(true); } catch (_) {}
+    try { if (typeof toast === 'function') toast('Reopened for editing.'); } catch (_) {}
+    this._refresh();
+    queueMicrotask(() => this._focusFirstInput());
+  }
+
+  _onVisibilityRefresh() {
+    // Recalculate in case active profile/day changed
+    this._refresh();
+  }
+}
+customElements.define('count-panel', CountPanel);
+
+// ------------------------------
+// Drawer persistence — profiles and view/lock state
+// ------------------------------
+// Storage keys used throughout the app and sync layer
 const DRAWER_PROFILES_KEY = 'drawer-profiles-v1';
-function getDrawerComponent() { return document.querySelector('drawer-count'); }
+const DRAWER_DAYS_KEY = 'drawer-days-v1';
+
+function getDrawerComponent() { try { return document.querySelector('drawer-count'); } catch(_) { return null; } }
+
 function loadProfilesData() {
   try {
     const raw = localStorage.getItem(DRAWER_PROFILES_KEY);
-    if (!raw) return { activeId: 'default', profiles: {} };
+    if (!raw) return {};
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return { activeId: 'default', profiles: {} };
-    parsed.profiles = parsed.profiles || {};
-    parsed.activeId = parsed.activeId || 'default';
-    return parsed;
-  } catch (_) { return { activeId: 'default', profiles: {} }; }
+    return (parsed && typeof parsed === 'object') ? parsed : {};
+  } catch(_) { return {}; }
 }
+
 function saveProfilesData(data) {
-  try { localStorage.setItem(DRAWER_PROFILES_KEY, JSON.stringify(data)); return true; } catch(_) { return false; }
-}
-function ensureProfilesInitialized() {
-  const comp = getDrawerComponent();
-  let data = loadProfilesData();
-  if (!data.profiles || Object.keys(data.profiles).length === 0) {
-    data = { activeId: 'default', profiles: { default: { id: 'default', name: 'Default', state: comp?.getState?.() || null, updatedAt: Date.now() } } };
-    saveProfilesData(data);
-  }
-  if (!data.profiles[data.activeId]) {
-    data.activeId = Object.keys(data.profiles)[0];
-    saveProfilesData(data);
-  }
-}
-function getActiveProfileId() { return loadProfilesData().activeId; }
-function setActiveProfile(id) { const data = loadProfilesData(); if (!data.profiles[id]) return; data.activeId = id; saveProfilesData(data); }
-function saveToActiveProfile() {
-  const comp = getDrawerComponent(); if (!comp?.getState) return false;
-  const data = loadProfilesData(); const id = data.activeId; if (!id) return false;
-  const state = comp.getState();
-  data.profiles[id] = { id, name: data.profiles[id]?.name || id, state, updatedAt: Date.now() };
-  return saveProfilesData(data);
-}
-function restoreActiveProfile() {
-  const comp = getDrawerComponent(); if (!comp?.setState) return false;
-  const data = loadProfilesData(); const id = data.activeId; const prof = data.profiles[id]; if (!prof || !prof.state) return false;
-  try { comp.setState(prof.state); return true; } catch(_) { return false; }
-}
-function createProfile(name) {
-  const data = loadProfilesData();
-  const idBase = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g,'') || 'profile';
-  let id = idBase; let i = 1; while (data.profiles[id]) { id = `${idBase}-${i++}`; }
-  data.profiles[id] = { id, name, state: null, updatedAt: Date.now() };
-  saveProfilesData(data);
-  return id;
-}
-function populateProfilesSelect(headerEl) {
   try {
-    const sel = headerEl.querySelector('.profile-select'); if (!sel) return;
-    const data = loadProfilesData(); const { profiles, activeId } = data;
-    sel.innerHTML = '';
-    Object.values(profiles).forEach((p) => {
-      const opt = document.createElement('option'); opt.value = p.id; opt.textContent = p.name || p.id; if (p.id === activeId) opt.selected = true; sel.appendChild(opt);
-    });
-  } catch(_){}
-}
-function updateStatusPill(headerEl) {
-  try {
-    const pill = headerEl.querySelector('.status-pill'); if (!pill) return;
-    const comp = getDrawerComponent(); if (!comp?.getState) return;
-    const cur = comp.getState();
-    const data = loadProfilesData(); const prof = data.profiles[data.activeId];
-    // Normalize states so structural/version differences (e.g., new optional fields) don't show as dirty
-    const normalize = (s) => {
-      if (!s || typeof s !== 'object') return null;
-      const z = 0;
-      const base = s.base || {};
-      const extra = s.extra || { slips: [], checks: [] };
-      const optional = s.optional || {
-        charges: z, totalReceived: z, netSales: z,
-        grossProfitAmount: z, grossProfitPercent: z,
-        numInvoices: z, numVoids: z
-      };
-      return {
-        version: 2,
-        timestamp: 0, // ignore timestamp in equality
-        base: {
-          drawer: base.drawer || z, roa: base.roa || z, slips: base.slips || z, checks: base.checks || z,
-          hundreds: base.hundreds || z, fifties: base.fifties || z, twenties: base.twenties || z, tens: base.tens || z,
-          fives: base.fives || z, dollars: base.dollars || z, quarters: base.quarters || z, dimes: base.dimes || z,
-          nickels: base.nickels || z, pennies: base.pennies || z, quarterrolls: base.quarterrolls || z,
-          dimerolls: base.dimerolls || z, nickelrolls: base.nickelrolls || z, pennyrolls: base.pennyrolls || z
-        },
-        extra: { slips: Array.isArray(extra.slips) ? extra.slips : [], checks: Array.isArray(extra.checks) ? extra.checks : [] },
-        optional
-      };
-    };
-    const saved = JSON.stringify(normalize((prof && prof.state) || null));
-    const now = JSON.stringify(normalize(cur));
-    const isSaved = saved === now;
-    pill.textContent = isSaved ? `Saved${prof?.updatedAt ? ' • ' + new Date(prof.updatedAt).toLocaleTimeString() : ''}` : 'Unsaved changes';
-    pill.classList.toggle('saved', isSaved);
-    pill.classList.toggle('dirty', !isSaved);
-  } catch(_){}
-}
-function exportProfilesToFile() {
-  // Export both profiles and daily history in one file (backward compatible import)
-  const profiles = loadProfilesData();
-  const days = loadDaysData();
-  const payload = { version: 1, profilesData: profiles, daysData: days };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = 'drawer-data.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-  toast('Exported data', { type: 'success', duration: 1800 });
-}
-function openImportDialog(headerEl) {
-  let inp = document.getElementById('import-profiles-input');
-  if (!inp) { inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/json'; inp.id = 'import-profiles-input'; inp.style.display = 'none'; document.body.appendChild(inp); }
-  inp.onchange = async () => {
-    try {
-      const file = inp.files && inp.files[0]; if (!file) return;
-      const text = await file.text();
-      const imported = JSON.parse(text);
-      if (!imported || typeof imported !== 'object') { toast('Invalid import file', { type: 'error', duration: 2500 }); return; }
-      // Support new combined format { version, profilesData, daysData }
-      if (imported.profilesData || imported.daysData) {
-        const pCurrent = loadProfilesData();
-        const dCurrent = loadDaysData();
-        const pIn = imported.profilesData || { profiles: {}, activeId: 'default' };
-        const dIn = imported.daysData || {};
-        // Merge profiles
-        pCurrent.profiles = { ...pCurrent.profiles, ...(pIn.profiles || {}) };
-        if (pIn.activeId) pCurrent.activeId = pIn.activeId;
-        saveProfilesData(pCurrent);
-        // Merge days
-        const dMerged = { ...dCurrent };
-        for (const pid of Object.keys(dIn)) {
-          const curEntry = dMerged[pid] || { lastVisitedDate: null, days: {} };
-          const inEntry = dIn[pid] || { lastVisitedDate: null, days: {} };
-          curEntry.days = { ...curEntry.days, ...(inEntry.days || {}) };
-          // Prefer imported lastVisitedDate if provided
-          curEntry.lastVisitedDate = inEntry.lastVisitedDate || curEntry.lastVisitedDate || null;
-          dMerged[pid] = curEntry;
-        }
-        saveDaysData(dMerged);
-  populateProfilesSelect(headerEl);
-  restoreActiveProfile();
-  updateStatusPill(headerEl);
-  applyReadOnlyByActiveDate(headerEl);
-        toast('Imported data', { type: 'success', duration: 2000 });
-      } else if (imported.profiles) {
-        // Backward-compat: old profiles-only format
-        const current = loadProfilesData();
-        current.profiles = { ...current.profiles, ...imported.profiles };
-        if (imported.activeId) current.activeId = imported.activeId;
-        saveProfilesData(current);
-  populateProfilesSelect(headerEl);
-  restoreActiveProfile();
-  updateStatusPill(headerEl);
-  applyReadOnlyByActiveDate(headerEl);
-        toast('Imported profiles', { type: 'success', duration: 2000 });
-      } else {
-        toast('Invalid import file', { type: 'error', duration: 2500 });
-        return;
-      }
-    } catch(_) { toast('Import failed', { type: 'error', duration: 2500 }); }
-    finally { inp.value = ''; }
-  };
-  inp.click();
-}
-
-// Auto-save on changes (debounced) per active profile
-let _saveTimer = null;
-function _debouncedSaveWithProfiles(headerEl) {
-  if (_saveTimer) clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(() => { saveToActiveProfile(); if (headerEl) updateStatusPill(headerEl); }, 500);
-}
-window.addEventListener('DOMContentLoaded', () => {
-  // Update CSS var for header height so content padding matches fixed header
-  const root = document.documentElement;
-  const hdr = document.querySelector('header.app-header');
-  const bannerHost = document.querySelector('app-install-banner');
-  const setHeaderVar = () => {
-    if (!hdr) return;
-    const h = hdr.offsetHeight || 64;
-    root.style.setProperty('--header-h', `${h}px`);
-  };
-  const setBannerVar = () => {
-    // The banner element renders its visible area inside a wrapper; measuring host is ok as it's sticky and sized by content
-    if (!bannerHost) { root.style.setProperty('--banner-h', '0px'); return; }
-    // If the banner is hidden via display:none, offsetHeight will be 0
-    const h = bannerHost.offsetHeight || 0;
-    root.style.setProperty('--banner-h', `${h}px`);
-  };
-  setHeaderVar();
-  setBannerVar();
-  // Observe header size changes (e.g., responsive wraps)
-  try {
-    if (window.ResizeObserver && hdr) {
-      const ro = new ResizeObserver(() => setHeaderVar());
-      ro.observe(hdr);
-      // Observe banner visibility/size changes
-      if (bannerHost) {
-        const rb = new ResizeObserver(() => setBannerVar());
-        rb.observe(bannerHost);
-      }
-    } else {
-      window.addEventListener('resize', setHeaderVar);
-      window.addEventListener('resize', setBannerVar);
-      setTimeout(setHeaderVar, 250); // after fonts/layout settle
-      setTimeout(setBannerVar, 260);
-    }
-  } catch(_) { /* no-op */ }
-
-  const comp = getDrawerComponent();
-  if (!comp) return;
-  ensureProfilesInitialized();
-  // Restore from active profile if exists
-  restoreActiveProfile();
-  // If it's a new day, start fresh automatically
-  ensureDayResetIfNeeded(document.querySelector('app-header'));
-  // Ensure view date defaults to today on fresh load
-  setActiveViewDateKey(getTodayKey());
-  applyReadOnlyByActiveDate(document.querySelector('app-header'));
-  const header = document.querySelector('app-header');
-  // Update initial status
-  if (header) { populateProfilesSelect(header); updateStatusPill(header); }
-  // Listen for changes to update status and auto-save
-  comp.addEventListener('change', () => {
-    _debouncedSaveWithProfiles(header);
-    // Auto-save snapshot for the active view day
-    try {
-      const key = getActiveViewDateKey();
-      saveSpecificDay(key);
-    } catch(_) {}
-  });
-
-  // Also listen for banner internal state changes via events/messages to recompute height quickly
-  try {
-    const banner = document.querySelector('app-install-banner');
-    if (banner) {
-      // MutationObserver to detect style/display toggles within shadow DOM host size
-      const mo = new MutationObserver(() => setBannerVar());
-      mo.observe(banner, { attributes: true, attributeFilter: ['style', 'class'] });
-      // Fallback: poll once after 1s in case of async show
-      setTimeout(setBannerVar, 1000);
-    }
-  } catch (_) { /* ignore */ }
-});
-
-// Daily history — per profile, keyed by local YYYY-MM-DD
-const DRAWER_DAYS_KEY = 'drawer-days-v1';
-function _formatDateLocalYMD(d) {
-  const yr = d.getFullYear();
-  const mo = String(d.getMonth() + 1).padStart(2, '0');
-  const da = String(d.getDate()).padStart(2, '0');
-  return `${yr}-${mo}-${da}`;
-}
-function getTodayKey() { return _formatDateLocalYMD(new Date()); }
-function loadDaysData() {
-  try { const raw = localStorage.getItem(DRAWER_DAYS_KEY); const parsed = raw ? JSON.parse(raw) : {}; return parsed && typeof parsed==='object' ? parsed : {}; } catch(_) { return {}; }
-}
-function saveDaysData(data) { try { localStorage.setItem(DRAWER_DAYS_KEY, JSON.stringify(data)); return true; } catch(_) { return false; } }
-function _getActiveDaysEntry(createIfMissing = true) {
-  const data = loadDaysData(); const pid = getActiveProfileId();
-  if (!data[pid] && createIfMissing) data[pid] = { lastVisitedDate: null, days: {} };
-  return { data, pid, entry: data[pid] || { lastVisitedDate: null, days: {} } };
-}
-function listSavedDaysForActiveProfile() {
-  const { entry } = _getActiveDaysEntry(false);
-  const days = entry.days || {};
-  const arr = Object.keys(days).map((k) => ({ date: k, savedAt: days[k]?.savedAt || 0 }));
-  arr.sort((a,b) => (b.date.localeCompare(a.date)) || (b.savedAt - a.savedAt));
-  return arr;
-}
-function saveTodayToDays() {
-  const comp = getDrawerComponent(); if (!comp?.getState) return false;
-  const { data, pid, entry } = _getActiveDaysEntry(true);
-  const key = getTodayKey();
-  entry.days = entry.days || {};
-  // Preserve any existing label
-  const prev = entry.days[key] || {};
-  entry.days[key] = { state: comp.getState(), savedAt: Date.now(), label: prev.label || '' };
-  entry.lastVisitedDate = key;
-  data[pid] = entry;
-  return saveDaysData(data);
-}
-function saveSpecificDay(key) {
-  const comp = getDrawerComponent(); if (!comp?.getState) return false;
-  const { data, pid, entry } = _getActiveDaysEntry(true);
-  const k = key || getTodayKey();
-  entry.days = entry.days || {};
-  const prev = entry.days[k] || {};
-  entry.days[k] = { state: comp.getState(), savedAt: Date.now(), label: prev.label || '' };
-  data[pid] = entry; return saveDaysData(data);
-}
-function restoreDay(key) {
-  const comp = getDrawerComponent(); if (!comp?.setState) return false;
-  const { data, pid, entry } = _getActiveDaysEntry(false);
-  const rec = entry.days?.[key]; if (!rec || !rec.state) return false;
-  try { comp.setState(rec.state); // Update lastVisited to this key so subsequent loads don't auto-clear immediately
-    entry.lastVisitedDate = getTodayKey(); // still track today for auto-clear behavior
-    data[pid] = entry; saveDaysData(data);
-    return true; } catch(_) { return false; }
-}
-function deleteDay(key) {
-  const { data, pid, entry } = _getActiveDaysEntry(false);
-  if (!entry.days || !entry.days[key]) return false;
-  try { delete entry.days[key]; data[pid] = entry; return saveDaysData(data); } catch(_) { return false; }
-}
-function setDayLabel(key, label) {
-  try {
-    const { data, pid, entry } = _getActiveDaysEntry(false);
-    if (!entry.days || !entry.days[key]) return false;
-    entry.days[key].label = String(label || '');
-    data[pid] = entry;
-    return saveDaysData(data);
+    localStorage.setItem(DRAWER_PROFILES_KEY, JSON.stringify(data || {}));
+    try { _setLocalMeta(DRAWER_PROFILES_KEY, { updatedAt: Date.now() }); _scheduleSyncPush(DRAWER_PROFILES_KEY); } catch(_) {}
+    return true;
   } catch(_) { return false; }
 }
-function ensureDayResetIfNeeded(headerEl) {
+
+function ensureProfilesInitialized() {
+  // Ensure there is always at least one profile ("default") and a valid activeId
   try {
-    const { data, pid, entry } = _getActiveDaysEntry(true);
-    const today = getTodayKey();
-    if (entry.lastVisitedDate !== today) {
-      const comp = getDrawerComponent();
-      comp?.reset?.();
-      entry.lastVisitedDate = today;
-      data[pid] = entry;
-      saveDaysData(data);
-      if (headerEl) updateStatusPill(headerEl);
-      toast('New day detected. Starting fresh.', { type: 'info', duration: 2200 });
+    const data = loadProfilesData() || {};
+    let changed = false;
+    const now = Date.now();
+
+    // Ensure profiles map exists
+    if (!data.profiles || typeof data.profiles !== 'object') {
+      data.profiles = {};
+      changed = true;
     }
+
+    // Seed default profile if none exist
+    if (Object.keys(data.profiles).length === 0) {
+      data.profiles.default = { name: 'Default', state: null, updatedAt: now };
+      changed = true;
+    }
+
+    // Ensure activeId exists and points to a valid profile
+    if (!data.activeId || !data.profiles[data.activeId]) {
+      data.activeId = 'default';
+      // Also ensure the default profile exists in case activeId was invalid
+      if (!data.profiles.default) {
+        data.profiles.default = { name: 'Default', state: null, updatedAt: now };
+      }
+      changed = true;
+    }
+
+    if (changed) {
+      data.updatedAt = now;
+      saveProfilesData(data);
+      return true;
+    }
+    return false;
+  } catch (_) {
+    // As a last resort, write a minimal default structure
+    try {
+      const now = Date.now();
+      const init = { profiles: { default: { name: 'Default', state: null, updatedAt: now } }, activeId: 'default', updatedAt: now };
+      saveProfilesData(init);
+    } catch (_) {}
+    return true;
+  }
+}
+
+function getActiveProfileId() { try { const d = loadProfilesData(); return d.activeId || 'default'; } catch(_) { return 'default'; } }
+function setActiveProfile(id) { const d = loadProfilesData(); d.activeId = id; d.updatedAt = Date.now(); saveProfilesData(d); }
+
+function saveToActiveProfile() {
+  try {
+    const comp = getDrawerComponent();
+    const state = comp?.getState?.();
+    if (!state) return false;
+    const d = loadProfilesData();
+    const id = d.activeId || 'default';
+    d.profiles = d.profiles || {};
+    d.profiles[id] = d.profiles[id] || { name: id, state: null };
+    d.profiles[id].state = state;
+    d.profiles[id].updatedAt = Date.now();
+    d.updatedAt = Date.now();
+    saveProfilesData(d);
+    return true;
+  } catch(_) { return false; }
+}
+
+function restoreActiveProfile() {
+  try {
+    const comp = getDrawerComponent(); if (!comp) return false;
+    const d = loadProfilesData();
+    const id = d.activeId || 'default';
+    const st = d.profiles?.[id]?.state;
+    if (!st) return false;
+    comp.setState?.(st);
+    return true;
+  } catch(_) { return false; }
+}
+
+function createProfile(name) {
+  const d = loadProfilesData(); d.profiles = d.profiles || {};
+  const base = (name || 'Profile').toString().trim() || 'Profile';
+  const slug = base.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'profile';
+  let id = slug; let i = 2;
+  while (d.profiles[id]) { id = `${slug}-${i++}`; }
+  d.profiles[id] = { name: base, state: null, updatedAt: Date.now() };
+  d.activeId = id;
+  d.updatedAt = Date.now();
+  saveProfilesData(d);
+  return id;
+}
+
+function populateProfilesSelect(headerEl) {
+  try {
+    const sel = headerEl?.querySelector?.('.profile-select'); if (!sel) return;
+    let d = loadProfilesData(); let active = d.activeId || 'default'; let profiles = d.profiles || {};
+    let entries = Object.entries(profiles);
+    // Defensive: if no profiles present, try to initialize and reload
+    if (entries.length === 0) {
+      try { ensureProfilesInitialized(); } catch(_) {}
+      d = loadProfilesData(); active = d.activeId || 'default'; profiles = d.profiles || {}; entries = Object.entries(profiles);
+      // As a last resort, synthesize a default option in UI to avoid empty select
+      if (entries.length === 0) {
+        profiles = { default: { name: 'Default', state: null, updatedAt: Date.now() } };
+        active = 'default';
+        entries = Object.entries(profiles);
+      }
+    }
+    sel.innerHTML = '';
+    for (const [id, info] of entries) {
+      const opt = document.createElement('option');
+      opt.value = id; opt.textContent = info?.name || id; if (id === active) opt.selected = true; sel.appendChild(opt);
+    }
+  } catch(_) {}
+}
+
+function updateStatusPill(headerEl) {
+  try {
+    const pill = headerEl?.querySelector?.('.status-pill'); if (!pill) return;
+    const d = loadProfilesData(); const id = d.activeId || 'default'; const saved = d.profiles?.[id]?.state;
+    const comp = getDrawerComponent(); const cur = comp?.getState?.();
+    const same = saved && cur ? JSON.stringify(saved) === JSON.stringify(cur) : !!saved === !!cur;
+    pill.textContent = same ? 'Saved' : 'Dirty';
+    pill.classList.toggle('saved', same);
+    pill.classList.toggle('dirty', !same);
+  } catch(_) {}
+}
+
+function exportProfilesToFile() {
+  try {
+    const data = loadProfilesData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'drawer-profiles.json'; document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  } catch(_) { toast?.('Export failed', { type: 'error' }); }
+}
+
+function openImportDialog(headerEl) {
+  try {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/json';
+    inp.addEventListener('change', async () => {
+      const file = inp.files?.[0]; if (!file) return;
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        if (!parsed || typeof parsed !== 'object') throw new Error('Bad file');
+        saveProfilesData(parsed);
+        populateProfilesSelect(headerEl);
+        updateStatusPill(headerEl);
+        toast?.('Imported profiles', { type: 'success' });
+      } catch(e) { toast?.('Import failed', { type: 'error' }); }
+    });
+    inp.click();
   } catch(_) { /* ignore */ }
 }
 
 // Active view date + edit lock management (per profile)
 function getActiveViewDateKey() {
-  try {
-    const { data, pid, entry } = _getActiveDaysEntry(true);
-    entry._activeViewDateKey = entry._activeViewDateKey || getTodayKey();
-    data[pid] = entry; saveDaysData(data);
-    return entry._activeViewDateKey;
-  } catch(_) { return getTodayKey(); }
+  try { const { entry } = _getActiveDaysEntry(false); return entry?._activeViewDateKey || getTodayKey(); } catch(_) { return getTodayKey(); }
 }
 function setActiveViewDateKey(key) {
-  try {
-    const { data, pid, entry } = _getActiveDaysEntry(true);
-    entry._activeViewDateKey = key || getTodayKey();
-    data[pid] = entry; saveDaysData(data);
-  } catch(_) { /* ignore */ }
+  try { const { data, pid, entry } = _getActiveDaysEntry(true); entry._activeViewDateKey = key || getTodayKey(); data[pid] = entry; saveDaysData(data); } catch(_) {}
 }
 function isDayEditUnlocked() {
-  try {
-    const { entry } = _getActiveDaysEntry(true);
-    return !!entry._editUnlocked;
-  } catch(_) { return false; }
+  try { const { entry } = _getActiveDaysEntry(false); return !!entry?._editUnlocked; } catch(_) { return false; }
 }
 function setDayEditUnlocked(flag) {
-  try {
-    const { data, pid, entry } = _getActiveDaysEntry(true);
-    entry._editUnlocked = !!flag;
-    data[pid] = entry; saveDaysData(data);
-  } catch(_) { /* ignore */ }
+  try { const { data, pid, entry } = _getActiveDaysEntry(true); entry._editUnlocked = !!flag; data[pid] = entry; saveDaysData(data); } catch(_) {}
 }
 function applyReadOnlyByActiveDate(headerEl) {
   try {
-    const comp = getDrawerComponent(); if (!comp?.setReadOnly) return;
-    const today = getTodayKey();
-    const key = getActiveViewDateKey();
-    const ro = key !== today && !isDayEditUnlocked();
-    comp.setReadOnly(ro);
+    const comp = getDrawerComponent(); if (!comp) return;
+    const key = getActiveViewDateKey(); const today = getTodayKey();
+    const readOnly = key !== today && !isDayEditUnlocked();
+    comp.setReadOnly?.(readOnly);
     updateLockButtonUI(headerEl);
   } catch(_) {}
 }
 function updateLockButtonUI(headerEl) {
   try {
-    const header = headerEl || document.querySelector('app-header');
-    const btn = header?.querySelector('.lock-btn');
-    const optBtn = header?.querySelector('.optional-btn');
-    const today = getTodayKey();
-    const key = getActiveViewDateKey();
-    const ro = key !== today && !isDayEditUnlocked();
-    if (btn) {
-      const isToday = (key === today);
-      btn.textContent = ro ? '🔒' : '🔓';
-      // Today is always editable; show informative tooltip, and disable the control
-      if (isToday) {
-        btn.title = 'Today is always editable';
-        btn.setAttribute('aria-label', 'Today is always editable');
-      } else {
-        const stateTxt = ro ? 'locked' : 'unlocked';
-        const tip = `Toggle edit lock (${stateTxt})`;
-        btn.title = tip;
-        btn.setAttribute('aria-label', tip);
-      }
-      btn.disabled = isToday; // today always editable
-    }
-    if (optBtn) {
-      optBtn.disabled = ro; // disable optional editing when read-only
-      optBtn.title = ro ? 'Optional fields (read-only)' : 'Optional fields';
-      optBtn.setAttribute('aria-label', optBtn.title);
-    }
+    const btns = headerEl ? headerEl.querySelectorAll('.lock-btn') : document.querySelectorAll('app-header .lock-btn');
+    const key = getActiveViewDateKey(); const today = getTodayKey();
+    const isToday = key === today; const unlocked = isDayEditUnlocked();
+    const title = isToday ? 'Today is always editable' : (unlocked ? 'Editing unlocked (tap to lock)' : 'Editing locked (tap to unlock)');
+    btns.forEach((b) => { b.title = title; b.setAttribute('aria-label', title); });
   } catch(_) {}
 }
+
+// Placeholder for potential future logic when switching profiles; currently a no-op
+function ensureDayResetIfNeeded(_headerEl) { /* no-op */ }
+
+// Debounced push scheduler for sync
+const _debouncedPushers = {};
+function _scheduleSyncPush(key) {
+  try {
+    const delay = 500;
+    if (_debouncedPushers[key]) clearTimeout(_debouncedPushers[key]);
+    _debouncedPushers[key] = setTimeout(() => { try { _syncKeyOnce(key); } catch(_) {} }, delay);
+  } catch(_) {}
+}
+
+// --- Server status pill ---
+// API base resolution: window.DCA_API_BASE or localStorage override; default
+// - localhost: '/api' (proxied by local server)
+// - production (non-localhost): hard-coded Render domain
+function getApiBase() {
+  try {
+    const winBase = (typeof window !== 'undefined' && window.DCA_API_BASE) ? String(window.DCA_API_BASE) : '';
+    const lsBase = (typeof localStorage !== 'undefined') ? (localStorage.getItem('dca.apiBase') || '') : '';
+    const isLocal = typeof location !== 'undefined' && /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(location.hostname);
+  const defaultBase = isLocal ? '/api' : 'https://drawer-count-app.onrender.com/api';
+    const base = (winBase || lsBase || defaultBase).trim();
+    return base || defaultBase;
+  } catch (_) { return '/api'; }
+}
+function apiUrl(path) {
+  const resolved = (typeof window !== 'undefined' && window.DCA_API_BASE_RESOLVED) ? String(window.DCA_API_BASE_RESOLVED) : '';
+  const b = (resolved || getApiBase()).replace(/\/+$/, '');
+  const p = path.startsWith('/') ? path : `/${path}`;
+  return `${b}${p}`;
+}
+
+function _apiCandidatesFor(path) {
+  try {
+    const candidates = [];
+    const primaryFull = apiUrl(path);
+    candidates.push(primaryFull);
+    // If the current base is a Render domain, add toggled .app/.com variant
+    try {
+      const base = (typeof window !== 'undefined' && window.DCA_API_BASE_RESOLVED) ? String(window.DCA_API_BASE_RESOLVED) : getApiBase();
+      if (/^https?:\/\//i.test(base) && /\.onrender\.(app|com)/i.test(base)) {
+        const alt = base.includes('.onrender.app')
+          ? base.replace('.onrender.app', '.onrender.com')
+          : base.replace('.onrender.com', '.onrender.app');
+        const altFull = `${alt.replace(/\/+$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
+        if (altFull !== primaryFull) candidates.push(altFull);
+      }
+    } catch (_) {}
+    // If we're using local '/api', try the known production default as a fallback
+    try {
+      const base = getApiBase();
+      const isLocalBase = !/^https?:\/\//i.test(base); // '/api' or similar
+      if (isLocalBase) {
+        const prod = 'https://drawer-count-app.onrender.com/api';
+        const prodFull = `${prod.replace(/\/+$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
+        if (!candidates.includes(prodFull)) candidates.push(prodFull);
+        // also add toggled render domain
+        const prodAlt = prod.includes('.onrender.app') ? prod.replace('.onrender.app', '.onrender.com') : prod.replace('.onrender.com', '.onrender.app');
+        const prodAltFull = `${prodAlt.replace(/\/+$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
+        if (!candidates.includes(prodAltFull)) candidates.push(prodAltFull);
+      }
+    } catch (_) {}
+    return candidates;
+  } catch (_) { return [apiUrl(path)]; }
+}
+async function fetchServerHealth() {
+  try {
+    const primary = getApiBase();
+    const primaryUrl = apiUrl('/health'); // resolves to '<apiBase>/health' e.g., '/api/health'
+    const candidates = [primary];
+    // Derive a fallback between .onrender.app <-> .onrender.com when using our hard-coded default
+    try {
+      if (/^https?:\/\//i.test(primary) && /\.onrender\.(app|com)/i.test(primary)) {
+        const alt = primary.includes('.onrender.app')
+          ? primary.replace('.onrender.app', '.onrender.com')
+          : primary.replace('.onrender.com', '.onrender.app');
+        if (alt !== primary) candidates.push(alt);
+      }
+    } catch(_) {}
+    let lastErr = null;
+    // First, try the explicit primary URL ('/api/health' via apiUrl)
+    try {
+      const res = await fetch(primaryUrl, { cache: 'no-store' });
+      if (!res.ok) {
+        try { console.warn('[health] HTTP', res.status, res.statusText, 'url=', res.url); } catch(_) {}
+      } else {
+        const data = await res.json();
+        return data;
+      }
+    } catch (e) {
+      lastErr = e;
+      try { console.warn('[health] fetch error for primary', primaryUrl, e); } catch(_) {}
+    }
+
+    // Next, try fallback candidates with toggled Render domains
+    for (const base of candidates) {
+      try {
+        const url = `${base.replace(/\/+$/, '')}/health`;
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) {
+          try { console.warn('[health] HTTP', res.status, res.statusText, 'url=', res.url); } catch(_) {}
+          lastErr = new Error(`HTTP ${res.status}`);
+          continue;
+        }
+        const data = await res.json();
+        // Remember working base if it differs from primary
+        if (typeof window !== 'undefined' && base !== primary) {
+          try { window.DCA_API_BASE_RESOLVED = base; console.info('[health] using API base', base); } catch(_) {}
+        }
+        return data;
+      } catch (e) {
+        lastErr = e;
+        try { console.warn('[health] fetch error for', base, e); } catch(_) {}
+      }
+    }
+    return { ok: false, error: lastErr ? String(lastErr) : 'unknown' };
+  } catch(err) {
+    try { console.warn('[health] fatal error', err); } catch(_) {}
+    return { ok: false };
+  }
+}
+// server status now displayed inline within <network-status>
+
+// --- Online sync with backend API (/api/kv/:key) ---
+const SYNC_KEYS = [DRAWER_PROFILES_KEY, DRAWER_DAYS_KEY];
+const META_SUFFIX = '__meta';
+
+function _getLocalMeta(key) {
+  try { const raw = localStorage.getItem(key + META_SUFFIX); return raw ? JSON.parse(raw) : null; } catch(_) { return null; }
+}
+function _setLocalMeta(key, meta) {
+  try { localStorage.setItem(key + META_SUFFIX, JSON.stringify(meta || {})); } catch(_) {}
+}
+function _getClientId() {
+  const CID_KEY = 'sync-client-id';
+  try {
+    let id = localStorage.getItem(CID_KEY);
+    if (id) return id;
+    const tpl = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx';
+    try {
+      if (window.crypto?.getRandomValues) {
+        const buf = new Uint8Array(16); window.crypto.getRandomValues(buf);
+        let i = 0;
+        id = tpl.replace(/[xy]/g, (c) => {
+          const r = buf[i++] % 16;
+          const v = c === 'x' ? r : (r & 0x3) | 0x8;
+          return v.toString(16);
+        });
+      } else {
+        id = tpl.replace(/[xy]/g, (c) => {
+          const r = Math.random() * 16 | 0;
+          const v = c === 'x' ? r : (r & 0x3) | 0x8;
+          return v.toString(16);
+        });
+      }
+    } catch(_) { id = `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
+    localStorage.setItem(CID_KEY, id);
+    return id;
+  } catch(_) { return 'anonymous'; }
+}
+
+async function _fetchRemoteKV(key) {
+  try {
+    const path = `/kv/${encodeURIComponent(key)}`;
+    const urls = _apiCandidatesFor(path);
+    let lastErr = null;
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (res.status === 404) return { ok: true, missing: true };
+        if (!res.ok) { lastErr = new Error(`HTTP ${res.status}`); continue; }
+        const data = await res.json();
+        return { ok: true, value: data.value, updatedAt: Number(data.updatedAt || 0) };
+      } catch (e) { lastErr = e; }
+    }
+    return { ok: false, error: lastErr ? String(lastErr) : 'unknown' };
+  } catch(_) { return { ok: false }; }
+}
+
+// List all KV entries from the server as a fallback (e.g., if the exact profiles key is unknown)
+async function _listRemoteKV() {
+  try {
+    const path = `/kv`;
+    const urls = _apiCandidatesFor(path);
+    let lastErr = null;
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) { lastErr = new Error(`HTTP ${res.status}`); continue; }
+        const data = await res.json();
+        // Expect shape { ok: true, items: [{ key, value, updatedAt }...] }
+        const items = Array.isArray(data.items) ? data.items : [];
+        return { ok: true, items };
+      } catch (e) { lastErr = e; }
+    }
+    return { ok: false, error: lastErr ? String(lastErr) : 'unknown' };
+  } catch(_) { return { ok: false }; }
+}
+
+async function _pushRemoteKV(key, rawValue, updatedAt) {
+  try {
+    const path = `/kv/${encodeURIComponent(key)}`;
+    const urls = _apiCandidatesFor(path);
+    let lastErr = null;
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: rawValue, updatedAt: Number(updatedAt) || Date.now() })
+        });
+        if (!res.ok) { lastErr = new Error(`HTTP ${res.status}`); continue; }
+        const data = await res.json();
+        return { ok: true, updatedAt: Number(data.updatedAt || Date.now()) };
+      } catch (e) { lastErr = e; }
+    }
+    return { ok: false, error: lastErr ? String(lastErr) : 'unknown' };
+  } catch(_) { return { ok: false }; }
+}
+
+async function _syncKeyOnce(key) {
+  try {
+    const localRaw = localStorage.getItem(key);
+    const localMeta = _getLocalMeta(key) || { updatedAt: 0 };
+    const remote = await _fetchRemoteKV(key);
+    if (!remote.ok) return false;
+    if (remote.missing) {
+      if (localRaw != null) {
+        const push = await _pushRemoteKV(key, localRaw, localMeta.updatedAt || Date.now());
+        if (push.ok) _setLocalMeta(key, { updatedAt: push.updatedAt });
+      }
+      return true;
+    }
+    const rAt = Number(remote.updatedAt || 0);
+    const lAt = Number(localMeta.updatedAt || 0);
+    if (localRaw == null) {
+      localStorage.setItem(key, remote.value);
+      _setLocalMeta(key, { updatedAt: rAt });
+      return true;
+    }
+    if (rAt > lAt) {
+      localStorage.setItem(key, remote.value);
+      _setLocalMeta(key, { updatedAt: rAt });
+    } else if (lAt > rAt) {
+      const push = await _pushRemoteKV(key, localRaw, lAt);
+      if (push.ok) _setLocalMeta(key, { updatedAt: push.updatedAt });
+    }
+    return true;
+  } catch(_) { return false; }
+}
+
+async function _syncAllKeys() {
+  for (const k of SYNC_KEYS) { try { await _syncKeyOnce(k); } catch(_) {} }
+}
+
+function initOnlineSync() {
+  try {
+    for (const k of SYNC_KEYS) { if (!_getLocalMeta(k)) _setLocalMeta(k, { updatedAt: 0 }); }
+    _syncAllKeys();
+    window.addEventListener('online', () => { _syncAllKeys(); });
+  } catch(_) { /* ignore */ }
+}
+
+// Attempt to prime local profiles from remote before UI renders, so all server profiles appear
+async function initProfilesFromRemoteIfAvailable() {
+  try {
+    // Try primary remote key first, then fall back to known legacy aliases
+    const candidateKeys = [
+      DRAWER_PROFILES_KEY,
+      'drawer-profiles',
+      'drawer_profiles',
+      'profiles',
+      'drawer-profiles-v0'
+    ];
+
+    let remote = await _fetchRemoteKV(DRAWER_PROFILES_KEY);
+    if (!remote.ok || remote.missing) {
+      for (const altKey of candidateKeys) {
+        if (altKey === DRAWER_PROFILES_KEY) continue;
+        try {
+          const r = await _fetchRemoteKV(altKey);
+          if (r.ok && !r.missing) { remote = r; break; }
+        } catch (_) { /* try next */ }
+      }
+    }
+    // Fallback: if still missing, list all remote KV entries and pick the best match
+    if (!remote.ok || remote.missing) {
+      try {
+        const list = await _listRemoteKV();
+        if (list.ok && Array.isArray(list.items) && list.items.length) {
+          // Rank candidates: exact known keys first, then any whose parsed value exposes a profiles map
+          const knownSet = new Set(candidateKeys);
+          const scored = [];
+          for (const it of list.items) {
+            const key = String(it.key || '');
+            const updatedAt = Number(it.updatedAt || 0);
+            let score = 0;
+            if (knownSet.has(key)) score += 10; // prefer known keys
+            // Try to inspect value to see if it looks like profiles
+            let parsed = null;
+            try {
+              const raw = typeof it.value === 'string' ? it.value : JSON.stringify(it.value);
+              parsed = JSON.parse(raw);
+            } catch(_) { parsed = null; }
+            const looksWrapped = parsed && typeof parsed === 'object' && parsed.profiles && typeof parsed.profiles === 'object';
+            const looksBareMap = parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Object.keys(parsed).length && !('days' in parsed) && !('state' in parsed);
+            if (looksWrapped) score += 5;
+            else if (looksBareMap) score += 3;
+            // Add recency as a tiebreaker
+            score += Math.min(2, Math.max(0, Math.floor((updatedAt || 0) / 1e13))); // tiny contribution
+            scored.push({ it, score, updatedAt, parsed });
+          }
+          scored.sort((a, b) => b.score - a.score || b.updatedAt - a.updatedAt);
+          const pick = scored[0];
+          if (pick && pick.it) {
+            remote = { ok: true, value: pick.it.value, updatedAt: Number(pick.it.updatedAt || 0) };
+          }
+        }
+      } catch(_) { /* ignore */ }
+    }
+    if (!remote.ok || remote.missing) {
+      try { console.info('[profiles:init] no remote data available'); } catch(_) {}
+      return false;
+    }
+
+    const rAt = Number(remote.updatedAt || 0);
+    const rVal = remote.value;
+    const rText = (typeof rVal === 'string') ? rVal : JSON.stringify(rVal);
+    let rObj = null;
+    try { rObj = JSON.parse(rText); } catch (_) { rObj = null; }
+    // If remote stored just the profiles map (legacy), wrap it to expected shape
+    if (rObj && !rObj.profiles && typeof rObj === 'object') {
+      rObj = { profiles: rObj, activeId: Object.keys(rObj)[0] || 'default', updatedAt: rAt || Date.now() };
+    }
+
+    // Inspect local
+    const localRaw = localStorage.getItem(DRAWER_PROFILES_KEY);
+    const localMeta = _getLocalMeta(DRAWER_PROFILES_KEY) || { updatedAt: 0 };
+    const lAt = Number(localMeta.updatedAt || 0);
+    let lObj = null;
+    try { lObj = localRaw ? JSON.parse(localRaw) : null; } catch (_) { lObj = null; }
+
+    const localProfiles = (lObj && lObj.profiles && typeof lObj.profiles === 'object') ? lObj.profiles : {};
+    const remoteProfiles = (rObj && rObj.profiles && typeof rObj.profiles === 'object') ? rObj.profiles : {};
+    const localCount = Object.keys(localProfiles).length;
+    const remoteCount = Object.keys(remoteProfiles).length;
+
+    // Decision matrix:
+    // - If no local data: adopt remote
+    // - If local has 0 or 1 profile(s) (default-only scenarios) and remote has more: adopt remote
+    // - Else, if remote updatedAt is newer than local: adopt remote
+    // - Otherwise, keep local
+    const localLooksDefaultOnly = (localCount <= 1);
+    const remoteHasMore = (remoteCount > localCount);
+    try { console.info('[profiles:init] localCount=', localCount, 'remoteCount=', remoteCount, 'rAt=', rAt, 'lAt=', lAt); } catch(_) {}
+    if (!localRaw || (localLooksDefaultOnly && remoteHasMore) || (rAt > lAt)) {
+      // Persist normalized remote object
+      const normalized = rObj && rObj.profiles ? JSON.stringify(rObj) : rText;
+      localStorage.setItem(DRAWER_PROFILES_KEY, normalized);
+      _setLocalMeta(DRAWER_PROFILES_KEY, { updatedAt: rAt || Date.now() });
+      try { console.info('[profiles:init] adopted remote profiles'); } catch(_) {}
+      return true;
+    }
+    try { console.info('[profiles:init] kept local profiles'); } catch(_) {}
+    return false;
+  } catch (_) { return false; }
+}
+
+// ------------------------------
+// Daily history persistence (per profile)
+// ------------------------------
+// Shapes:
+// - Stored under DRAWER_DAYS_KEY in localStorage as an object keyed by profileId
+//   { [profileId]: { lastVisitedDate: 'YYYY-MM-DD' | null,
+//                    _activeViewDateKey?: string,
+//                    _editUnlocked?: boolean,
+//                    days: { [dateKey]: { state, savedAt: number, label?: string } } } }
+
+function loadDaysData() {
+  try {
+    const raw = localStorage.getItem(DRAWER_DAYS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return (parsed && typeof parsed === 'object') ? parsed : {};
+  } catch (_) { return {}; }
+}
+
+function saveDaysData(data) {
+  try {
+    localStorage.setItem(DRAWER_DAYS_KEY, JSON.stringify(data || {}));
+    try { _setLocalMeta(DRAWER_DAYS_KEY, { updatedAt: Date.now() }); _scheduleSyncPush(DRAWER_DAYS_KEY); } catch (_) {}
+    return true;
+  } catch (_) { return false; }
+}
+
+function _saveDaysDataAndSync(data) {
+  return saveDaysData(data);
+}
+
+function getTodayKey() {
+  try {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  } catch (_) { return '1970-01-01'; }
+}
+
+function _getActiveDaysEntry(createIfMissing = true) {
+  const data = loadDaysData();
+  const pid = getActiveProfileId();
+  let entry = data[pid];
+  if (!entry && createIfMissing) {
+    entry = { lastVisitedDate: null, days: {}, _activeViewDateKey: getTodayKey(), _editUnlocked: false };
+    data[pid] = entry;
+    saveDaysData(data);
+  }
+  // Always return a sane shape even when not created
+  return { data, pid, entry: entry || { lastVisitedDate: null, days: {}, _activeViewDateKey: getTodayKey(), _editUnlocked: false } };
+}
+
+function listSavedDaysForActiveProfile() {
+  try {
+    const { entry } = _getActiveDaysEntry(false);
+    const days = entry?.days || {};
+    // Map to comparable array, sort by savedAt desc then date desc
+    const list = Object.keys(days).map((k) => ({ date: k, savedAt: Number(days[k]?.savedAt || 0) }));
+    list.sort((a, b) => (b.savedAt - a.savedAt) || (a.date < b.date ? 1 : -1));
+    return list;
+  } catch (_) { return []; }
+}
+
+// Alias for older calls expecting a separate function name
+function saveSpecificDay(key) { return saveDay(key); }
+
+// Kick off initial online sync shortly after load
+try { window.addEventListener('load', () => { try { initOnlineSync(); } catch (_) {} }); } catch (_) {}
+
+// --- Day helpers used by settings modal and elsewhere ---
+function saveDay(key) {
+  try {
+    const k = key || getActiveViewDateKey();
+    const comp = getDrawerComponent(); const state = comp?.getState?.(); if (!state) return false;
+    const { data, pid, entry } = _getActiveDaysEntry(true);
+    entry.days[k] = entry.days[k] || { state: null, savedAt: 0 };
+    entry.days[k].state = state;
+    entry.days[k].savedAt = Date.now();
+    data[pid] = entry; return saveDaysData(data);
+  } catch(_) { return false; }
+}
+
+function restoreDay(key) {
+  try {
+    const k = key || getActiveViewDateKey();
+    const comp = getDrawerComponent(); if (!comp) return false;
+    const { entry } = _getActiveDaysEntry(false); const rec = entry?.days?.[k];
+    if (!rec?.state) return false;
+    comp.setState?.(rec.state);
+    return true;
+  } catch(_) { return false; }
+}
+
+function deleteDay(key) {
+  try {
+    const k = key || getActiveViewDateKey();
+    const { data, pid, entry } = _getActiveDaysEntry(false); if (!entry?.days?.[k]) return false;
+    delete entry.days[k]; data[pid] = entry; return saveDaysData(data);
+  } catch(_) { return false; }
+}
+
+function setDayLabel(key, label) {
+  try {
+    const k = key || getActiveViewDateKey();
+    const { data, pid, entry } = _getActiveDaysEntry(true);
+    if (!entry.days[k]) entry.days[k] = { state: null, savedAt: Date.now(), label: '' };
+    entry.days[k].label = String(label || '');
+    data[pid] = entry; return saveDaysData(data);
+  } catch(_) { return false; }
+}
+

@@ -36,7 +36,7 @@ body {
   /* Image/overlay are applied by JS for random optimized backgrounds */
   /* Keep positioning defaults to match JS-applied image */
   background-repeat: no-repeat, no-repeat;
-  background-position: left 5vh, left 5vh;
+  background-position: center 5vh, center 5vh;
   background-size: cover, contain;
   /* Fix both layers so translucency doesn't scroll away */
   background-attachment: fixed, fixed;
@@ -52,7 +52,7 @@ body {
   z-index: -1; /* behind everything */
   pointer-events: none;
   background-repeat: no-repeat;
-  background-position: left 5vh;
+  background-position: center 5vh;
   background-size: contain;
   background-attachment: fixed;
   opacity: 0;
@@ -94,7 +94,7 @@ body {
   background-color: var(--bg);
   /* Image/overlay are applied by JS for random optimized backgrounds */
   background-repeat: no-repeat, no-repeat;
-  background-position: left 5vh, left 5vh;
+  background-position: center 5vh, center 5vh;
   background-size: cover, contain;
   /* Fix overlay and image to avoid overlay scrolling off-screen */
   background-attachment: fixed, fixed;
@@ -137,12 +137,12 @@ body {
   /* Mobile-first: take full width, constrain on larger screens */
   width: 100%;
   max-width: 640px;
-  margin: 0 auto;
+  margin: auto;
 }
 
 /* Light theme translucency for card */
 :root[data-theme="light"] .card {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.25);
 }
 
 /* Bridge theme variables into <drawer-count> shadow via host */
@@ -249,6 +249,20 @@ network-status {
   align-items: center;
   gap: 8px;
 }
+/* Inline server badge inside the network-status pill */
+network-status .server-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+  padding-left: 10px;
+  border-left: 1px dashed rgba(255,255,255,0.2);
+}
+:root[data-theme="light"] network-status .server-badge { border-left-color: rgba(0,0,0,0.2); }
+network-status .server-badge .icon { font-size: 1rem; line-height: 1; }
+network-status .server-badge.ok .icon { filter: hue-rotate(80deg) saturate(1.2); }
+network-status .server-badge.warn .icon { filter: saturate(1); }
+network-status .server-badge.err .icon { filter: hue-rotate(-20deg) saturate(1.2); }
 /* Light theme background for the status pill */
 :root[data-theme="light"] network-status { background: #eef2ff; }
 network-status .dot {
@@ -275,4 +289,137 @@ network-status.offline .dot { background: #ef4444; border-color: rgba(239,68,68,
 @media (min-width: 768px) {
   .container { padding: calc(2rem + var(--header-h) + var(--banner-h)) 1.5rem 3rem; }
   .card { max-width: 720px; }
+}
+
+/* Theme variables and dark mode improvements */
+:root {
+  --panel-bg: rgba(255,255,255,0.85);
+  --panel-fg: #0b132b;
+  --panel-muted: #6b7280;
+  --panel-border: rgba(0,0,0,0.08);
+  --btn-bg: #0b132b;
+  --btn-fg: #ffffff;
+  --btn-muted-bg: rgba(11,19,43,0.08);
+  --btn-muted-fg: #0b132b;
+}
+
+[data-theme="dark"] {
+  --panel-bg: rgba(13,17,23,0.85);
+  --panel-fg: #e5e7eb;
+  --panel-muted: #9ca3af;
+  --panel-border: rgba(255,255,255,0.08);
+  --btn-bg: #60a5fa;
+  --btn-fg: #0b132b;
+  --btn-muted-bg: rgba(255,255,255,0.08);
+  --btn-muted-fg: #e5e7eb;
+}
+
+/* Center the main card/panel in the page while keeping background visible */
+main.container {
+  min-height: calc(100svh - 5rem);
+  display: grid;
+  place-items: start center;
+}
+/* Background image layer managed by JS (fades in when ready) */
+#bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-position: center 5vh;
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+#bg-layer.show { opacity: 1; }
+
+main.container > .card {
+  width: min(900px, 92vw);
+  margin-inline: auto;
+  background: var(--panel-bg);
+  color: var(--panel-fg);
+  backdrop-filter: saturate(120%) blur(6px);
+  -webkit-backdrop-filter: saturate(120%) blur(6px);
+  border: 1px solid var(--panel-border);
+}
+
+/* Collapsible count panel */
+.count-panel { display: block; }
+.count-panel .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.count-panel .panel-title { font-weight: 600; }
+.count-panel .panel-actions { display: inline-flex; gap: 0.5rem; }
+.count-panel .panel-actions button {
+  padding: 0.4rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background: var(--btn-muted-bg);
+  color: var(--btn-muted-fg);
+}
+.count-panel .panel-actions .start-btn,
+.count-panel .panel-actions .complete-btn,
+.count-panel .panel-actions .reopen-btn {
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  border-color: transparent;
+}
+.count-panel .panel-actions .complete-btn { filter: saturate(115%); }
+.count-panel .panel-actions .reopen-btn { filter: saturate(115%); }
+
+/* Animate height with JS-controlled height property */
+.count-panel .panel-body {
+  overflow: hidden;
+  height: 0;
+  transition: height 220ms ease;
+}
+
+.count-panel .panel-summary {
+  overflow: hidden;
+  height: 0;
+  transition: height 220ms ease;
+}
+.count-panel .panel-summary .sum-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 12px;
+}
+.count-panel .panel-summary .row { display: contents; }
+.count-panel .panel-summary .k { color: var(--panel-muted); }
+.count-panel .panel-summary .v { font-weight: 600; }
+.count-panel .panel-summary .row.ts .k { opacity: 0.9; }
+
+.count-panel .panel-summary .section { margin-top: 10px; }
+.count-panel .panel-summary h4 {
+  margin: 0 0 4px 0;
+  font-size: 0.95rem;
+  color: var(--panel-fg);
+}
+.count-panel .panel-summary .list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+}
+.count-panel .panel-summary .list li { display: contents; }
+.count-panel .panel-summary .list .label { color: var(--panel-muted); }
+.count-panel .panel-summary .list .val { font-weight: 600; }
+
+.count-panel.completed .panel-title::after {
+  content: ' • Completed';
+  color: var(--panel-muted);
+  font-weight: 500;
+}
+.count-panel .done-hint { margin-top: 0.5rem; color: var(--panel-muted); }
+
+/* Prefer small buttons on narrow screens */
+@media (max-width: 480px) {
+  .count-panel .panel-actions button { padding: 0.34rem 0.55rem; }
+  .count-panel .panel-title { font-size: 0.95rem; }
 }

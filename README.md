@@ -14,31 +14,36 @@ Status: Vanilla JS + Web Components (no framework)
 - Daily History: Save by day, Load, Delete, and Rename entries; auto reset on a new day
 - Import/Export: Backup or restore your data as JSON
 - Theme: Light/Dark/System with live `theme-color` updates
-- Network status pill and toast notifications
+- Network status pill with server health badge, plus toast notifications
 - Keyboard shortcuts for faster entry
  - Visual polish: random background image with smooth fade-in; light/dark overlays for readability
 
 ## Quick start (Windows PowerShell)
 
-The app is static—no build step required. A dev server is included.
+44.226.145.213
+54.187.200.255
+34.213.214.55
+35.164.95.156
+44.230.95.183
+44.229.200.200
 
 ```powershell
 npm install
+# Optional: create a local .env from the example
+Copy-Item .env.example .env -ErrorAction SilentlyContinue
+# Start with backend API + static hosting (recommended)
 npm start
+
+# Or run with auto-reload during development
+npm run dev
 ```
 
-This runs `live-server` on `http://127.0.0.1:8080/` and opens `index.html` automatically. The service worker only works when served via HTTP(S) or `localhost`.
+By default `npm start` runs an Express server at `http://127.0.0.1:8080/` that serves the app and exposes a small API used for sync.
+The service worker only works when served via HTTP(S) or `localhost`.
 
-Alternative local servers:
+Local API base note (avoiding CORS): when the app is served to `localhost` (or `127.0.0.1`), the server responds from `/config.js` with `window.DCA_API_BASE = '/api'` regardless of any `API_BASE` environment variable. This ensures the frontend talks to the same-origin Express API during local development and avoids browser CORS errors. In production (non-localhost), `API_BASE` will be respected if set; otherwise it defaults to the built-in Render URL.
 
-- Node (no global install):
-	```powershell
-	npx http-server -p 8080 -c-1
-	```
-- Python:
-	```powershell
-	python -m http.server 8080
-	```
+Alternative: if you only need to serve static files, any simple HTTP server on port 8080 works. Ensure the service worker is reachable at the root scope.
 
 ## Using the app
 
@@ -69,13 +74,19 @@ Keyboard Shortcuts:
 - `Alt`+`Backspace` (focused in a row) → Remove that row
 
 Install/Open as app:
-- In Chrome/Edge, use the in-app `Install` button (when shown) or your browser’s menu.
-- After installing, visiting the website shows an `Open in App` button that focuses the installed window (supported in Chromium via `launch_handler`/`capture_links`).
+- The app shows a small install banner when eligible. After install, it automatically switches to an `Open in App` action that focuses an existing window when possible.
+- Chromium-based browsers use `launch_handler: focus-existing` and `capture_links: existing-client-nav` to reduce duplicate windows.
+- iOS Safari doesn’t prompt; the banner provides a brief “how to install” helper.
 
 Background & images:
 - A random background image is selected from `src/images/` on each load.
 - Images are served as `.webp` (with alpha) when supported, and fall back to optimized `.png` otherwise.
 - The image gently fades in on load; the light/dark overlay remains crisp when you toggle themes.
+
+Network and Server status:
+- A single pill at the bottom-right shows both network status and a server health badge.
+- Badge codes: `OK` (connected), `NODB` (configured but DB not connected), `ERR` (health check failed), `OFF` (browser offline), `N/A` (not configured).
+- Updates every ~20 seconds and also responds immediately to online/offline events; tooltip shows the API base.
 
 ## Project structure
 
@@ -95,9 +106,10 @@ Background & images:
 - HTTPS/localhost required: service workers and install only work over HTTPS or `http://localhost`.
 - Updates: after changing `sw.js`, reload and close/reopen the page to activate. In DevTools → Application → Service Workers you can `Update`/`Skip waiting`.
 - Cache versioning: bump `CACHE_VERSION` in `sw.js` when you need to invalidate old caches.
-	- Currently set to `v10`. Changing this forces clients to fetch new assets after activation.
+	- Currently set to `v17`. Changing this forces clients to fetch new assets after activation.
 - Query busting: `index.html` may add a version query (e.g., `src/main.js?v=5`). The SW handles this and serves the cached file correctly.
 - Scope-aware paths: the SW normalizes URLs to its scope so cached assets work even under a subpath.
+- API responses and config are not cached: the SW always fetches `/api/*` and `/config.js` from the network (JSON `503` when offline). The SW also broadcasts connectivity state to the page so the UI reflects network changes quickly.
 - Manifest scope and paths are now relative (e.g., `./manifest.webmanifest`, `./src/...`) so deployment under a subpath (like GitHub Pages `/your-repo/`) works out of the box. If you customize the base path, ensure `start_url`/`scope` in the manifest still point to `./` for your chosen directory.
 
 ## Icons
@@ -135,6 +147,18 @@ Adding new background images:
 - Run `npm run optimize-images` to generate `.webp` versions and recompress the PNGs.
 - Add the new image filenames (both `.png` and `.webp`) to the precache array in `sw.js` so they’re available offline.
 
+### Deploy to Render (quick checklist)
+
+1) Create a new Web Service on Render pointing to this repo.
+2) Environment → add:
+	- `MONGODB_URI` = Atlas SRV URI (e.g., `mongodb+srv://...mongodb.net/drawercount?retryWrites=true&w=majority`)
+	- `MONGODB_DB` = `drawercount`
+	- `MONGODB_TLS` = `true`
+	- Optional: `API_BASE` = `https://<your-service>.onrender.com/api`
+3) Start command: `npm start` (default in `package.json`).
+4) In Atlas → Network Access: allow Render’s egress IP or temporarily `0.0.0.0/0` to validate.
+5) After deploy, verify `https://<your-service>.onrender.com/api/health` shows DB connected.
+
 ## License
 
 ISC — see `LICENSE` (or the license field in `package.json`).
@@ -142,4 +166,85 @@ ISC — see `LICENSE` (or the license field in `package.json`).
 ## Changelog
 
 See `CHANGELOG.md`.
+
+## Backend sync (optional)
+
+This app remains fully functional offline using `localStorage`. If you provide a MongoDB connection, it will also sync your data to a backend so multiple devices can keep a server copy.
+
+- Server: `server.js` (Express)
+	- Env vars:
+		- `PORT` (default `8080`)
+		- `MONGODB_URI` (required to enable API)
+		- `MONGODB_DB` (default `drawercount`)
+	- Endpoints:
+		- `GET /api/health`
+		- `GET /api/kv` (list all keys with values; shared/global scope)
+		- `GET /api/kv/:key` (shared/global scope)
+		- `PUT /api/kv/:key` (body: `{ value, updatedAt? }`, shared/global scope)
+	- Data scope:
+		- All data is stored in a global/shared scope so every client sees the same profiles and days.
+		- For migration, the server will fall back to the most recent legacy per-client value if a global value is missing.
+- Client: stores two keys in `localStorage` and syncs them when online
+	- `drawer-profiles-v1` and `drawer-days-v1`
+	- For each, a meta entry `key + "__meta"` holds `{ updatedAt }`
+	- Sync behavior: last-write-wins using `updatedAt` timestamps
+	- When offline, changes are saved locally and pushed on reconnect
+
+	API base (different origin/backend):
+	- If you host the backend separately (e.g., Render at `https://drawer-count-app.onrender.com`), set the API base via environment variable:
+		- Server reads `API_BASE` and serves it at `/config.js`, which is loaded before the app.
+		- Example (PowerShell):
+			```powershell
+			$env:API_BASE = 'https://drawer-count-app.onrender.com/api'; npm start
+			```
+		- On Render, set `API_BASE` in the service’s environment variables.
+		- You can still override locally at runtime if needed:
+			```js
+			localStorage.setItem('dca.apiBase', 'https://drawer-count-app.onrender.com/api'); location.reload();
+			```
+		- Default is same-origin `'/api'` when no env or override is provided.
+			- Additionally, the app has a built-in production fallback: when not on `localhost`, it defaults to `https://drawer-count-app.onrender.com/api` unless overridden by `API_BASE` or the localStorage override.
+
+Run locally with a Mongo connection (PowerShell):
+
+```powershell
+$env:MONGODB_URI = "mongodb+srv://<user>:<pass>@<cluster>/?retryWrites=true&w=majority"; npm start
+```
+
+If `MONGODB_URI` is not set, the API returns `503` and the app continues to operate offline against `localStorage`.
+
+## Deploying backend on Render (MongoDB Atlas)
+
+If you host the Express server on Render and your database is MongoDB Atlas, use these settings.
+
+Environment variables (Render → your service → Environment):
+
+- `MONGODB_URI` = your Atlas SRV URI, for example:
+	- `mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/drawercount?retryWrites=true&w=majority`
+- `MONGODB_DB` = `drawercount`
+- `MONGODB_TLS` = `true`
+- Optional: `API_BASE` = your Render service URL + `/api` (e.g., `https://your-service.onrender.com/api`)
+
+Notes for Atlas:
+- Atlas uses public certificate authorities; you do NOT need to provide a custom CA for Atlas. Leave the `MONGODB_TLS_CA_*` variables unset.
+- Prefer the `mongodb+srv://` URI. If you must use `mongodb://` hosts, ensure `tls=true` is present in the URI or keep `MONGODB_TLS=true` set.
+- Do not use `MONGODB_TLS_INSECURE` in production. It’s only for short-term diagnostics.
+
+Render service basics:
+- Service type: a standard Node web service works fine.
+- Start command: `npm start` (which runs `node server.js`).
+
+Atlas network access:
+- In Atlas → Network Access, allow your Render service’s outbound IPs, or temporarily allow `0.0.0.0/0` to validate connectivity.
+- Ensure your Atlas database user has access to the `drawercount` database referenced by the URI.
+
+Verify after deploy:
+- Check logs for: `Server listening on http://localhost:PORT`.
+- Open: `https://your-service.onrender.com/api/health` → expect `{ ok: true, db: { configured: true, connected: true } }`.
+- The app should load at the root URL, and API calls to `/api/*` should succeed.
+
+Troubleshooting TLS errors:
+- If you see TLS handshake errors, first confirm `MONGODB_TLS=true` and that you’re using the Atlas SRV URI.
+- Avoid setting any custom CA variables with Atlas. They’re not required and can cause negotiation issues.
+- As a temporary diagnostic, you can set `MONGODB_TLS_INSECURE=true`. If this fixes it, revert it and keep `MONGODB_TLS=true` with the SRV URI.
 

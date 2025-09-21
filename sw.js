@@ -1,5 +1,5 @@
 /* Drawer Count Service Worker */
-const CACHE_VERSION = 'v10';
+const CACHE_VERSION = 'v20';
 const PRECACHE = `precache-${CACHE_VERSION}`;
 const RUNTIME = `runtime-${CACHE_VERSION}`;
 
@@ -31,7 +31,8 @@ const RAW_PRECACHE_URLS = [
   'favicon.ico',
   'browserconfig.xml'
 ];
-const PRECACHE_URLS = RAW_PRECACHE_URLS.map(toScopePath);
+// Map to scope-relative paths and ensure uniqueness to avoid Cache.addAll duplicate request errors
+const PRECACHE_URLS = Array.from(new Set(RAW_PRECACHE_URLS.map(toScopePath)));
 const INDEX_PATH = toScopePath('index.html');
 const ROOT_PATH = toScopePath('.');
 const OFFLINE_PATH = toScopePath('offline.html');
@@ -101,6 +102,23 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // Always bypass cache for API requests; prefer live data
+  if (url.origin === self.location.origin && url.pathname.startsWith(new URL('/api/', self.registration.scope).pathname)) {
+    if (request.method === 'GET' || request.method === 'POST' || request.method === 'PUT' || request.method === 'PATCH' || request.method === 'DELETE') {
+      event.respondWith((async () => {
+        try {
+          const res = await fetch(request);
+          setOffline(false);
+          return res;
+        } catch {
+          setOffline(true);
+          return new Response(JSON.stringify({ offline: true }), { status: 503, headers: { 'Content-Type': 'application/json' } });
+        }
+      })());
+      return;
+    }
+  }
+
   if (request.mode === 'navigate') {
     // Network-first for navigations with scope-aware fallbacks
     event.respondWith(
@@ -130,14 +148,29 @@ self.addEventListener('fetch', (event) => {
   // Static assets: try cache first, then network (scope-aware lookup)
   if (url.origin === self.location.origin) {
     const normalizedPath = url.pathname;
-    const isPrecacheAsset = PRECACHE_URLS.includes(normalizedPath);
+    if (normalizedPath.endsWith('/config.js')) {
+      // Always fetch fresh config
+      event.respondWith((async () => {
+        try {
+          const res = await fetch(request, { cache: 'no-store' });
+          setOffline(false);
+          return res;
+        } catch {
+          setOffline(true);
+          return new Response('', { status: 503 });
+        }
+      })());
+      return;
+    }
+    // Consider query-stripped matches as pre-cacheable
+    const isPrecacheAsset = PRECACHE_URLS.includes(normalizedPath) || PRECACHE_URLS.includes(stripQuery(normalizedPath));
     if (isPrecacheAsset) {
       event.respondWith(
         (async () => {
           const cache = await caches.open(PRECACHE);
           const exact = await cache.match(request);
           if (exact) return exact;
-          const noQuery = await cache.match(new Request(normalizedPath, { cache: 'reload' }));
+          const noQuery = await cache.match(new Request(stripQuery(normalizedPath), { cache: 'reload' }));
           if (noQuery) return noQuery;
           // Network fallback with status tracking
           try {

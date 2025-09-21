@@ -34,7 +34,9 @@
 
     <main class="container">
       <section class="card" aria-live="polite" aria-atomic="true">
-        <drawer-count></drawer-count>
+        <count-panel>
+          <!-- <drawer-count> will be injected by the panel if not present -->
+        </count-panel>
       </section>
     </main>
 
@@ -46,7 +48,9 @@
       <p class="noscript">This app needs JavaScript to run.</p>
     </noscript>
 
-  <script type="module" src="./src/main.js?v=5"></script>
+  <script src="./config.js"></script>
+  <script type="module" src="./src/main.js?v=17"></script>
+  <!-- drawer-count.js still loaded to define the component class used inside the panel -->
   <script type="module" src="./src/drawer-count.js"></script>
   </body>
   </html>
