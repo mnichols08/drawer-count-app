@@ -325,9 +325,9 @@ main.container {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background-position: left 5vh;
+  background-position: center 5vh;
   background-repeat: no-repeat;
-  background-size: cover;
+  background-size: contain;
   opacity: 0;
   transition: opacity 300ms ease;
 }
