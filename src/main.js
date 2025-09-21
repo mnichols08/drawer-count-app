@@ -2409,6 +2409,20 @@ class CountPanel extends HTMLElement {
 
   // --- Event handlers ---
   _onStart() {
+    // If user is viewing a past day, switch the active view to today before starting
+    try {
+      const today = (typeof getTodayKey === 'function') ? getTodayKey() : null;
+      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
+      if (today && key && key !== today) {
+        try { setActiveViewDateKey(today); } catch(_) {}
+        // Load any existing snapshot for today (if present) so user continues where they left off
+        try { restoreDay(today); } catch(_) {}
+        // Ensure editing is unlocked for today
+        try { setDayEditUnlocked(true); } catch(_) {}
+        // Keep header/panel UI in sync with new active date
+        try { const header = document.querySelector('app-header'); applyReadOnlyByActiveDate(header); updateLockButtonUI(header); } catch(_) {}
+      }
+    } catch(_) {}
     this._state.started = true;
     this._state.collapsed = false;
     this._state.completed = false;
