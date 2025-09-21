@@ -1957,10 +1957,20 @@ class NetworkStatus extends HTMLElement {
       this.classList.toggle('online', !offline && !mixed);
     } catch (_) { /* ignore */ }
 
+    // Tooltip logic for mixed state
+    let tooltip = '';
+    if (mixed) {
+      if (cls === 'warn') tooltip = 'Network OK, DB unavailable';
+      else if (cls === 'err') tooltip = 'Network OK, DB error';
+      else tooltip = 'Network OK, DB status unknown';
+    } else if (offline) {
+      tooltip = 'Offline';
+    } else {
+      tooltip = 'Online';
+    }
     this.innerHTML = `
       <span class="dot" aria-hidden="true"></span>
-      <span class="label">${label}</span>
-      <span class="server-badge ${cls}" title="${title}"><span class="icon" aria-hidden="true">🗄️</span><span class="text">${short}</span></span>
+      <span class="label" title="${tooltip}">${label}</span>
     `;
   }
 }
