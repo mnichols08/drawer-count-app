@@ -36,7 +36,7 @@ body {
   /* Image/overlay are applied by JS for random optimized backgrounds */
   /* Keep positioning defaults to match JS-applied image */
   background-repeat: no-repeat, no-repeat;
-  background-position: left 5vh, left 5vh;
+  background-position: center 5vh, center 5vh;
   background-size: cover, contain;
   /* Fix both layers so translucency doesn't scroll away */
   background-attachment: fixed, fixed;
@@ -52,7 +52,7 @@ body {
   z-index: -1; /* behind everything */
   pointer-events: none;
   background-repeat: no-repeat;
-  background-position: left 5vh;
+  background-position: center 5vh;
   background-size: contain;
   background-attachment: fixed;
   opacity: 0;
@@ -94,7 +94,7 @@ body {
   background-color: var(--bg);
   /* Image/overlay are applied by JS for random optimized backgrounds */
   background-repeat: no-repeat, no-repeat;
-  background-position: left 5vh, left 5vh;
+  background-position: center 5vh, center 5vh;
   background-size: cover, contain;
   /* Fix overlay and image to avoid overlay scrolling off-screen */
   background-attachment: fixed, fixed;
