@@ -888,7 +888,6 @@ class AppHeader extends HTMLElement {
           <button class="icon-btn panel-toggle-btn" aria-label="Show/Hide count panel" title="Show/Hide count panel">⬒</button>
           <button class="icon-btn optional-btn" aria-label="Optional fields" title="Optional fields">🧾</button>
           <button class="icon-btn days-btn" aria-label="Daily history" title="Daily history">📅</button>
-          <button class="icon-btn lock-btn" aria-label="Toggle edit lock" title="Toggle edit lock">🔒</button>
           <button class="icon-btn clear-btn" aria-label="Clear inputs" title="Clear inputs">🧹</button>
           <button class="icon-btn settings-btn" aria-label="Settings" title="Settings">⚙️</button>
           <button class="icon-btn theme-toggle" aria-label="Toggle theme" title="Toggle theme">${(document.documentElement.getAttribute('data-theme')||getPreferredTheme())==='dark'?'🌙':'☀️'}</button>
@@ -901,7 +900,6 @@ class AppHeader extends HTMLElement {
               <button class="icon-btn panel-toggle-btn" role="menuitem" aria-label="Show/Hide count panel" title="Show/Hide count panel">⬒</button>
               <button class="icon-btn optional-btn" role="menuitem" aria-label="Optional fields" title="Optional fields">🧾</button>
               <button class="icon-btn days-btn" role="menuitem" aria-label="Daily history" title="Daily history">📅</button>
-              <button class="icon-btn lock-btn" role="menuitem" aria-label="Toggle edit lock" title="Toggle edit lock">🔒</button>
               <button class="icon-btn clear-btn" role="menuitem" aria-label="Clear inputs" title="Clear inputs">🧹</button>
               <button class="icon-btn settings-btn" role="menuitem" aria-label="Settings" title="Settings">⚙️</button>
               <button class="icon-btn theme-toggle" role="menuitem" aria-label="Toggle theme" title="Toggle theme">${(document.documentElement.getAttribute('data-theme')||getPreferredTheme())==='dark'?'🌙':'☀️'}</button>
@@ -922,8 +920,7 @@ class AppHeader extends HTMLElement {
     this.querySelector('.delete-profile-btn')?.addEventListener('click', this._onDeleteProfile);
     this.querySelectorAll('.clear-btn')?.forEach((el) => el.addEventListener('click', this._onClear));
     this.querySelectorAll('.optional-btn')?.forEach((el) => el.addEventListener('click', this._onOptional));
-    this.querySelectorAll('.days-btn')?.forEach((el) => el.addEventListener('click', this._onOpenDays));
-    this.querySelectorAll('.lock-btn')?.forEach((el) => el.addEventListener('click', this._onToggleLock));
+  this.querySelectorAll('.days-btn')?.forEach((el) => el.addEventListener('click', this._onOpenDays));
     // Menu interactions
     this.querySelector('.menu-toggle')?.addEventListener('click', this._onMenuToggle);
   window.addEventListener('keydown', this._onWindowKey);
@@ -1771,14 +1768,16 @@ class CountPanel extends HTMLElement {
         <div class="panel-actions">
           <button class="start-btn" type="button">Start count</button>
           <button class="toggle-btn" type="button" aria-expanded="false">Show</button>
+          <button class="lock-btn" type="button" aria-label="Toggle edit lock" title="Toggle edit lock">🔒</button>
           <button class="complete-btn" type="button">Mark complete</button>
           <button class="reopen-btn" type="button">Reopen</button>
+          <button class="cancel-btn" type="button">Cancel</button>
         </div>
       </div>
       <div class="panel-body" aria-hidden="true"></div>
       <div class="panel-summary" aria-hidden="true" hidden></div>
       <p class="hint done-hint" hidden>Completed for this day. Tap Reopen to edit.</p>
-      <p class="hint lock-hint" hidden>Editing is locked for this saved day. To make changes, click the lock button (🔒) in the header to unlock.</p>
+      <p class="hint lock-hint" hidden>Editing is locked for this saved day. To make changes, click the lock button (🔒) in this card to unlock.</p>
     `;
   }
 
@@ -1788,8 +1787,10 @@ class CountPanel extends HTMLElement {
     this._els.actions = this.querySelector('.panel-actions');
     this._els.start = this.querySelector('.start-btn');
     this._els.toggle = this.querySelector('.toggle-btn');
+    this._els.lock = this.querySelector('.lock-btn');
     this._els.complete = this.querySelector('.complete-btn');
     this._els.reopen = this.querySelector('.reopen-btn');
+    this._els.cancel = this.querySelector('.cancel-btn');
     this._els.body = this.querySelector('.panel-body');
     this._els.doneHint = this.querySelector('.done-hint');
     this._els.summary = this.querySelector('.panel-summary');
@@ -1799,8 +1800,10 @@ class CountPanel extends HTMLElement {
   _bind() {
     this._els.start.addEventListener('click', this._onStart);
     this._els.toggle.addEventListener('click', this._onToggle);
+    this._els.lock.addEventListener('click', this._onToggleLock.bind(this));
     this._els.complete.addEventListener('click', this._onComplete);
     this._els.reopen.addEventListener('click', this._onReopen);
+    this._els.cancel.addEventListener('click', this._onCancel.bind(this));
   }
 
   // --- Persistence helpers (local to this component) ---
@@ -1893,9 +1896,13 @@ class CountPanel extends HTMLElement {
     // Buttons visibility
   this._els.start.hidden = !!started;
   this._els.toggle.hidden = !started; // only makes sense after start
+  // Lock button visible when not today (to reflect lock state) and after start; still show for today to communicate state
+  this._els.lock.hidden = !started;
   // Hide save/complete when read-only (nothing to save)
   this._els.complete.hidden = !started || !!completed || readOnly;
     this._els.reopen.hidden = !completed;
+    // Show Cancel when started and currently expanded (provides a quick collapse)
+    this._els.cancel.hidden = !started || !!this._state.collapsed;
 
   // Toggle labels/ARIA
     this._els.toggle.textContent = collapsed ? 'Show' : 'Hide';
@@ -1925,6 +1932,38 @@ class CountPanel extends HTMLElement {
     // Hints
     this._els.doneHint.hidden = !completed;
     if (this._els.lockHint) this._els.lockHint.hidden = !(started && !completed && readOnly);
+    // Keep lock icon/title in sync
+    try { updateLockButtonUI(this); } catch(_) {}
+  }
+
+  _onCancel() {
+    if (!this._state.started) return;
+    this._state.collapsed = true;
+    this._savePersisted({ collapsed: true, started: this._state.started });
+    this._refresh();
+  }
+
+  async _onToggleLock() {
+    try {
+      const today = getTodayKey();
+      const key = getActiveViewDateKey();
+      if (key === today) { toast('Today is always editable', { type: 'info', duration: 1400 }); return; }
+      const unlocked = isDayEditUnlocked();
+      if (!unlocked) {
+        const modal = getUnlockConfirmModal();
+        const ok = await modal.open(key);
+        if (!ok) return;
+        setDayEditUnlocked(true);
+        toast('Editing unlocked for this day', { type: 'info', duration: 1600 });
+      } else {
+        setDayEditUnlocked(false);
+        toast('Editing locked for this day', { type: 'info', duration: 1600 });
+      }
+      // Apply read-only and sync icons/titles
+      try { const header = document.querySelector('app-header'); applyReadOnlyByActiveDate(header); } catch(_) {}
+      try { updateLockButtonUI(this); } catch(_) {}
+      this._refresh();
+    } catch(_) {}
   }
 
   _expandBody(animate = true) { this._expandEl(this._els.body, animate); }
@@ -2391,13 +2430,24 @@ function applyReadOnlyByActiveDate(headerEl) {
     updateLockButtonUI(headerEl);
   } catch(_) {}
 }
-function updateLockButtonUI(headerEl) {
+function updateLockButtonUI(scopeEl) {
   try {
-    const btns = headerEl ? headerEl.querySelectorAll('.lock-btn') : document.querySelectorAll('app-header .lock-btn');
     const key = getActiveViewDateKey(); const today = getTodayKey();
     const isToday = key === today; const unlocked = isDayEditUnlocked();
     const title = isToday ? 'Today is always editable' : (unlocked ? 'Editing unlocked (tap to lock)' : 'Editing locked (tap to unlock)');
-    btns.forEach((b) => { b.title = title; b.setAttribute('aria-label', title); });
+    // Gather potential lock buttons from header (legacy) and the count panel
+    const nodes = new Set();
+    const addAll = (nodeList) => { nodeList && nodeList.forEach?.((n)=>nodes.add(n)); };
+    if (scopeEl) addAll(scopeEl.querySelectorAll?.('.lock-btn') || []);
+    addAll(document.querySelectorAll('count-panel .lock-btn'));
+    addAll(document.querySelectorAll('app-header .lock-btn'));
+    nodes.forEach((b) => {
+      try {
+        b.title = title; b.setAttribute('aria-label', title);
+        // Toggle icon glyph to match state
+        b.textContent = isToday ? '🔓' : (unlocked ? '🔓' : '🔒');
+      } catch(_) {}
+    });
   } catch(_) {}
 }
 
