@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.2.10 - 2025-09-22
+### Build/Dev Tooling
+- Enhanced `scripts/bump-sw-cache.js`:
+	- Updates versions across `sw.js` (`CACHE_VERSION`), `index.html` and `offline.html` (`?v=X.Y.Z`), `package.json` (`version`), and `package-lock.json` (both top-level `version` and `packages[""]?.version`).
+	- Supports bump types: `--major`, `--minor`, and `--patch` (default), plus explicit `--set X.Y.Z`.
+	- Git operations enabled by default: creates a release commit and annotated tag (e.g., `vX.Y.Z`) with message `chore(release): bump to vX.Y.Z`.
+	- Opt-outs and extras: `--no-commit` (tag-only), `--no-git` (skip all git ops), `--push` (push tags and commit if created), and `--force-tag` (overwrite existing tag).
+	- Dry run preview: `--dry` prints what would change without modifying files or git state.
+
+### Scripts
+- Added release convenience scripts in `package.json`:
+	- `release:patch` → Patch bump, commit + tag.
+	- `release:minor` → Minor bump, commit + tag.
+	- `release:major` → Major bump, commit + tag.
+	- `release:patch:push` → Patch bump, commit + tag, then push.
+	- `release:tag-only` → Tag-only (no commit).
+
 ## v0.2.9 - 2025-09-21
 ### SEO & Social Sharing
 - Added canonical URL, author, `robots`, and `color-scheme` meta to `index.html`.
