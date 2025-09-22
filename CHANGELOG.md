@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.2.6 - 2025-09-21
+### UI / Accessibility
+- Onboarding tour backdrop no longer blurs the page. This keeps the header and background crisp and readable during the tour.
+- While the tour is open, the header menu’s backdrop blur is temporarily disabled for clarity; normal blur effects return after the tour closes.
+
+### Developer Notes
+- Introduced a document-level flag `html[data-tour-open]` that is set during the onboarding tour and removed on close. Components can use this to adjust visual effects when the tour is active.
+
 ## v0.2.5 - 2025-09-21
 ### Calendar Day Picker Restoration & UX
 - Replaced the temporary dropdown with a full calendar modal for picking saved days.

@@ -6,25 +6,33 @@ class OnboardingTour extends HTMLElement {
     this._steps = this._buildSteps();
     this._onKey = this._onKey.bind(this);
     this._onReflow = this._onReflow.bind(this);
+    this._onReflowPassive = this._onReflowPassive.bind(this);
+    this._raf = 0;
   }
 
   connectedCallback() { this._render(); }
-  disconnectedCallback() { window.removeEventListener('keydown', this._onKey); }
+  disconnectedCallback() {
+    window.removeEventListener('keydown', this._onKey);
+    window.removeEventListener('scroll', this._onReflow, true);
+    window.removeEventListener('resize', this._onReflow, true);
+  }
 
   open(startAt = 0) {
     this._idx = Math.min(Math.max(Number(startAt) || 0, 0), this._steps.length - 1);
     this.setAttribute('open', '');
+    try { document.documentElement.setAttribute('data-tour-open', ''); } catch(_) {}
     this._render();
     setTimeout(() => { try { this._shadow.querySelector('.tour dialog, .tour [tabindex]')?.focus(); } catch(_) {} }, 0);
     window.addEventListener('keydown', this._onKey);
-    window.addEventListener('scroll', this._onReflow, true);
-    window.addEventListener('resize', this._onReflow, true);
+    window.addEventListener('scroll', this._onReflowPassive, { capture: true, passive: true });
+    window.addEventListener('resize', this._onReflowPassive, { capture: true, passive: true });
   }
   close() {
     this.removeAttribute('open');
+    try { document.documentElement.removeAttribute('data-tour-open'); } catch(_) {}
     window.removeEventListener('keydown', this._onKey);
-    window.removeEventListener('scroll', this._onReflow, true);
-    window.removeEventListener('resize', this._onReflow, true);
+    window.removeEventListener('scroll', this._onReflowPassive, { capture: true, passive: true });
+    window.removeEventListener('resize', this._onReflowPassive, { capture: true, passive: true });
   }
   next() { if (this._idx < this._steps.length - 1) { this._idx++; this._updateStep(); } else { this._done(); } }
   prev() { if (this._idx > 0) { this._idx--; this._updateStep(); } }
@@ -95,7 +103,7 @@ class OnboardingTour extends HTMLElement {
       <style>
         :host { display: none; }
         :host([open]) { display: block; }
-        .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(3px); z-index: 1000; }
+        .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 1000; }
         .spotlight { position: fixed; z-index: 1001; pointer-events: none; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0,0,0,.55), 0 0 0 2px var(--accent, #5aa0ff) inset; transition: all 120ms ease; }
         .tour { position: fixed; inset: 6% auto auto 50%; transform: translateX(-50%);
           max-width: min(720px, 95vw); background: var(--panel-bg, var(--card, #1c2541)); color: var(--panel-fg, var(--fg, #e0e6ff));
@@ -136,16 +144,14 @@ class OnboardingTour extends HTMLElement {
             <button class="btn primary next" aria-label="${idx===total-1?'Finish':'Next'}">${idx===total-1?'Done':'Next'}</button>
           </div>
         </div>
-      </div>
-    `;
+        `;
+    // Wire up event listeners after (re)rendering
     this._wire();
-    // Adjust backdrop when spotlight is active
     const hasAnchor = !!(this._steps[this._idx]?.anchor);
     const backdrop = this._shadow.querySelector('.backdrop');
     if (backdrop) backdrop.style.background = hasAnchor ? 'transparent' : 'rgba(0,0,0,.5)';
     this._updateSpotlight();
   }
-
   _updateStep() { this._render(); }
 
   _wire() {
@@ -158,20 +164,26 @@ class OnboardingTour extends HTMLElement {
     // Keep spotlight positioned
     this._onReflow();
   }
-
-  _onReflow() { this._updateSpotlight(); }
-
   _updateSpotlight() {
     try {
       const step = this._steps[this._idx] || {};
       const sel = step.anchor;
       const spot = this._shadow.querySelector('.spotlight');
+      const backdrop = this._shadow.querySelector('.backdrop');
       if (!spot) return;
-      if (!sel) { spot.setAttribute('hidden', ''); return; }
+      if (!sel) {
+        spot.setAttribute('hidden', '');
+        if (backdrop) backdrop.style.background = 'rgba(0,0,0,.5)';
+        return;
+      }
       const el = document.querySelector(sel);
-      if (!el || !el.getBoundingClientRect) { spot.setAttribute('hidden', ''); return; }
+      if (!el || !el.getBoundingClientRect) {
+        spot.setAttribute('hidden', '');
+        if (backdrop) backdrop.style.background = 'rgba(0,0,0,.5)';
+        return;
+      }
       // Ensure it’s visible
-  try { el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'center' }); } catch (_) {}
+      try { el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'center' }); } catch (_) {}
       const r = el.getBoundingClientRect();
       const pad = 6;
       const top = Math.max(0, r.top - pad);
@@ -183,9 +195,24 @@ class OnboardingTour extends HTMLElement {
       spot.style.width = `${Math.round(width)}px`;
       spot.style.height = `${Math.round(height)}px`;
       spot.removeAttribute('hidden');
+      if (backdrop) backdrop.style.background = 'transparent';
     } catch (_) {
-      try { this._shadow.querySelector('.spotlight')?.setAttribute('hidden', ''); } catch(__) {}
+      try {
+        this._shadow.querySelector('.spotlight')?.setAttribute('hidden', '');
+        const backdrop = this._shadow.querySelector('.backdrop');
+        if (backdrop) backdrop.style.background = 'rgba(0,0,0,.5)';
+      } catch(__) {}
     }
+  }
+
+  _onReflow() { this._updateSpotlight(); }
+
+  _onReflowPassive() {
+    if (this._raf) return;
+    this._raf = requestAnimationFrame(() => {
+      this._raf = 0;
+      this._updateSpotlight();
+    });
   }
 }
 

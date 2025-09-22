@@ -1,18 +1,16 @@
-import { toast } from '../lib/toast.js';
-import { getOnboardingTour } from './onboarding-tour.js';
+import { getOnboardingTour } from "./onboarding-tour.js";
 
 class HelpModal extends HTMLElement {
   constructor() {
     super();
-    this._shadow = this.attachShadow({ mode: 'open' });
+    this._shadow = this.attachShadow({ mode: "open" });
     this._onKeyDown = this._onKeyDown.bind(this);
   }
   connectedCallback() {
-    const content = this.getAttribute('content') || '';
+    const content = this.getAttribute("content") || "";
     this._shadow.innerHTML = `
       <style>
-        :host { display: none; }
-        :host([open]) { display: block; }
+        :host { display: none; }        :host([open]) { display: block; }
         .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(3px); z-index: 1000; }
         .dialog { position: fixed; inset: 10% auto auto 50%; transform: translateX(-50%);
          max-width: min(680px, 92vw); background: var(--panel-bg, var(--card, #1c2541)); color: var(--panel-fg, var(--fg, #e0e6ff));
@@ -49,25 +47,53 @@ class HelpModal extends HTMLElement {
         </div>
       </div>
     `;
-    this._shadow.querySelector('.backdrop')?.addEventListener('click', () => this.close());
-    this._shadow.querySelector('.close')?.addEventListener('click', () => this.close());
-    this._shadow.querySelector('.walkthrough')?.addEventListener('click', (e) => {
-      try { e?.preventDefault?.(); } catch(_) {}
-      try { this.close(); } catch(_) {}
-      try { setTimeout(() => { try { getOnboardingTour().open(0); } catch(_) {} }, 120); } catch(_) {}
-    });
-    window.addEventListener('keydown', this._onKeyDown);
+    this._shadow
+      .querySelector(".backdrop")
+      ?.addEventListener("click", () => this.close());
+    this._shadow
+      .querySelector(".close")
+      ?.addEventListener("click", () => this.close());
+    this._shadow
+      .querySelector(".walkthrough")
+      ?.addEventListener("click", (e) => {
+        try {
+          e?.preventDefault?.();
+        } catch (_) {}
+        try {
+          this.close();
+        } catch (_) {}
+        try {
+          setTimeout(() => {
+            try {
+              getOnboardingTour().open(0);
+            } catch (_) {}
+          }, 120);
+        } catch (_) {}
+      });
+    window.addEventListener("keydown", this._onKeyDown);
   }
-  disconnectedCallback() { window.removeEventListener('keydown', this._onKeyDown); }
-  open() { this.setAttribute('open', ''); }
-  close() { this.removeAttribute('open'); }
-  _onKeyDown(e) { if (e.key === 'Escape') this.close(); }
+  disconnectedCallback() {
+    window.removeEventListener("keydown", this._onKeyDown);
+  }
+  open() {
+    this.setAttribute("open", "");
+  }
+  close() {
+    this.removeAttribute("open");
+  }
+  _onKeyDown(e) {
+    if (e.key === "Escape") this.close();
+  }
 }
 
-if (!customElements.get('help-modal')) customElements.define('help-modal', HelpModal);
+if (!customElements.get("help-modal"))
+  customElements.define("help-modal", HelpModal);
 
 export function getHelpModal() {
-  let m = document.querySelector('help-modal');
-  if (!m) { m = document.createElement('help-modal'); document.body.appendChild(m); }
+  let m = document.querySelector("help-modal");
+  if (!m) {
+    m = document.createElement("help-modal");
+    document.body.appendChild(m);
+  }
   return m;
 }
