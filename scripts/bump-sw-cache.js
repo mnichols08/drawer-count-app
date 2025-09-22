@@ -6,15 +6,21 @@
 // - package-lock.json: version (X.Y.Z) and packages[""]?.version
 // Supports optional 'v' prefix input; preserves sw.js prefix.
 // Usage: node scripts/bump-sw-cache.js [--dry] [--set X.Y.Z|vX.Y.Z] [--major|--minor|--patch]
-//                                     [--git] [--commit] [--force-tag] [--push]
+//                                     [--no-git] [--no-commit] [--force-tag] [--push]
+// Notes:
+// - Git tagging is ON by default (tag-only). Use --no-git to disable.
+// - By default, a release commit will be created; use --no-commit to skip committing before tagging.
+//   --push pushes tags (and commit if created).
 
 const fs = require('fs');
 const path = require('path');
 const cp = require('child_process');
 
 const dry = process.argv.includes('--dry');
-const doGit = process.argv.includes('--git') || process.argv.includes('--push');
-const commitChanges = process.argv.includes('--commit') && !process.argv.includes('--no-commit');
+// Git tagging is enabled by default unless explicitly disabled; --push always implies git operations.
+const doGit = process.argv.includes('--push') || process.argv.includes('--git') || !process.argv.includes('--no-git');
+// Commit by default unless explicitly disabled
+const commitChanges = !process.argv.includes('--no-commit');
 const forceTag = process.argv.includes('--force-tag');
 const doPush = process.argv.includes('--push');
 // bump type flags (default patch)
@@ -132,7 +138,7 @@ function run() {
     }
     if (doGit) {
       const tagName = `v${nextNumeric}`;
-      console.log(`[dry] git: would ${commitChanges ? 'commit changes and ' : ''}create tag ${tagName}${forceTag ? ' (force)' : ''}${doPush ? ' and push' : ''}.`);
+  console.log(`[dry] git: would ${commitChanges ? 'commit changes and ' : ''}create tag ${tagName}${forceTag ? ' (force)' : ''}${doPush ? ' and push' : ''}.`);
       if (!commitChanges) console.log('[dry] note: tag will point to current HEAD (uncommitted file changes will not be included).');
     }
     return;
@@ -220,7 +226,7 @@ function run() {
         }
         // Commit; if nothing to commit, this will throw — catch and continue
         try {
-          safeExec(`git commit -m "chore(release): ${tagName}"`);
+          safeExec(`git commit -m "chore(release): bump to ${tagName}"`);
           console.log('Created release commit.');
         } catch (e) {
           console.log('No changes to commit or commit failed; proceeding to tag.');
