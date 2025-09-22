@@ -185,8 +185,8 @@ class AppHeader extends HTMLElement {
       if (!picked) return;
       setActiveViewDateKey(picked);
       const ok = restoreDay(picked);
-  const header = this;
-  applyReadOnlyByActiveDate(header);
+      const header = this;
+      applyReadOnlyByActiveDate(header);
       try {
         const today = getTodayKey();
         if (picked !== today) { document.querySelector('count-panel')?.showCompletedSummary?.(); }

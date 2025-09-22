@@ -12,6 +12,10 @@
 - Enhanced count-panel component to listen for stepper completion events and trigger existing completion logic.
 - Maintained all existing safeguards and state management for consistent behavior.
 
+### Bugfixes
+- **Fixed calendar date selection**: Calendar modal now properly returns selected dates instead of null, resolving issue where clicking calendar dates wouldn't change the active view.
+- **Fixed seeding balance calculations**: Developer seed functions now generate perfectly balanced test data (balance = $0.00) using the correct mathematical formula.
+
 ## v0.2.20 - 2025-09-22
 ### Mobile UX: Enhanced Stepper Navigation & Per-Profile Preferences
 - **Fixed mobile stepper navigation**: Next/Prev buttons now reliably advance past entire slip/check groups instead of getting stuck on individual dynamic rows.

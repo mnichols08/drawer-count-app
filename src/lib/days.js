@@ -18,8 +18,71 @@ export function seedPreviousDays(count, options = {}) {
       const { data, pid, entry } = _getActiveDaysEntry(true);
       if (!overwrite && entry.days[key]) continue;
 
-      const base = { drawer: randomFloat(200, 800), roa: randomFloat(50, 200), slips: randomFloat(20, 300), checks: randomFloat(0, 200), hundreds: randomInt(0, 10), fifties: randomInt(0, 10), twenties: randomInt(0, 20), tens: randomInt(0, 20), fives: randomInt(0, 20), dollars: randomInt(0, 50), quarters: randomInt(0, 40), dimes: randomInt(0, 50), nickels: randomInt(0, 50), pennies: randomInt(0, 100), quarterrolls: randomInt(0, 4), dimerolls: randomInt(0, 4), nickelrolls: randomInt(0, 4), pennyrolls: randomInt(0, 4) };
-      const extra = { slips: Array.from({length: randomInt(0, 3)}, () => randomFloat(10, 100)), checks: Array.from({length: randomInt(0, 2)}, () => randomFloat(10, 100)) };
+      // Generate base drawer and ROA amounts
+      const drawer = randomFloat(200, 800);
+      const roa = randomFloat(50, 200);
+      
+      // For a balanced drawer: total - roa - drawer - 150 = 0
+      // So total should equal: roa + drawer + 150
+      const targetTotal = roa + drawer + 150;
+      
+      // Generate smaller, more reasonable cash amounts
+      const hundreds = randomInt(0, Math.min(5, Math.floor(targetTotal / 200)));
+      const cashAfterHundreds = targetTotal - (hundreds * 100);
+      const fifties = randomInt(0, Math.min(8, Math.floor(cashAfterHundreds / 100))); 
+      const cashAfterFifties = cashAfterHundreds - (fifties * 50);
+      const twenties = randomInt(0, Math.min(15, Math.floor(cashAfterFifties / 40)));
+      const tens = randomInt(0, Math.min(20, Math.floor(cashAfterFifties / 20)));
+      const fives = randomInt(0, Math.min(25, Math.floor(cashAfterFifties / 10)));
+      const dollars = randomInt(0, Math.min(40, Math.floor(cashAfterFifties / 5)));
+      const quarters = randomInt(0, 20);
+      const dimes = randomInt(0, 30);
+      const nickels = randomInt(0, 30);
+      const pennies = randomInt(0, 50);
+      const quarterrolls = randomInt(0, 2);
+      const dimerolls = randomInt(0, 2);
+      const nickelrolls = randomInt(0, 2);
+      const pennyrolls = randomInt(0, 2);
+      
+      // Calculate cash total from denominations
+      const cashTotal = (hundreds * 100) + (fifties * 50) + (twenties * 20) + (tens * 10) + 
+                       (fives * 5) + (dollars * 1) + (quarters * 0.25) + (dimes * 0.10) + 
+                       (nickels * 0.05) + (pennies * 0.01) + (quarterrolls * 10) + 
+                       (dimerolls * 5) + (nickelrolls * 2) + (pennyrolls * 0.50);
+      
+      // Generate smaller extra slips and checks
+      const extraSlipCount = randomInt(0, 2);
+      const extraCheckCount = randomInt(0, 1);
+      const maxExtraAmount = Math.max(20, (targetTotal - cashTotal) * 0.3); // Limit extra to 30% of remaining
+      
+      const extra = { 
+        slips: Array.from({length: extraSlipCount}, () => randomFloat(5, Math.min(50, maxExtraAmount / Math.max(1, extraSlipCount)))), 
+        checks: Array.from({length: extraCheckCount}, () => randomFloat(5, Math.min(50, maxExtraAmount / Math.max(1, extraCheckCount)))) 
+      };
+      
+      // Calculate extra total
+      const extraSlipsTotal = extra.slips.reduce((sum, val) => sum + val, 0);
+      const extraChecksTotal = extra.checks.reduce((sum, val) => sum + val, 0);
+      const extraTotal = extraSlipsTotal + extraChecksTotal;
+      
+      // Calculate exactly what we need for base slips and checks
+      const neededForBalance = targetTotal - cashTotal - extraTotal;
+      
+      // Distribute the needed amount between base slips and checks
+      // If neededForBalance is negative, we need to set minimal amounts
+      let slipsAmount, checksAmount;
+      if (neededForBalance >= 0) {
+        const slipsPortion = randomFloat(0.4, 0.6); // 40-60% to slips
+        slipsAmount = neededForBalance * slipsPortion;
+        checksAmount = neededForBalance - slipsAmount;
+      } else {
+        // When cash already exceeds target, set minimal slip/check amounts
+        slipsAmount = randomFloat(10, 30);
+        checksAmount = randomFloat(5, 20);
+      }
+      
+      const base = { drawer, roa, slips: slipsAmount, checks: checksAmount, hundreds, fifties, twenties, tens, fives, dollars, quarters, dimes, nickels, pennies, quarterrolls, dimerolls, nickelrolls, pennyrolls };
+      
       const charges = randomFloat(0, 50);
       const netSales = randomFloat(80, 550);
       const totalReceived = randomFloat(100, 600);
@@ -27,7 +90,9 @@ export function seedPreviousDays(count, options = {}) {
       const grossProfitPercent = randomFloat(5, 30);
       const numInvoices = randomInt(1, 20);
       const numVoids = randomInt(0, 3);
-      let balance = netSales - charges + base.drawer + base.roa; balance = Math.max(0, Math.min(balance, 1000));
+      
+      // The balance should now be close to 0 (within rounding tolerance)
+      const balance = 0;
 
       const dummyState = {
         version: 2,
@@ -45,5 +110,7 @@ export function seedPreviousDays(count, options = {}) {
       seededKeys.push(key);
     }
     return seededKeys;
-  } catch (e) { return seededKeys; }
+  } catch (e) { 
+    return seededKeys; 
+  }
 }

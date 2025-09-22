@@ -12,6 +12,7 @@ class DayPickerModal extends HTMLElement {
     this._today = this._fmt(new Date());
     this._ym = { y: new Date().getFullYear(), m: new Date().getMonth() }; // m: 0-11
     this._minYM = null; this._maxYM = null;
+    this._isConfirming = false; // Flag to prevent cancel during confirm
   }
 
   connectedCallback() { this._render(); window.addEventListener('keydown', this._onKeyDown); }
@@ -83,7 +84,12 @@ class DayPickerModal extends HTMLElement {
       gridDOW: this._shadow.querySelector('.grid-dow'),
       gridDays: this._shadow.querySelector('.grid-days'),
     };
-    this._els.modal?.addEventListener('modal-close', () => this._cancel());
+    this._els.modal?.addEventListener('modal-close', () => {
+      // Don't cancel if we're in the middle of confirming
+      if (!this._isConfirming) {
+        this._cancel();
+      }
+    });
     this._els.cancel?.addEventListener('click', () => this._cancel());
   // no explicit OK button; clicking a saved day loads immediately
     this._els.prev?.addEventListener('click', () => this._nav(-1));
@@ -187,12 +193,25 @@ class DayPickerModal extends HTMLElement {
     return new Promise((resolve) => { this._resolver = resolve; });
   }
 
-  close() { this._els?.modal?.hide('programmatic'); this.removeAttribute('open'); }
-  _cancel() { this.close(); this._resolve(null); }
+  close() { 
+    this._els?.modal?.hide('programmatic'); 
+    this.removeAttribute('open'); 
+  }
+  _cancel() { 
+    this._isConfirming = false; // Reset flag
+    this.close(); 
+    this._resolve(null); 
+  }
   _confirm() {
     const sel = this._selected || '';
-    if (!this._allowed.has(sel)) { toast('No save for this day', { type: 'warning', duration: 1500 }); return; }
-    this.close(); this._resolve(sel);
+    if (!this._allowed.has(sel)) { 
+      toast('No save for this day', { type: 'warning', duration: 1500 }); 
+      return; 
+    }
+    this._isConfirming = true; // Set flag to prevent cancel
+    this.close(); 
+    this._resolve(sel);
+    this._isConfirming = false; // Reset flag after resolve
   }
   _resolve(v) { const r = this._resolver; this._resolver = null; if (r) r(v); }
   _onKeyDown(e) { if (!this.hasAttribute('open')) return; if (e.key === 'Escape') this._cancel(); }
