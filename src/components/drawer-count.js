@@ -242,7 +242,7 @@ class DrawerCount extends HTMLElement {
         }
   /* Subtle style for dynamic row labels (Slip/Check) shown to the left of input */
   .dyn-label { color: var(--muted, #9aa3b2); margin-right: .35rem; font-size: .9rem; }
-  button { background: var(--button-bg-color, #222222f0); color: var(--button-color, green); }
+  button { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); }
         button.rem { color: var(--button-rem-color, red); margin-left: .35rem; }
   /* Prefix currency only for value spans inside main content */
   .wrap span:before { content: '$'; }
@@ -275,8 +275,8 @@ class DrawerCount extends HTMLElement {
           .input label { font-size: 1rem; }
           .input input { width: 100%; font-size: 16px; min-height: 40px; padding: 0.2rem 0.4rem; }
           .input button { align-self: stretch; min-height: 40px; padding: 0 .6rem; border-radius: .25rem; }
-          .mobile-controls { display: flex; position: sticky; bottom: 0; gap: .5rem; padding: .5rem; background: var(--panel-bg, #0b1022e0); backdrop-filter: blur(2px); z-index: 2; align-items: center; justify-content: space-between; }
-          .mobile-controls .prev, .mobile-controls .next { min-height: 40px; padding: 0 .9rem; border-radius: .35rem; background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); }
+          .mobile-controls { display: flex; position: sticky; bottom: 0; gap: .5rem; padding: .5rem; background: var(--panel-bg, rgba(11,16,34,0.9)); backdrop-filter: blur(6px) saturate(120%); z-index: 2; align-items: center; justify-content: space-between; border-top: 1px solid var(--border-color, #2a345a); }
+          .mobile-controls .prev, .mobile-controls .next { min-height: 40px; padding: 0 .9rem; border-radius: .35rem; background: var(--button-bg-color, #222222f0); color: var(--button-color, #0b132b); border: 1px solid var(--border-color, #2a345a); }
           .mobile-controls .step-indicator { flex: 1; text-align: center; color: var(--muted, #9aa3b2); }
         }
       </style>
@@ -463,9 +463,9 @@ class DrawerCount extends HTMLElement {
     $$('.input').forEach((block) => block.addEventListener('input', this._onInputEvent));
 
     // Keyboard/focus behavior
-    const mobileMode = this._shouldUseMobileStepper() || this._isTouchDevice();
+  const mobileMode = this._shouldUseMobileStepper() || this._isTouchDevice();
     if (mobileMode) {
-      this._bindMobileInputKeys?.();
+  this._bindMobileInputKeys?.();
     } else {
       // On desktop: preserve original behavior — Tab to move, Enter on base Slip/Check adds a row
       const slip = $('#slips input');
@@ -770,7 +770,7 @@ class DrawerCount extends HTMLElement {
       inputs.forEach((inp) => {
         if (inp.dataset.mobkeys === '1') return; // avoid double-binding
         const onFocus = () => { try { inp.select?.(); inp.scrollIntoView?.({ block: 'center', behavior: 'smooth' }); } catch(_) {} };
-        const onKey = (e) => {
+        const onKeyDown = (e) => {
           const key = e.key || e.code;
           if (key === 'Enter' || e.keyCode === 13) {
             e.preventDefault();
@@ -787,7 +787,12 @@ class DrawerCount extends HTMLElement {
               this._newInput(isSlipBase ? '#checks' : '#hundreds');
               return;
             }
-            focusIdx(nextIdx);
+            if (idx === fresh.length - 1 && dir > 0) {
+              // On the last input, blur to dismiss keyboard on mobile
+              try { fresh[idx].blur(); } catch(_) {}
+            } else {
+              focusIdx(nextIdx);
+            }
           } else if (key === 'ArrowDown') {
             e.preventDefault();
             const fresh = Array.from(this._root.querySelectorAll('.input input, .optional-section input'));
@@ -801,9 +806,8 @@ class DrawerCount extends HTMLElement {
           }
         };
         inp.addEventListener('focus', onFocus);
-        inp.addEventListener('keydown', onKey);
-        inp.addEventListener('keypress', onKey);
-        inp.addEventListener('keyup', onKey);
+        // Use only keydown to avoid duplicate handling on some mobile browsers
+        inp.addEventListener('keydown', onKeyDown, { passive: false });
         inp.dataset.mobkeys = '1';
       });
     } catch(_) {}

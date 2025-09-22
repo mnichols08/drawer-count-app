@@ -158,12 +158,16 @@ drawer-count {
   --button-bg-color: var(--btn);
   --button-color: #10b981;
   --button-rem-color: #ef4444;
+  /* Background for mobile stepper bar within shadow DOM */
+  --panel-bg: var(--card);
 }
 :root[data-theme="light"] drawer-count {
   --input-bg-color: #f3f6ff;
   --button-bg-color: #dbe4ff;
   --button-color: #0b132b; /* dark text for contrast on light button */
   --button-rem-color: #b91c1c;
+  /* Light-themed panel background for stepper */
+  --panel-bg: var(--card);
 }
 
 input[type="number"] {
