@@ -23,12 +23,12 @@ export function ensureProfilesInitialized() {
     let changed = false;
     const now = Date.now();
     if (!data.profiles || typeof data.profiles !== 'object') { data.profiles = {}; changed = true; }
-    if (Object.keys(data.profiles).length === 0) { data.profiles.default = { name: 'Default', state: null, updatedAt: now }; changed = true; }
+    if (Object.keys(data.profiles).length === 0) { data.profiles.default = { name: 'Default', state: null, updatedAt: now, prefs: {} }; changed = true; }
     if (!data.activeId || !data.profiles[data.activeId]) { data.activeId = 'default'; if (!data.profiles.default) { data.profiles.default = { name: 'Default', state: null, updatedAt: now }; } changed = true; }
     if (changed) { data.updatedAt = now; saveProfilesData(data); return true; }
     return false;
   } catch (_) {
-    try { const now = Date.now(); const init = { profiles: { default: { name: 'Default', state: null, updatedAt: now } }, activeId: 'default', updatedAt: now }; saveProfilesData(init); } catch(_) {}
+    try { const now = Date.now(); const init = { profiles: { default: { name: 'Default', state: null, updatedAt: now, prefs: {} } }, activeId: 'default', updatedAt: now }; saveProfilesData(init); } catch(_) {}
     return true;
   }
 }
@@ -50,12 +50,25 @@ export function restoreActiveProfile() {
   try { const comp = getDrawerComponent(); if (!comp) return false; const d = loadProfilesData(); const id = d.activeId || 'default'; const st = d.profiles?.[id]?.state; if (!st) return false; comp.setState?.(st); return true; } catch(_) { return false; }
 }
 
+// Per-profile preferences
+export function getProfilePrefs() {
+  try { const d = loadProfilesData(); const id = d.activeId || 'default'; const p = d.profiles?.[id] || {}; return p.prefs || {}; } catch(_) { return {}; }
+}
+export function setProfilePrefs(next) {
+  try { const d = loadProfilesData(); const id = d.activeId || 'default'; d.profiles = d.profiles || {}; d.profiles[id] = d.profiles[id] || { name: id, state: null, updatedAt: Date.now() }; d.profiles[id].prefs = { ...(d.profiles[id].prefs||{}), ...(next||{}) }; d.profiles[id].updatedAt = Date.now(); d.updatedAt = Date.now(); saveProfilesData(d); return true; } catch(_) { return false; }
+}
+export function getMobileEnterAddsRow() { try { const p = getProfilePrefs(); return !!p.mobileEnterAddsRow; } catch(_) { return false; } }
+export function setMobileEnterAddsRow(flag) { try { return setProfilePrefs({ mobileEnterAddsRow: !!flag }); } catch(_) { return false; } }
+
+// Expose preference helpers for lazy access in components
+try { Object.assign(window.__DCA_PREFS__ = (window.__DCA_PREFS__||{}), { getMobileEnterAddsRow, setMobileEnterAddsRow }); } catch(_) {}
+
 export function createProfile(name) {
   const d = loadProfilesData(); d.profiles = d.profiles || {};
   const base = (name || 'Profile').toString().trim() || 'Profile';
   const slug = base.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'profile';
   let id = slug; let i = 2; while (d.profiles[id]) { id = `${slug}-${i++}`; }
-  d.profiles[id] = { name: base, state: null, updatedAt: Date.now() }; d.activeId = id; d.updatedAt = Date.now(); saveProfilesData(d); return id;
+  d.profiles[id] = { name: base, state: null, updatedAt: Date.now(), prefs: {} }; d.activeId = id; d.updatedAt = Date.now(); saveProfilesData(d); return id;
 }
 
 export function populateProfilesSelect(headerEl) {

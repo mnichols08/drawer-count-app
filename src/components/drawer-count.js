@@ -20,6 +20,16 @@ class DrawerCount extends HTMLElement {
     this._wire();
     this._bindShortcuts();
     try { this.setReadOnly(false); } catch(_) {}
+    // Cache preference at connect time; can be refreshed if settings change
+    try {
+      const { getMobileEnterAddsRow } = window.__DCA_PREFS__ || {};
+      if (typeof getMobileEnterAddsRow !== 'function') {
+        // lazy import when available
+        import('../lib/persistence.js').then((mod) => { this._mobileEnterAddsRow = !!mod.getMobileEnterAddsRow?.(); }).catch(()=>{});
+      } else {
+        this._mobileEnterAddsRow = !!getMobileEnterAddsRow();
+      }
+    } catch(_) { /* ignore */ }
   }
 
   // Public API: get current drawer data
@@ -772,7 +782,8 @@ class DrawerCount extends HTMLElement {
             const parentId = inp.closest('.input')?.id;
             const isSlipBase = parentId === 'slips';
             const isCheckBase = parentId === 'checks';
-            if (!e.shiftKey && (isSlipBase || isCheckBase) && inp.value !== '') {
+            const allowQuickAdd = !!this._mobileEnterAddsRow;
+            if (!e.shiftKey && allowQuickAdd && (isSlipBase || isCheckBase) && inp.value !== '') {
               this._newInput(isSlipBase ? '#checks' : '#hundreds');
               return;
             }

@@ -3,6 +3,7 @@ import { toast } from '../lib/toast.js';
 import { saveToActiveProfile, restoreActiveProfile, exportProfilesToFile, openImportDialog } from '../lib/persistence.js';
 import { listSavedDaysForActiveProfile, _getActiveDaysEntry, getTodayKey, setDayLabel, setActiveViewDateKey, restoreDay, deleteDay } from '../lib/persistence.js';
 import { getDrawerComponent, updateStatusPill, applyReadOnlyByActiveDate, saveDaysData } from '../lib/persistence.js';
+import { getMobileEnterAddsRow, setMobileEnterAddsRow } from '../lib/persistence.js';
 import './app-modal.js';
 
 class SettingsModal extends HTMLElement {
@@ -75,6 +76,15 @@ class SettingsModal extends HTMLElement {
             </div>
           </div>
           <div class="section">
+            <div class="row" style="align-items: center; gap: 12px;">
+              <div>Preferences</div>
+              <label title="On mobile, pressing Enter on Slips/Checks will add a new row instead of moving to Next">
+                <input type="checkbox" class="pref-enter-adds" />
+                <span>Mobile: Enter adds slip/check row</span>
+              </label>
+            </div>
+          </div>
+          <div class="section">
             <div class="row" style="align-items: start; gap: 12px;">
               <div>Daily History</div>
               <div style="display:flex; gap:8px; flex-wrap: wrap; align-items: center;">
@@ -111,6 +121,7 @@ class SettingsModal extends HTMLElement {
       saveBtn: this._shadow.querySelector('.save-btn'),
       restoreBtn: this._shadow.querySelector('.restore-btn'),
       clearBtn: this._shadow.querySelector('.clear-btn'),
+  prefEnterAdds: this._shadow.querySelector('.pref-enter-adds'),
       daySelect: this._shadow.querySelector('.day-select'),
       dayLoadBtn: this._shadow.querySelector('.day-load-btn'),
       dayDeleteBtn: this._shadow.querySelector('.day-delete-btn'),
@@ -128,7 +139,7 @@ class SettingsModal extends HTMLElement {
     this._els.saveBtn?.addEventListener('click', () => { try { saveToActiveProfile(); const header = document.querySelector('app-header'); updateStatusPill(header); toast('Profile saved', { type: 'success', duration: 2000 }); } catch (_) {} });
     this._els.restoreBtn?.addEventListener('click', () => { try { const ok = restoreActiveProfile(); const header = document.querySelector('app-header'); updateStatusPill(header); toast(ok? 'Profile restored':'No saved state for profile', { type: ok?'success':'warning', duration: 2200 }); } catch (_) { toast('Restore failed', { type: 'error', duration: 2500 }); } });
     this._els.clearBtn?.addEventListener('click', () => { try { const comp = getDrawerComponent(); comp?.reset?.(); const header = document.querySelector('app-header'); updateStatusPill(header); toast('Cleared', { type: 'info', duration: 1500 }); } catch(_){} });
-    this._els.dayLoadBtn?.addEventListener('click', this._onDayLoad);
+  this._els.dayLoadBtn?.addEventListener('click', this._onDayLoad);
     this._els.dayDeleteBtn?.addEventListener('click', this._onDayDelete);
     this._els.daySelect?.addEventListener('change', () => {
       const has = !!this._els.daySelect?.value;
@@ -145,6 +156,8 @@ class SettingsModal extends HTMLElement {
     this._populateDaysSelect();
     if (this._els.dayLoadBtn) this._els.dayLoadBtn.disabled = !this._els.daySelect?.value;
     if (this._els.dayDeleteBtn) this._els.dayDeleteBtn.disabled = !this._els.daySelect?.value;
+  // Initialize preferences
+  try { if (this._els.prefEnterAdds) { this._els.prefEnterAdds.checked = !!getMobileEnterAddsRow(); this._els.prefEnterAdds.addEventListener('change', (e) => { try { setMobileEnterAddsRow(!!e.target.checked); } catch(_) {} }); } } catch(_) {}
   }
   open() { this.setAttribute('open', ''); try { this._populateDaysSelect(); } catch(_) {} this._els?.modal?.show(); }
   close() { this._els?.modal?.hide('programmatic'); this.removeAttribute('open'); }
