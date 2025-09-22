@@ -8,6 +8,7 @@ import { getSettingsModal } from './settings-modal.js';
 import { getNewProfileModal } from './new-profile-modal.js';
 import { getDeleteProfileModal } from './delete-profile-modal.js';
 import { getDayPickerModal } from './day-picker-modal.js';
+import { listSavedDaysForActiveProfile, getActiveViewDateKey } from '../lib/persistence.js';
 
 class AppHeader extends HTMLElement {
   constructor() {
@@ -159,7 +160,26 @@ class AppHeader extends HTMLElement {
   _onProfileChange(e) { try { const id = e.target?.value; if (!id) return; setActiveProfile(id); restoreActiveProfile(); ensureDayResetIfNeeded(this); setActiveViewDateKey(getTodayKey()); applyReadOnlyByActiveDate(this); populateProfilesSelect(this); updateStatusPill(this); toast('Switched profile', { type:'info', duration: 1200}); } catch(_){} }
   async _onNewProfile() { try { const modal = getNewProfileModal(); const name = await modal.open(''); if (!name) return; const id = createProfile(name); setActiveProfile(id); saveToActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); applyReadOnlyByActiveDate(this); toast('Profile created', { type: 'success', duration: 1800 }); } catch(_){} }
   async _onDeleteProfile() { try { const data = loadProfilesData(); const ids = Object.keys(data.profiles||{}); if (ids.length<=1) { toast('Cannot delete last profile', { type:'warning', duration: 2200}); return; } const active = data.activeId; const name = data.profiles[active]?.name || active; const modal = getDeleteProfileModal(); const ok = await modal.open(name); if (!ok) return; delete data.profiles[active]; const nextId = ids.find((x)=>x!==active) || 'default'; data.activeId = nextId; saveProfilesData(data); restoreActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); applyReadOnlyByActiveDate(this); toast('Profile deleted', { type: 'success', duration: 1800}); } catch(_){} }
-  _onOpenDays() { try { const modal = getDayPickerModal(); modal.open(); } catch(_) {} }
+  async _onOpenDays() {
+    try {
+      const days = (listSavedDaysForActiveProfile() || []).map(d => d.date);
+      const selected = getActiveViewDateKey?.() || getTodayKey();
+      const modal = getDayPickerModal();
+      const picked = await modal.open({ days, selected });
+      if (!picked) return;
+      setActiveViewDateKey(picked);
+      const ok = restoreDay(picked);
+      const header = this;
+      updateStatusPill(header);
+      applyReadOnlyByActiveDate(header);
+      try {
+        const today = getTodayKey();
+        if (picked !== today) { document.querySelector('count-panel')?.showCompletedSummary?.(); }
+      } catch(_) {}
+      try { document.querySelector('count-panel')?.refresh?.(); } catch(_) {}
+      toast(ok ? `Loaded ${picked}` : 'Load failed', { type: ok ? 'success' : 'error', duration: 1500 });
+    } catch(_) {}
+  }
 }
 
 if (!customElements.get('app-header')) customElements.define('app-header', AppHeader);
