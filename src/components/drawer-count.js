@@ -215,6 +215,9 @@ class DrawerCount extends HTMLElement {
         const isMutator = b.classList.contains('add-slip') || b.classList.contains('add-check') || b.classList.contains('rem');
         if (isMutator) b.disabled = this._readOnly;
       });
+      // Explicitly disable panel "clear" action when read-only/locked
+      const clearBtn = this._root.querySelector('.clear-btn');
+      if (clearBtn) clearBtn.disabled = this._readOnly;
     } catch (_) { /* ignore */ }
   }
 
@@ -413,6 +416,10 @@ class DrawerCount extends HTMLElement {
 
     // Panel action buttons
     this._root.querySelector('.clear-btn')?.addEventListener('click', () => {
+      if (this._readOnly) {
+        try { toast('Editing is locked for this day', { type: 'warning', duration: 2000 }); } catch(_) {}
+        return;
+      }
       this.reset();
       try { toast('Cleared', { type: 'info', duration: 1500 }); } catch(_) {}
       // focus first input for convenience
