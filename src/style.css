@@ -283,10 +283,7 @@ network-status .server-badge.err .text { color: #fca5a5; }
 
 /* Theme variables and dark mode improvements */
 :root {
-  --panel-bg: rgba(255,255,255,0.85);
-  --panel-fg: #0b132b;
-  --panel-muted: #6b7280;
-  --panel-border: rgba(0,0,0,0.08);
+  /* Buttons within count-panel use these */
   --btn-bg: #0b132b;
   --btn-fg: #ffffff;
   --btn-muted-bg: rgba(11,19,43,0.08);
@@ -294,10 +291,6 @@ network-status .server-badge.err .text { color: #fca5a5; }
 }
 
 [data-theme="dark"] {
-  --panel-bg: rgba(13,17,23,0.85);
-  --panel-fg: #e5e7eb;
-  --panel-muted: #9ca3af;
-  --panel-border: rgba(255,255,255,0.08);
   --btn-bg: #60a5fa;
   --btn-fg: #0b132b;
   --btn-muted-bg: rgba(255,255,255,0.08);
@@ -326,11 +319,11 @@ main.container {
 main.container > .card {
   width: min(900px, 92vw);
   margin-inline: auto;
-  background: var(--panel-bg);
-  color: var(--panel-fg);
+  background: var(--card);
+  color: var(--fg);
   backdrop-filter: saturate(120%) blur(6px);
   -webkit-backdrop-filter: saturate(120%) blur(6px);
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--border);
 }
 
 /* Collapsible count panel */
@@ -347,7 +340,7 @@ main.container > .card {
 .count-panel .panel-actions button {
   padding: 0.4rem 0.65rem;
   border-radius: 8px;
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--border);
   background: var(--btn-muted-bg);
   color: var(--btn-muted-fg);
 }
@@ -408,7 +401,7 @@ main.container > .card {
   gap: 6px 12px;
 }
 .count-panel .panel-summary .row { display: contents; }
-.count-panel .panel-summary .k { color: var(--panel-muted); }
+.count-panel .panel-summary .k { color: var(--muted); }
 .count-panel .panel-summary .v { font-weight: 600; }
 .count-panel .panel-summary .row.ts .k { opacity: 0.9; }
 
@@ -416,7 +409,7 @@ main.container > .card {
 .count-panel .panel-summary h4 {
   margin: 0 0 4px 0;
   font-size: 0.95rem;
-  color: var(--panel-fg);
+  color: var(--fg);
 }
 .count-panel .panel-summary .list {
   list-style: none;
@@ -427,15 +420,15 @@ main.container > .card {
   gap: 4px 12px;
 }
 .count-panel .panel-summary .list li { display: contents; }
-.count-panel .panel-summary .list .label { color: var(--panel-muted); }
+.count-panel .panel-summary .list .label { color: var(--muted); }
 .count-panel .panel-summary .list .val { font-weight: 600; }
 
 .count-panel.completed .panel-title::after {
   content: ' • Completed';
-  color: var(--panel-muted);
+  color: var(--muted);
   font-weight: 500;
 }
-.count-panel .done-hint { margin-top: 0.5rem; color: var(--panel-muted); }
+.count-panel .done-hint { margin-top: 0.5rem; color: var(--muted); }
 
 /* Prefer small buttons on narrow screens */
 @media (max-width: 480px) {
@@ -456,13 +449,13 @@ main.container > .card {
 .count-panel .panel-empty .btn-start-ghost {
   background: transparent;
   color: var(--btn-bg);
-  border: 1px dashed var(--panel-border);
+  border: 1px dashed var(--border);
   padding: 0.35rem 0.6rem;
   border-radius: 999px;
   cursor: pointer;
 }
 .count-panel .panel-empty .btn-start-ghost:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
-.count-panel .panel-empty .empty-hint { margin: 0; color: var(--panel-muted); font-size: 0.9rem; }
+.count-panel .panel-empty .empty-hint { margin: 0; color: var(--muted); font-size: 0.9rem; }
 
 /* Hide elements on initial load until JS removes this class */
 .hidden-on-load {
