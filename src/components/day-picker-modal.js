@@ -176,7 +176,18 @@ class DayPickerModal extends HTMLElement {
     this._computeBounds();
     const savedList = Array.from(this._allowed).sort();
     const lastSaved = savedList.length ? savedList[savedList.length - 1] : '';
-    const sel = (selected && this._allowed.has(selected)) ? selected : (lastSaved || '');
+    // Prefer today's date if it's saved, otherwise prefer lastSaved, otherwise default to today
+    const todayIsSaved = this._allowed.has(this._today);
+    let sel = '';
+    if (selected && this._allowed.has(selected)) {
+      sel = selected; // Use provided selection if it's valid
+    } else if (todayIsSaved) {
+      sel = this._today; // Prefer today if it's saved
+    } else if (lastSaved) {
+      sel = lastSaved; // Fall back to last saved day
+    } else {
+      sel = this._today; // Default to today even if not saved (for navigation purposes)
+    }
     this._selected = sel;
     const sdt = sel ? (this._parse(sel) || new Date()) : new Date();
     this._ym = this._clampYM({ y: sdt.getFullYear(), m: sdt.getMonth() });
