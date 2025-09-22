@@ -20,6 +20,7 @@ class AppInstallBanner extends HTMLElement {
     this._autoHideTimer = null;
     this._iosMode = false;
     this._mo = null;
+    this._tourDebounce = 0;
   }
 
   connectedCallback() {
@@ -202,7 +203,19 @@ class AppInstallBanner extends HTMLElement {
   _isOnboardingOpen() {
     try { return document.documentElement?.hasAttribute('data-tour-open'); } catch (_) { return false; }
   }
-  _onTourMutation() { this._update(); }
+  _onTourMutation() {
+    // If tour is open, hide immediately; if it just closed, wait briefly
+    if (this._isOnboardingOpen()) {
+      if (this._tourDebounce) { clearTimeout(this._tourDebounce); this._tourDebounce = 0; }
+      this._update();
+      return;
+    }
+    if (this._tourDebounce) { clearTimeout(this._tourDebounce); }
+    this._tourDebounce = setTimeout(() => {
+      this._tourDebounce = 0;
+      this._update();
+    }, 800);
+  }
   _isIOS() {
     const ua = navigator.userAgent || navigator.vendor || window.opera || '';
     const isIOSUA = /iphone|ipad|ipod/i.test(ua);

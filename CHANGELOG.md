@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.2.13 - 2025-09-22
+### UX / PWA: Onboarding-aware Install Banner
+- Install banner now stays hidden while the onboarding tour is open (respects `html[data-tour-open]`).
+- Suppresses the “You can install this app” toast during the tour to avoid noise.
+- After the tour closes, the banner waits ~800ms before appearing to prevent abrupt UI changes.
+- Implementation details:
+	- `src/components/app-install-banner.js` observes `data-tour-open` via a `MutationObserver` and hides/shows accordingly.
+	- `_onBeforeInstallPrompt` still stores the deferred prompt, but only shows UI/toast when onboarding isn’t open.
+	- Observer is disconnected in `disconnectedCallback` to avoid leaks.
+
 ## v0.2.12 - 2025-09-22
 ### Bugfix: Stable Profile on Refresh
 - Prevent active profile from changing on page refresh.
