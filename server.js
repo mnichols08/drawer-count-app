@@ -4,7 +4,7 @@
 // Env:
 // - PORT: port to listen on (default 8080)
 // - MONGODB_URI: full MongoDB connection string (required for API)
-// - MONGODB_DB: database name (default 'drawercount')
+// - MONGODB_DB: database name (default 'drawer-count-app')
 
 /* eslint-disable no-console */
 const path = require('path');
@@ -24,7 +24,7 @@ require('dotenv').config();
 const app = express();
 const PORT = Number(process.env.PORT) || 8080;
 const MONGODB_URI = process.env.MONGODB_URI || '';
-const MONGODB_DB = process.env.MONGODB_DB || 'drawercount';
+const MONGODB_DB = process.env.MONGODB_DB || 'drawer-count-app';
 const API_BASE_ENV = process.env.API_BASE || '';
 
 // Basic middleware
@@ -100,7 +100,7 @@ let kvCollection = null;
 // Build MongoClient options from environment to support TLS configs on various providers
 let cachedTlsCAFilePath = null;
 function buildMongoClientOptions() {
-	const opts = { serverSelectionTimeoutMS: Number(process.env.MONGODB_SERVER_SELECTION_TIMEOUT_MS) || 5000 };
+	const opts = { serverSelectionTimeoutMS: Number(process.env.MONGODB_SERVER_SELECTION_TIMEOUT_MS) || 3000 };
 
 	// Force TLS if requested (some providers require explicit tls=true with mongodb:// URIs)
 	if (String(process.env.MONGODB_TLS || '').toLowerCase() === 'true') {
@@ -295,19 +295,61 @@ app.get('/config.js', (req, res) => {
 		const host = (req.hostname || req.headers.host || '').toString().toLowerCase();
 		const isLocalHost = /^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(host);
 		const apiBase = isLocalHost ? '/api' : (process.env.API_BASE || '/api');
+		// Determine dev mode: true when started via `npm run dev`, or NODE_ENV=development, or explicit DCA_DEV
+		const isDev = (process.env.npm_lifecycle_event === 'dev') || (String(process.env.NODE_ENV).toLowerCase() === 'development') || (String(process.env.DCA_DEV).toLowerCase() === 'true');
 		res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
 		res.setHeader('Cache-Control', 'no-store, max-age=0');
-		res.send(`// generated at ${new Date().toISOString()}\nwindow.DCA_API_BASE = ${JSON.stringify(apiBase)};`);
+		res.send(`// generated at ${new Date().toISOString()}\nwindow.DCA_API_BASE = ${JSON.stringify(apiBase)};\nwindow.DCA_DEV = ${isDev ? 'true' : 'false'};`);
 	} catch (_) {
 		res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
 		res.setHeader('Cache-Control', 'no-store, max-age=0');
-		res.send('window.DCA_API_BASE = "/api";');
+		res.send('window.DCA_API_BASE = "/api";\nwindow.DCA_DEV = false;');
 	}
 });
 
 // Serve static files (PWA)
 const rootDir = path.resolve(__dirname);
-app.use(express.static(rootDir, { extensions: ['html'], index: 'index.html', maxAge: '1h' }));
+// Basic security headers and sensible caching for static assets
+app.use((req, res, next) => {
+	res.setHeader('X-Content-Type-Options', 'nosniff');
+	res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+	res.setHeader('Permissions-Policy', 'geolocation=(), camera=(), microphone=()');
+	next();
+});
+
+// Explicit handlers for SEO assets
+app.get('/robots.txt', (req, res) => {
+	res.type('text/plain; charset=utf-8');
+	res.set('Cache-Control', 'public, max-age=3600');
+	res.send(fs.readFileSync(path.join(rootDir, 'robots.txt'), 'utf8'));
+});
+app.get('/sitemap.xml', (req, res) => {
+	res.type('application/xml; charset=utf-8');
+	res.set('Cache-Control', 'public, max-age=3600');
+	res.send(fs.readFileSync(path.join(rootDir, 'sitemap.xml'), 'utf8'));
+});
+
+// Ensure correct content type for the Web App Manifest
+app.get('/manifest.webmanifest', (req, res) => {
+	res.type('application/manifest+json; charset=utf-8');
+	res.set('Cache-Control', 'public, max-age=3600');
+	res.send(fs.readFileSync(path.join(rootDir, 'manifest.webmanifest'), 'utf8'));
+});
+
+// Serve static with long cache for hashed/static assets
+app.use(express.static(rootDir, {
+	extensions: ['html'],
+	index: 'index.html',
+	setHeaders: (res, filePath) => {
+		if (/\.(?:js|css|png|jpg|jpeg|webp|svg|ico|woff2?)$/i.test(filePath)) {
+			res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+		} else if (/\.(?:xml|webmanifest)$/i.test(filePath)) {
+			res.setHeader('Cache-Control', 'public, max-age=3600');
+		} else {
+			res.setHeader('Cache-Control', 'no-store');
+		}
+	}
+}));
 
 // SPA fallback to index.html for unknown routes (except /api/*)
 app.use((req, res, next) => {

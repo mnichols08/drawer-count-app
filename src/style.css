@@ -161,27 +161,6 @@ drawer-count {
   --button-rem-color: #b91c1c;
 }
 
-.count-display {
-  font-size: clamp(3rem, 10vw, 5rem);
-  text-align: center;
-  margin: 0.5rem 0 1rem 0;
-}
-
-.controls {
-  display: grid;
-  /* Mobile-first: fewer columns for larger tap targets */
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.6rem;
-}
-
-.quick {
-  display: grid;
-  /* Mobile-first: stack input and button */
-  grid-template-columns: 1fr;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-}
-
 input[type="number"] {
   background: #0f1730;
   color: var(--fg);
@@ -275,6 +254,11 @@ network-status .dot {
 }
 network-status.online .dot { background: #10b981; border-color: rgba(16,185,129,.35); }
 network-status.offline .dot { background: #ef4444; border-color: rgba(239,68,68,.35); }
+/* Mixed: online transport OK but server DB limited/unavailable */
+network-status.mixed .dot { background: #f59e0b; border-color: rgba(245,158,11,.35); }
+/* Optional: lightly tint server badge in mixed state */
+network-status .server-badge.warn .text { color: #fcd34d; }
+network-status .server-badge.err .text { color: #fca5a5; }
 
 /*
   Responsive enhancements (progressive) 
@@ -371,6 +355,35 @@ main.container > .card {
 .count-panel .panel-actions .complete-btn { filter: saturate(115%); }
 .count-panel .panel-actions .reopen-btn { filter: saturate(115%); }
 
+/* Subtle processing animation for Complete/Save button */
+.count-panel .panel-actions button.processing {
+  position: relative;
+}
+.count-panel .panel-actions button .dots {
+  display: inline-block;
+  width: 1.5em; /* space for three dots */
+  text-align: left;
+}
+@keyframes dca-ellipsis {
+  0% { content: ''; }
+  25% { content: '.'; }
+  50% { content: '..'; }
+  75% { content: '...'; }
+  100% { content: ''; }
+}
+/* Use pseudo content animation on a :after to avoid layout jitter */
+.count-panel .panel-actions button.processing .dots::after {
+  content: '';
+  display: inline-block;
+  animation: dca-ellipsis 1.2s steps(4, end) infinite;
+}
+
+/* Dim disabled buttons slightly for clarity */
+.count-panel .panel-actions button[disabled] {
+  opacity: .7;
+  cursor: not-allowed;
+}
+
 /* Animate height with JS-controlled height property */
 .count-panel .panel-body {
   overflow: hidden;
@@ -422,4 +435,30 @@ main.container > .card {
 @media (max-width: 480px) {
   .count-panel .panel-actions button { padding: 0.34rem 0.55rem; }
   .count-panel .panel-title { font-size: 0.95rem; }
+}
+
+/* Empty state: keep the card minimal/invisible until counting or reviewing */
+.count-panel.empty .panel-header,
+.count-panel.empty .panel-body,
+.count-panel.empty .panel-summary,
+.count-panel.empty .hint { display: none !important; }
+.count-panel.empty { min-height: 0; }
+
+/* Show a tiny accessible placeholder CTA only in empty state */
+.count-panel .panel-empty { display: none; text-align: center; }
+.count-panel.empty .panel-empty { display: grid; place-items: center; gap: 6px; padding: 6px 0; }
+.count-panel .panel-empty .btn-start-ghost {
+  background: transparent;
+  color: var(--btn-bg);
+  border: 1px dashed var(--panel-border);
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.count-panel .panel-empty .btn-start-ghost:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.count-panel .panel-empty .empty-hint { margin: 0; color: var(--panel-muted); font-size: 0.9rem; }
+
+/* Hide elements on initial load until JS removes this class */
+.hidden-on-load {
+  display: none !important;
 }

@@ -1,0 +1,10 @@
+# Allow everything by default
+User-agent: *
+Allow: /
+
+# Disallow service endpoints and internal pages
+Disallow: /api/
+Disallow: /config.js
+Disallow: /offline.html
+
+Sitemap: https://your-domain.example.com/sitemap.xml

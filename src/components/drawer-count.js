@@ -282,13 +282,15 @@ class DrawerCount extends HTMLElement {
         <div class="input" id="slips">
           <label for="slips-input">Credit Cards</label>
           <input id="slips-input" name="slips" step=".01" type="number" placeholder="Credit Cards" />
-          <button class="add-slip" title="Add Slip">+</button>
+          <button class="add-slip" title="Add Slip">+</r
+          </button>
           <span>0.00</span> Slip
         </div>
         <div class="input" id="checks">
           <label for="checks-input">Checks</label>
           <input id="checks-input" name="checks" step=".01" type="number" placeholder="Checks" min="0" />
-          <button class="add-check" title="Add Check">+</button>
+          <button class="add-check" title="Add Check">+</r
+          </button>
           <span>0.00</span> Check
         </div>
 
@@ -765,3 +767,4 @@ class DrawerCount extends HTMLElement {
 }
 
 customElements.define('drawer-count', DrawerCount);
+

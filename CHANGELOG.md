@@ -1,5 +1,189 @@
 # Changelog
 
+## v0.2.13 - 2025-09-22
+### UX / PWA: Onboarding-aware Install Banner
+- Install banner now stays hidden while the onboarding tour is open (respects `html[data-tour-open]`).
+- Suppresses the “You can install this app” toast during the tour to avoid noise.
+- After the tour closes, the banner waits ~800ms before appearing to prevent abrupt UI changes.
+- Implementation details:
+	- `src/components/app-install-banner.js` observes `data-tour-open` via a `MutationObserver` and hides/shows accordingly.
+	- `_onBeforeInstallPrompt` still stores the deferred prompt, but only shows UI/toast when onboarding isn’t open.
+	- Observer is disconnected in `disconnectedCallback` to avoid leaks.
+
+## v0.2.12 - 2025-09-22
+### Bugfix: Stable Profile on Refresh
+- Prevent active profile from changing on page refresh.
+- Changed `initProfilesFromRemoteIfAvailable()` in `src/lib/sync.js` to only seed/overwrite local profiles when:
+	- local profiles are missing/empty, or
+	- the remote copy is newer than the local copy (based on stored `updatedAt` meta).
+- This avoids clobbering `localStorage['drawer-profiles-v1']` (including `activeId`) on every load, which previously caused non-default profiles to “cycle.”
+
+### Notes
+- Remote still syncs in the background; newer remote data will update local, but local selections persist if local is current/newer.
+- If you don’t see the fix immediately in production, hard refresh or bump the service worker cache.
+
+## v0.2.11 - 2025-09-22
+### Refactor
+- Moved `DrawerCount` component from `src/drawer-count.js` to `src/components/drawer-count.js` to align with the modular components layout.
+- Updated imports:
+	- `src/main.js` now imports `./components/drawer-count.js`.
+	- `src/components/count-panel.js` imports `./drawer-count.js` (relative within the components folder).
+
+### PWA
+- Updated `sw.js` precache list to reference `src/components/drawer-count.js` instead of `src/drawer-count.js`.
+	- Note: Remember to bump the service worker cache version before deploy so clients fetch the new asset path.
+
+### HTML
+- Updated script tags in `index.html` and `offline.html` to load `./src/components/drawer-count.js`.
+
+### Docs
+- README updated to reflect the new component path (`src/components/drawer-count.js`).
+
+## v0.2.10 - 2025-09-22
+### Build/Dev Tooling
+- Enhanced `scripts/bump-sw-cache.js`:
+	- Updates versions across `sw.js` (`CACHE_VERSION`), `index.html` and `offline.html` (`?v=X.Y.Z`), `package.json` (`version`), and `package-lock.json` (both top-level `version` and `packages[""]?.version`).
+	- Supports bump types: `--major`, `--minor`, and `--patch` (default), plus explicit `--set X.Y.Z`.
+	- Git operations enabled by default: creates a release commit and annotated tag (e.g., `vX.Y.Z`) with message `chore(release): bump to vX.Y.Z`.
+	- Opt-outs and extras: `--no-commit` (tag-only), `--no-git` (skip all git ops), `--push` (push tags and commit if created), and `--force-tag` (overwrite existing tag).
+	- Dry run preview: `--dry` prints what would change without modifying files or git state.
+
+### Scripts
+- Added release convenience scripts in `package.json`:
+	- `release:patch` → Patch bump, commit + tag.
+	- `release:minor` → Minor bump, commit + tag.
+	- `release:major` → Major bump, commit + tag.
+	- `release:patch:push` → Patch bump, commit + tag, then push.
+	- `release:tag-only` → Tag-only (no commit).
+
+## v0.2.9 - 2025-09-21
+### SEO & Social Sharing
+- Added canonical URL, author, `robots`, and `color-scheme` meta to `index.html`.
+- Added Open Graph and Twitter Card tags for rich previews.
+- Added JSON-LD (`WebApplication`) structured data to improve search visibility.
+- Created `robots.txt` and `sitemap.xml` (root) and wired them for production; offline page excluded from sitemap.
+- Marked `offline.html` as `noindex` and gave it an explicit canonical URL.
+
+### Server
+- Serve `robots.txt`, `sitemap.xml`, and `manifest.webmanifest` with correct content types and caching.
+- Added lightweight security headers (`X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`).
+- Improved cache-control: long-lived for static assets; limited for XML/manifest; no-store for HTML/config.
+
+### Docs
+- README: new SEO section with instructions to replace `https://your-domain.example.com` in meta tags, sitemap, and robots.
+
+## v0.2.8 - 2025-09-21
+### Features: Per-Profile Theme Preference
+- Theme preference is now stored per profile. Each profile can choose `System`, `Light`, or `Dark`.
+- Switching profiles immediately applies that profile’s saved theme.
+- Settings → Theme now reads and writes the active profile’s theme preference.
+- New profiles inherit the currently effective theme mode for a seamless experience.
+
+### Behavior & Migration Notes
+- One-time migration moves the legacy global `localStorage['theme']` value into the active profile’s theme (if that profile didn’t already choose one), then removes the global key.
+- On initial load, the app applies `System` without persisting so OS dark mode is respected until a profile preference is set.
+- Theme toggle now flips the active profile’s theme preference rather than a global setting.
+
+## v0.2.7 - 2025-09-21
+### UI / Cleanup
+- Removed the header status pill (saved/unsaved indicator) as it wasn’t providing meaningful value.
+- Cleaned up related CSS and references in `src/components/app-header.js`.
+
+## v0.2.6 - 2025-09-21
+### UI / Accessibility
+- Onboarding tour backdrop no longer blurs the page. This keeps the header and background crisp and readable during the tour.
+- While the tour is open, the header menu’s backdrop blur is temporarily disabled for clarity; normal blur effects return after the tour closes.
+
+### Developer Notes
+- Introduced a document-level flag `html[data-tour-open]` that is set during the onboarding tour and removed on close. Components can use this to adjust visual effects when the tour is active.
+
+## v0.2.5 - 2025-09-21
+### Calendar Day Picker Restoration & UX
+- Replaced the temporary dropdown with a full calendar modal for picking saved days.
+- Month navigation clamped between earliest saved month and current month; future days disabled.
+- Saved-day indicator (green dot) and Today outline, matching the original interaction.
+- Keyboard support: Arrow keys move by day/week; Enter selects; roving tabindex and `aria-selected` on grid cells.
+- Added "Jump to Today" button to quickly return and focus today.
+- Removed the redundant "Load" button in the modal; clicking a saved day loads immediately. Clicking a non-saved day shows a warning toast and keeps the modal open.
+
+## v0.2.4 - 2025-09-21
+### Refactor: Modular Web Components
+- Split monolithic `src/main.js` into dedicated modules under `src/components/` and `src/lib/`.
+	- Components extracted: `app-header`, `count-panel`, `app-install-banner`, `network-status`, plus all modals (`help`, `settings`, `new-profile`, `delete-profile`, `unlock-confirm`, `revert-confirm`, `optional-fields`, `day-picker`).
+	- Shared libs: `theme.js`, `toast.js`, `persistence.js`, `sync.js`, and new `days.js` (dev seeding helper).
+- Converted `src/main.js` into a lean app shell that imports libs/components and handles a minimal onboarding overlay.
+- Settings Modal now imports dev seeding from `src/lib/days.js` to avoid circular dependencies.
+- Minor polish to tooltips, ARIA labels, and processing button states across components.
+
+### Docs
+- README updated: new project structure, clearer app-shell responsibilities, and corrected Quick Start.
+
+## v0.2.1 - 2025-09-21
+### Features & Enhancements
+- Onboarding overlay for improved user guidance
+- Completed summary panel for previous date selection
+- Developer mode for seeding and clearing days
+- Test utilities for seeding previous days
+- Seed previous days with random data for testing
+- Service worker registration and cache version bump
+
+## v0.2.2 - 2025-09-21
+### Refactors & UI Improvements
+- Refactored DrawerCount component for better null/undefined handling
+- Moved action buttons to drawer panel for improved UI
+- Enhanced modals with responsive design and onboarding hints
+- Improved network status tooltip and mixed state display
+- Updated DB connection state tracking and full sync logic
+- Enhanced dry run mode in bump-sw-cache.js
+- Optimized expand/collapse animations and refresh logic in CountPanel
+- Improved cancel button visibility logic
+- Updated toggle button icons and panel toggle functionality
+- Enhanced button styles and accessibility in modals
+- Improved persistence logic in CountPanel
+- Save/mark complete toggle functionality in CountPanel
+- Unlock confirmation modal for editing past days
+- Auto-show completed summary for previous days
+
+## v0.2.3 - 2025-09-21
+### Bugfixes & Maintenance
+- Fixed save mode logic in CountPanel to default to 'Mark complete' when no active view date is set
+- Prevented unnecessary state changes in CountPanel
+- Updated lock button visibility logic
+- Fixed environment configuration for MongoDB settings
+- Improved UI clarity and read-only state handling
+
+## v0.2.1 - 2025-09-21
+### Added
+- Seed previous days with random data for testing
+- Onboarding overlay for improved user guidance
+- Service worker registration and cache version bump
+- Completed summary panel for previous date selection
+- Developer mode for seeding and clearing days
+- Test utilities for seeding previous days
+
+### Changed
+- Refactored DrawerCount component for better null/undefined handling
+- Moved action buttons to drawer panel for improved UI
+- Enhanced modals with responsive design and onboarding hints
+- Improved network status tooltip and mixed state display
+- Updated DB connection state tracking and full sync logic
+- Enhanced dry run mode in bump-sw-cache.js
+- Optimized expand/collapse animations and refresh logic in CountPanel
+- Improved cancel button visibility logic
+- Updated toggle button icons and panel toggle functionality
+- Enhanced button styles and accessibility in modals
+- Improved persistence logic in CountPanel
+- Save/mark complete toggle functionality in CountPanel
+- Unlock confirmation modal for editing past days
+- Auto-show completed summary for previous days
+
+### Fixed
+- Fixed save mode logic in CountPanel to default to 'Mark complete' when no active view date is set
+- Prevented unnecessary state changes in CountPanel
+- Updated lock button visibility logic
+- Fixed environment configuration for MongoDB settings
+- Improved UI clarity and read-only state handling
+
 ## v0.1.5 - 2025-09-20
 ### Added
 - Install banner that offers Install (when supported) or Open in App once installed; persists dismissal and supports iOS “how to install” guidance.
