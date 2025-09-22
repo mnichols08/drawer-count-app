@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.7 - 2025-09-21
+### UI / Cleanup
+- Removed the header status pill (saved/unsaved indicator) as it wasn’t providing meaningful value.
+- Cleaned up related CSS and references in `src/components/app-header.js`.
+
 ## v0.2.6 - 2025-09-21
 ### UI / Accessibility
 - Onboarding tour backdrop no longer blurs the page. This keeps the header and background crisp and readable during the tour.

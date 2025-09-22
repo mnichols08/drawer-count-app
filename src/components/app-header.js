@@ -1,6 +1,6 @@
 import { toggleTheme, getPreferredTheme } from '../lib/theme.js';
 import { toast } from '../lib/toast.js';
-import { ensureProfilesInitialized, populateProfilesSelect, updateStatusPill, updateLockButtonUI, applyReadOnlyByActiveDate, ensureDayResetIfNeeded } from '../lib/persistence.js';
+import { ensureProfilesInitialized, populateProfilesSelect, updateLockButtonUI, applyReadOnlyByActiveDate, ensureDayResetIfNeeded } from '../lib/persistence.js';
 import { getTodayKey, setActiveViewDateKey, restoreDay, getActiveProfileId, setActiveProfile, saveToActiveProfile, loadProfilesData, saveProfilesData, createProfile, restoreActiveProfile } from '../lib/persistence.js';
 import { initProfilesFromRemoteIfAvailable } from '../lib/sync.js';
 import { getHelpModal } from './help-modal.js';
@@ -40,9 +40,7 @@ class AppHeader extends HTMLElement {
         .icon-btn:focus, .action-btn:focus { outline: 2px solid var(--accent, #5aa0ff); outline-offset: 2px; }
         .action-btn { font-weight: 600; }
         select.profile-select { background: var(--button-bg-color, var(--btn)); color: var(--button-color, var(--fg)); border: 1px solid var(--border, #2a345a); border-radius: 10px; padding: 6px 10px; min-height: 44px; min-width: 0; max-width: min(55vw, 320px); }
-        .status-pill { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--panel-border, var(--border)); font-size: .85rem; }
-        .status-pill.saved { background: color-mix(in srgb, #10b981 20%, transparent); color: #baf0c3; border-color: #2a5a3a; }
-        .status-pill.dirty { background: color-mix(in srgb, #ef4444 15%, transparent); color: #ffd6d6; border-color: #5a2a2a; }
+        
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,1px,1px); white-space: nowrap; border: 0; }
         .menu-toggle { display: inline-flex; align-items: center; justify-content: center; background: var(--button-bg-color, var(--btn)); color: var(--button-color, var(--fg)); border: 1px solid var(--border, #2a345a); border-radius: 10px; padding: 6px 10px; cursor: pointer; min-height: 44px; }
         .menu-toggle[aria-expanded="true"] { filter: brightness(1.08); }
@@ -71,7 +69,7 @@ class AppHeader extends HTMLElement {
           <select id="profile" class="profile-select" name="profile"></select>
           <button class="icon-btn new-profile-btn" aria-label="New profile" title="New profile">＋</button>
           <button class="icon-btn delete-profile-btn" aria-label="Delete profile" title="Delete profile">🗑️</button>
-          <span class="status-pill" aria-live="polite">—</span>
+          
         </div>
         <h1 class="title">${title}</h1>
         <div class="actions right inline-actions">
@@ -112,7 +110,7 @@ class AppHeader extends HTMLElement {
     (async () => {
       try { await initProfilesFromRemoteIfAvailable(); } catch (_) {}
       try { ensureProfilesInitialized(); } catch (_) {}
-      try { populateProfilesSelect(this); updateStatusPill(this); updateLockButtonUI(this); this._updatePanelBtnUI(); } catch (_) {}
+  try { populateProfilesSelect(this); updateLockButtonUI(this); this._updatePanelBtnUI(); } catch (_) {}
       try { window.addEventListener('storage', this._updatePanelBtnUI); window.addEventListener('focus', this._updatePanelBtnUI); } catch(_) {}
     })();
   }
@@ -160,9 +158,9 @@ class AppHeader extends HTMLElement {
     } catch(_) {}
   }
 
-  _onProfileChange(e) { try { const id = e.target?.value; if (!id) return; setActiveProfile(id); restoreActiveProfile(); ensureDayResetIfNeeded(this); setActiveViewDateKey(getTodayKey()); applyReadOnlyByActiveDate(this); populateProfilesSelect(this); updateStatusPill(this); toast('Switched profile', { type:'info', duration: 1200}); } catch(_){} }
-  async _onNewProfile() { try { const modal = getNewProfileModal(); const name = await modal.open(''); if (!name) return; const id = createProfile(name); setActiveProfile(id); saveToActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); applyReadOnlyByActiveDate(this); toast('Profile created', { type: 'success', duration: 1800 }); } catch(_){} }
-  async _onDeleteProfile() { try { const data = loadProfilesData(); const ids = Object.keys(data.profiles||{}); if (ids.length<=1) { toast('Cannot delete last profile', { type:'warning', duration: 2200}); return; } const active = data.activeId; const name = data.profiles[active]?.name || active; const modal = getDeleteProfileModal(); const ok = await modal.open(name); if (!ok) return; delete data.profiles[active]; const nextId = ids.find((x)=>x!==active) || 'default'; data.activeId = nextId; saveProfilesData(data); restoreActiveProfile(); populateProfilesSelect(this); updateStatusPill(this); applyReadOnlyByActiveDate(this); toast('Profile deleted', { type: 'success', duration: 1800}); } catch(_){} }
+  _onProfileChange(e) { try { const id = e.target?.value; if (!id) return; setActiveProfile(id); restoreActiveProfile(); ensureDayResetIfNeeded(this); setActiveViewDateKey(getTodayKey()); applyReadOnlyByActiveDate(this); populateProfilesSelect(this); toast('Switched profile', { type:'info', duration: 1200}); } catch(_){} }
+  async _onNewProfile() { try { const modal = getNewProfileModal(); const name = await modal.open(''); if (!name) return; const id = createProfile(name); setActiveProfile(id); saveToActiveProfile(); populateProfilesSelect(this); applyReadOnlyByActiveDate(this); toast('Profile created', { type: 'success', duration: 1800 }); } catch(_){} }
+  async _onDeleteProfile() { try { const data = loadProfilesData(); const ids = Object.keys(data.profiles||{}); if (ids.length<=1) { toast('Cannot delete last profile', { type:'warning', duration: 2200}); return; } const active = data.activeId; const name = data.profiles[active]?.name || active; const modal = getDeleteProfileModal(); const ok = await modal.open(name); if (!ok) return; delete data.profiles[active]; const nextId = ids.find((x)=>x!==active) || 'default'; data.activeId = nextId; saveProfilesData(data); restoreActiveProfile(); populateProfilesSelect(this); applyReadOnlyByActiveDate(this); toast('Profile deleted', { type: 'success', duration: 1800}); } catch(_){} }
   async _onOpenDays() {
     try {
       const days = (listSavedDaysForActiveProfile() || []).map(d => d.date);
@@ -172,9 +170,8 @@ class AppHeader extends HTMLElement {
       if (!picked) return;
       setActiveViewDateKey(picked);
       const ok = restoreDay(picked);
-      const header = this;
-      updateStatusPill(header);
-      applyReadOnlyByActiveDate(header);
+  const header = this;
+  applyReadOnlyByActiveDate(header);
       try {
         const today = getTodayKey();
         if (picked !== today) { document.querySelector('count-panel')?.showCompletedSummary?.(); }
