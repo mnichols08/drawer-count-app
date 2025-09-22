@@ -63,9 +63,20 @@ class OptionalFieldsModal extends HTMLElement {
   }
   _renderFields() {
     if (!this._els?.fields) return;
-    const html = this._fields.map(id => {
+    const toLabel = (id) => {
+      try {
+        let s = (id || '').toString();
+        if (s.startsWith('#')) s = s.slice(1);
+        if (s.startsWith('opt-')) s = s.slice(4);
+        s = s.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
+        return s.split(' ').map(w => w ? (w[0].toUpperCase() + w.slice(1)) : '').join(' ');
+      } catch(_) { return id; }
+    };
+    const html = this._fields.map(item => {
+      const id = (typeof item === 'string') ? item : item?.id;
+      const label = (typeof item === 'string') ? toLabel(item) : (item?.label || item?.id || '');
       const checked = this._selected.has(id) ? 'checked' : '';
-      return `<label><input type="checkbox" data-id="${id}" ${checked}/> <span>${id}</span></label>`;
+      return `<label><input type="checkbox" data-id="${id}" ${checked}/> <span>${label}</span></label>`;
     }).join('');
     this._els.fields.innerHTML = html || '<em>No optional fields available</em>';
     this._els.fields.querySelectorAll('input[type="checkbox"]').forEach(cb => {
@@ -93,3 +104,6 @@ class OptionalFieldsModal extends HTMLElement {
 if (!customElements.get('optional-fields-modal')) customElements.define('optional-fields-modal', OptionalFieldsModal);
 
 export function getOptionalFieldsModal() { let m = document.querySelector('optional-fields-modal'); if (!m) { m = document.createElement('optional-fields-modal'); document.body.appendChild(m); } return m; }
+
+// Also expose on window for non-module callers that expect a global function
+try { if (typeof window !== 'undefined') { window.getOptionalFieldsModal = getOptionalFieldsModal; } } catch(_) {}
