@@ -21,7 +21,7 @@ import './components/app-header.js';
 import './components/count-panel.js';
 
 // Keep drawer-count component available (used inside <count-panel>)
-import './drawer-count.js';
+import './components/drawer-count.js';
 // Onboarding walkthrough component
 import './components/onboarding-tour.js';
 import { getOnboardingTour } from './components/onboarding-tour.js';

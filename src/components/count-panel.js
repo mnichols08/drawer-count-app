@@ -1,5 +1,5 @@
 import { toast } from '../lib/toast.js';
-import '../drawer-count.js';
+import './drawer-count.js';
 import { getActiveViewDateKey, getTodayKey, isDayEditUnlocked, setDayEditUnlocked, saveSpecificDay, restoreDay, updateStatusPill, applyReadOnlyByActiveDate, getActiveProfileId } from '../lib/persistence.js';
 import { _getActiveDaysEntry } from '../lib/persistence.js';
 import { getUnlockConfirmModal } from './unlock-confirm-modal.js';

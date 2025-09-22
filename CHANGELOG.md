@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.2.11 - 2025-09-22
+### Refactor
+- Moved `DrawerCount` component from `src/drawer-count.js` to `src/components/drawer-count.js` to align with the modular components layout.
+- Updated imports:
+	- `src/main.js` now imports `./components/drawer-count.js`.
+	- `src/components/count-panel.js` imports `./drawer-count.js` (relative within the components folder).
+
+### PWA
+- Updated `sw.js` precache list to reference `src/components/drawer-count.js` instead of `src/drawer-count.js`.
+	- Note: Remember to bump the service worker cache version before deploy so clients fetch the new asset path.
+
+### HTML
+- Updated script tags in `index.html` and `offline.html` to load `./src/components/drawer-count.js`.
+
+### Docs
+- README updated to reflect the new component path (`src/components/drawer-count.js`).
+
 ## v0.2.10 - 2025-09-22
 ### Build/Dev Tooling
 - Enhanced `scripts/bump-sw-cache.js`:

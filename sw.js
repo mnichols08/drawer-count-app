@@ -12,7 +12,7 @@ const RAW_PRECACHE_URLS = [
   'manifest.webmanifest',
   'src/style.css',
   'src/main.js',
-  'src/drawer-count.js',
+  'src/components/drawer-count.js',
   'src/sw-register.js',
   'src/icons/favicon.svg',
   'src/icons/icon-192.png',

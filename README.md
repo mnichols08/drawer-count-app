@@ -117,7 +117,7 @@ Network and Server status:
 	- Modals: `help-modal.js`, `settings-modal.js`, `new-profile-modal.js`, `delete-profile-modal.js`, `unlock-confirm-modal.js`, `revert-confirm-modal.js`, `optional-fields-modal.js`, `day-picker-modal.js`
 - `src/lib/` – shared utilities used across components
 	- `theme.js`, `toast.js`, `persistence.js`, `sync.js`, `days.js` (dev seeding)
-- `src/drawer-count.js` – `DrawerCount` web component (calculator UI + logic)
+- `src/components/drawer-count.js` – `DrawerCount` web component (calculator UI + logic)
 - `src/images/` – background images (optimized `.png` plus generated `.webp`)
 - `sw.js` – service worker (precache + runtime caching + offline fallback; scope-aware)
 - `offline.html` – offline fallback page for navigations
