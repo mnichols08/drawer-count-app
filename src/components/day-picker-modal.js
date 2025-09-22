@@ -50,7 +50,7 @@ class DayPickerModal extends HTMLElement {
   .dot { width: 8px; height: 8px; border-radius: 999px; display:inline-block; }
   .dot.today { background: var(--accent, #5aa0ff); }
   .dot.saved { background: #2ecc71; }
-        .actions { display:flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+  .actions { display:flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
         .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 10px; padding: 0.6rem 0.8rem; cursor: pointer; min-height: 40px; font-weight: 600; }
         .btn:hover { filter: brightness(1.08); }
         .btn:active { transform: translateY(1px); }
@@ -79,7 +79,6 @@ class DayPickerModal extends HTMLElement {
           </div>
           <div class="actions">
             <button type="button" class="btn btn-cancel">Cancel</button>
-            <button type="button" class="btn btn-ok">Load</button>
           </div>
         </div>
       </div>
@@ -89,7 +88,7 @@ class DayPickerModal extends HTMLElement {
       backdrop: this._shadow.querySelector('.backdrop'),
       close: this._shadow.querySelector('.close'),
       cancel: this._shadow.querySelector('.btn-cancel'),
-      ok: this._shadow.querySelector('.btn-ok'),
+  ok: this._shadow.querySelector('.btn-ok'),
       prev: this._shadow.querySelector('.btn-prev'),
       next: this._shadow.querySelector('.btn-next'),
       today: this._shadow.querySelector('.btn-today'),
@@ -101,11 +100,12 @@ class DayPickerModal extends HTMLElement {
     this._els.backdrop?.addEventListener('click', () => this._cancel());
     this._els.close?.addEventListener('click', () => this._cancel());
     this._els.cancel?.addEventListener('click', () => this._cancel());
-    this._els.ok?.addEventListener('click', () => this._confirm());
+  // no explicit OK button; clicking a saved day loads immediately
     this._els.prev?.addEventListener('click', () => this._nav(-1));
     this._els.next?.addEventListener('click', () => this._nav(1));
   this._els.today?.addEventListener('click', () => this._jumpToToday());
   this._els.gridDays?.addEventListener('keydown', (e) => this._onGridKeyDown(e));
+  this._els.gridDays?.addEventListener('focusin', (e) => this._onGridFocusIn(e));
 
     // Weekday headers (Sun-Sat)
     const week = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -171,7 +171,8 @@ class DayPickerModal extends HTMLElement {
         const key = btn.getAttribute('data-key');
         const isSaved = this._allowed.has(key);
         if (!isSaved) { toast('No save for this day', { type: 'warning', duration: 1600 }); return; }
-        this._selected = key; this._confirm();
+        this._updateSelection(key);
+        this._confirm();
       });
     });
   }
@@ -182,14 +183,21 @@ class DayPickerModal extends HTMLElement {
   this._allowed = new Set(Array.from(days || []));
     // compute bounds and initial month
     this._computeBounds();
-    const sel = selected || Array.from(this._allowed).sort().slice(-1)[0] || this._today;
+    const savedList = Array.from(this._allowed).sort();
+    const lastSaved = savedList.length ? savedList[savedList.length - 1] : '';
+    const sel = (selected && this._allowed.has(selected)) ? selected : (lastSaved || '');
     this._selected = sel;
-    const sdt = this._parse(sel) || new Date();
+    const sdt = sel ? (this._parse(sel) || new Date()) : new Date();
     this._ym = this._clampYM({ y: sdt.getFullYear(), m: sdt.getMonth() });
     this._renderMonth();
     this.setAttribute('open', '');
     // focus selected if possible
-    setTimeout(()=>{ try { (this._shadow.querySelector('.day.selected') || this._shadow.querySelector('.day.today') || this._shadow.querySelector('.day'))?.focus(); } catch(_) {} }, 0);
+    setTimeout(()=>{ 
+      try { 
+        if (this._selected) { this._updateSelection(this._selected, { focus: true, silent: true }); }
+        else { (this._shadow.querySelector('.day.today') || this._shadow.querySelector('.day'))?.focus(); }
+      } catch(_) {}
+    }, 0);
     return new Promise((resolve) => { this._resolver = resolve; });
   }
 
@@ -243,6 +251,32 @@ class DayPickerModal extends HTMLElement {
     // navigate month if needed
     if (!this._sameYM(ym, this._ym)) { this._ym = this._clampYM(ym); this._renderMonth(); }
     this._focusKey(key2);
+    if (this._allowed.has(key2)) this._updateSelection(key2, { silent: true });
+  }
+
+  _onGridFocusIn(e) {
+    const t = e.target;
+    if (!t || !t.classList?.contains('day')) return;
+    const key = t.getAttribute('data-key');
+    if (this._allowed.has(key)) this._updateSelection(key, { silent: true });
+  }
+
+  // no _onOkClick needed; kept for reference
+
+  _getFocusedKey() {
+    const el = this._shadow.activeElement;
+    if (el && el.classList?.contains('day')) return el.getAttribute('data-key');
+    return null;
+  }
+
+  _updateSelection(key, { focus = false, silent = false } = {}) {
+    if (!key) return;
+    // clear previous selection
+    this._shadow.querySelectorAll('.day.selected').forEach(b=>{ b.classList.remove('selected'); b.setAttribute('aria-selected','false'); });
+    this._selected = key;
+    const btn = this._shadow.querySelector(`.day[data-key="${key}"]`);
+    if (btn) { btn.classList.add('selected'); btn.setAttribute('aria-selected','true'); this._shadow.querySelectorAll('.day[tabindex="0"]').forEach(b=>b.setAttribute('tabindex','-1')); btn.setAttribute('tabindex','0'); if (focus) btn.focus(); }
+    if (!silent) { /* no-op hook for future */ }
   }
 }
 

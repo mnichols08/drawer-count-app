@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.2.5 - 2025-09-21
+### Calendar Day Picker Restoration & UX
+- Replaced the temporary dropdown with a full calendar modal for picking saved days.
+- Month navigation clamped between earliest saved month and current month; future days disabled.
+- Saved-day indicator (green dot) and Today outline, matching the original interaction.
+- Keyboard support: Arrow keys move by day/week; Enter selects; roving tabindex and `aria-selected` on grid cells.
+- Added "Jump to Today" button to quickly return and focus today.
+- Removed the redundant "Load" button in the modal; clicking a saved day loads immediately. Clicking a non-saved day shows a warning toast and keeps the modal open.
+
 ## v0.2.4 - 2025-09-21
 ### Refactor: Modular Web Components
 - Split monolithic `src/main.js` into dedicated modules under `src/components/` and `src/lib/`.
