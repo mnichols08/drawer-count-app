@@ -35,22 +35,22 @@ class DayPickerModal extends HTMLElement {
         .hd h2 { margin: 0; font-size: 1.1rem; }
         .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; cursor: pointer; }
         .content { display: grid; gap: 10px; padding: 12px 14px 14px; }
-  .cal-hd { display:flex; align-items:center; justify-content: space-between; gap: 8px; }
-  .nav { display:flex; gap: 6px; align-items: center; }
+        .cal-hd { display:flex; align-items:center; justify-content: space-between; gap: 8px; }
+        .nav { display:flex; gap: 6px; align-items: center; }
         .nav .btn { min-height: 36px; padding: 6px 10px; }
         .month-label { font-weight: 700; letter-spacing: .2px; }
         .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
-  .dow { opacity: .8; font-size: .85rem; text-align:center; padding: 4px 0; }
-  .day { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 38px; border-radius: 10px; border: 1px solid var(--border, #2a345a); background: var(--input, #1b2138); color: var(--fg, #e0e6ff); cursor: pointer; }
-  .day[disabled] { opacity: .35; cursor: not-allowed; filter: grayscale(0.2); }
-  .day.saved::after { content: ''; position: absolute; bottom: 5px; width: 6px; height: 6px; border-radius: 999px; background: #2ecc71; }
-  .day.today { outline: 2px solid var(--accent, #5aa0ff); outline-offset: 1px; }
-  .legend { display:flex; align-items:center; gap: 14px; font-size: .85rem; opacity: .85; }
-  .legend .key { display:inline-flex; align-items:center; gap: 6px; }
-  .dot { width: 8px; height: 8px; border-radius: 999px; display:inline-block; }
-  .dot.today { background: var(--accent, #5aa0ff); }
-  .dot.saved { background: #2ecc71; }
-  .actions { display:flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+        .dow { opacity: .8; font-size: .85rem; text-align:center; padding: 4px 0; }
+        .day { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 38px; border-radius: 10px; border: 1px solid var(--border, #2a345a); background: var(--input-bg-color, #1b2138); color: var(--input-fg-color, var(--fg, #e0e6ff)); cursor: pointer; }
+        .day[disabled] { opacity: .35; cursor: not-allowed; filter: grayscale(0.2); }
+        .day.saved::after { content: ''; position: absolute; bottom: 5px; width: 6px; height: 6px; border-radius: 999px; background: #2ecc71; }
+        .day.today { outline: 2px solid var(--accent, #5aa0ff); outline-offset: 1px; }
+        .legend { display:flex; align-items:center; gap: 14px; font-size: .85rem; opacity: .85; }
+        .legend .key { display:inline-flex; align-items:center; gap: 6px; }
+        .dot { width: 8px; height: 8px; border-radius: 999px; display:inline-block; }
+        .dot.today { background: var(--accent, #5aa0ff); }
+        .dot.saved { background: #2ecc71; }
+        .actions { display:flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
         .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 10px; padding: 0.6rem 0.8rem; cursor: pointer; min-height: 40px; font-weight: 600; }
         .btn:hover { filter: brightness(1.08); }
         .btn:active { transform: translateY(1px); }
