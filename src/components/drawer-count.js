@@ -761,12 +761,6 @@ class DrawerCount extends HTMLElement {
   _bindMobileInputKeys() {
     try {
       const inputs = Array.from(this._root.querySelectorAll('.input input, .optional-section input'));
-      const focusIdx = (idx) => {
-        const fresh = Array.from(this._root.querySelectorAll('.input input, .optional-section input'));
-        const el = fresh[idx];
-        if (!el) return;
-        try { el.focus({ preventScroll: false }); el.select?.(); el.scrollIntoView?.({ block: 'center', behavior: 'smooth' }); } catch(_) {}
-      };
       inputs.forEach((inp) => {
         if (inp.dataset.mobkeys === '1') return; // avoid double-binding
         const onFocus = () => { try { inp.select?.(); inp.scrollIntoView?.({ block: 'center', behavior: 'smooth' }); } catch(_) {} };
@@ -774,11 +768,6 @@ class DrawerCount extends HTMLElement {
           const key = e.key || e.code;
           if (key === 'Enter' || e.keyCode === 13) {
             e.preventDefault();
-            // Compute current position each time for dynamic rows
-            const fresh = Array.from(this._root.querySelectorAll('.input input, .optional-section input'));
-            const idx = Math.max(0, fresh.indexOf(inp));
-            const dir = e.shiftKey ? -1 : 1;
-            const nextIdx = Math.max(0, Math.min(fresh.length - 1, idx + dir));
             // Special case: Enter on base slip/check with a value quickly adds a new row
             const parentId = inp.closest('.input')?.id;
             const isSlipBase = parentId === 'slips';
@@ -787,22 +776,14 @@ class DrawerCount extends HTMLElement {
               this._newInput(isSlipBase ? '#checks' : '#hundreds');
               return;
             }
-            if (idx === fresh.length - 1 && dir > 0) {
-              // On the last input, blur to dismiss keyboard on mobile
-              try { fresh[idx].blur(); } catch(_) {}
-            } else {
-              focusIdx(nextIdx);
-            }
+            // Stepper navigation: Enter = Next, Shift+Enter = Back
+            if (e.shiftKey) this._gotoPrev(); else this._gotoNext();
           } else if (key === 'ArrowDown') {
             e.preventDefault();
-            const fresh = Array.from(this._root.querySelectorAll('.input input, .optional-section input'));
-            const idx = Math.max(0, fresh.indexOf(inp));
-            focusIdx(Math.min(fresh.length - 1, idx + 1));
+            this._gotoNext();
           } else if (key === 'ArrowUp') {
             e.preventDefault();
-            const fresh = Array.from(this._root.querySelectorAll('.input input, .optional-section input'));
-            const idx = Math.max(0, fresh.indexOf(inp));
-            focusIdx(Math.max(0, idx - 1));
+            this._gotoPrev();
           }
         };
         inp.addEventListener('focus', onFocus);
@@ -815,13 +796,65 @@ class DrawerCount extends HTMLElement {
 
   _gotoNext() {
     if (!this._stepContainers?.length) return;
-    if (this._currentStepIdx >= this._stepContainers.length - 1) { try { this._stepInputs[this._currentStepIdx]?.blur(); } catch(_) {} return; }
-    this._setActiveStep(this._currentStepIdx + 1);
+    const curIdx = typeof this._currentStepIdx === 'number' ? this._currentStepIdx : 0;
+    const nextIdx = this._computeStepJump(curIdx, +1);
+    if (nextIdx >= this._stepContainers.length || nextIdx === curIdx) {
+      // Last step: blur to dismiss keyboard on mobile
+      try { this._stepInputs[curIdx]?.blur(); } catch(_) {}
+      return;
+    }
+    this._setActiveStep(nextIdx);
   }
 
   _gotoPrev() {
     if (!this._stepContainers?.length) return;
-    this._setActiveStep(Math.max(0, this._currentStepIdx - 1));
+    const curIdx = typeof this._currentStepIdx === 'number' ? this._currentStepIdx : 0;
+    const prevIdx = this._computeStepJump(curIdx, -1);
+    this._setActiveStep(Math.max(0, prevIdx));
+  }
+
+  // Mobile stepper: compute next/prev index with grouping rules
+  _computeStepJump(idx, dir) {
+    try {
+      const containers = this._stepContainers || [];
+      if (!containers.length) return idx;
+      const cur = containers[idx];
+      if (!cur) return idx;
+      const isSlipGroup = (el) => el && (el.id === 'slips' || el.classList?.contains('slip'));
+      const isCheckGroup = (el) => el && (el.id === 'checks' || el.classList?.contains('check'));
+      if (dir > 0) {
+        // Forward: if in slips, jump to first non-slip container (typically #checks)
+        if (isSlipGroup(cur)) {
+          let j = idx + 1;
+          while (j < containers.length && isSlipGroup(containers[j])) j++;
+          return Math.min(containers.length - 1, j);
+        }
+        // If in checks, jump to first non-check container (typically #hundreds)
+        if (isCheckGroup(cur)) {
+          let j = idx + 1;
+          while (j < containers.length && isCheckGroup(containers[j])) j++;
+          return Math.min(containers.length - 1, j);
+        }
+        return Math.min(containers.length - 1, idx + 1);
+      } else {
+        // Backward: from checks/check -> base slips; from hundreds -> base checks
+        if (isCheckGroup(cur)) {
+          // scan backward to base slips id
+          for (let k = idx - 1; k >= 0; k--) {
+            if (containers[k]?.id === 'slips') return k;
+          }
+          return Math.max(0, idx - 1);
+        }
+        if (cur.id === 'hundreds') {
+          for (let k = idx - 1; k >= 0; k--) {
+            if (containers[k]?.id === 'checks') return k;
+          }
+          return Math.max(0, idx - 1);
+        }
+        return Math.max(0, idx - 1);
+      }
+    } catch(_) { /* ignore */ }
+    return idx;
   }
 
   _newInput(anchorSelector) {
