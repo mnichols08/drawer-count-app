@@ -13,14 +13,14 @@ class HelpModal extends HTMLElement {
         :host { display: none; }        :host([open]) { display: block; }
   .backdrop { position: fixed; inset: 0; background: var(--backdrop-bg, rgba(0,0,0,.5)); backdrop-filter: blur(3px); z-index: 1000; }
         .dialog { position: fixed; inset: 10% auto auto 50%; transform: translateX(-50%);
-         max-width: min(680px, 92vw); background: var(--panel-bg, var(--card, #1c2541)); color: var(--panel-fg, var(--fg, #e0e6ff));
-          border: 1px solid var(--panel-border, var(--border, #2a345a)); border-radius: 14px; padding: 16px; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
+         max-width: min(680px, 92vw); background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
+          border: 1px solid var(--border, #2a345a); border-radius: 14px; padding: 16px; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
         .hd { display:flex; justify-content: space-between; align-items:center; gap: 8px; margin-bottom: 8px; }
         .hd h2 { margin: 0; font-size: 1.1rem; letter-spacing: .2px; }
-        .close { background: transparent; color: var(--panel-fg, var(--fg)); border: 1px solid var(--panel-border, var(--border)); border-radius: 10px; padding: 6px 10px; cursor: pointer; }
+  .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; cursor: pointer; }
         .close:hover { filter: brightness(1.08); }
         .close:focus { outline: 2px solid var(--accent, #5aa0ff); outline-offset: 2px; }
-        .content { font-size: .98rem; line-height: 1.6; color: var(--panel-fg, var(--fg)); }
+  .content { font-size: .98rem; line-height: 1.6; color: var(--fg); }
         .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--kbd-bg, #0f1730); color: var(--kbd-fg, #e7ecff); border:1px solid var(--kbd-border, #2a345a); border-radius:6px; padding:2px 6px; font-weight: 600; }
         ul { margin: .25rem 0 .5rem 1.25rem; }
         .walkthrough { background: var(--btn-bg, var(--button-bg-color, #222)); color: var(--btn-fg, var(--button-color, #e0e6ff)); border: 1px solid transparent; border-radius: 10px; padding: 8px 12px; cursor: pointer; min-height: 40px; }
