@@ -258,6 +258,15 @@ class DrawerCount extends HTMLElement {
         .opt-row label { color: var(--fg, #e0e6ff); font-size: .95rem; }
         .opt-row input { min-width: 120px; justify-self: end; }
         .optional-section span:before { content: none; }
+
+        /* Mobile-focused tweaks */
+        @media (max-width: 640px) {
+          .wrap { gap: .5rem; }
+          .input { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .4rem; }
+          .input label { font-size: 1rem; }
+          .input input { width: 100%; font-size: 16px; min-height: 40px; padding: 0.2rem 0.4rem; }
+          .input button { align-self: stretch; min-height: 40px; padding: 0 .6rem; border-radius: .25rem; }
+        }
       </style>
 
       <div class="wrap">
@@ -274,97 +283,95 @@ class DrawerCount extends HTMLElement {
 
         <div class="input" id="drawer">
           <label for="drawer-input">Cash Total</label>
-          <input id="drawer-input" name="drawer" step=".01" type="number" placeholder="Cash Total" />
+          <input id="drawer-input" name="drawer" step=".01" type="number" placeholder="Cash Total" inputmode="decimal" enterkeyhint="next" autocomplete="off" />
            Cash Total: $<drawer>0.00</drawer>
         </div>
         <div class="input" id="roa">
           <label for="roa-input">ROA Amount</label>
-          <input id="roa-input" name="roa" step=".01" type="number" placeholder="ROA Amount" />
+          <input id="roa-input" name="roa" step=".01" type="number" placeholder="ROA Amount" inputmode="decimal" enterkeyhint="next" autocomplete="off" />
            ROA Amount: $<roa>0.00</roa>
         </div>
         <div class="input" id="slips">
           <label for="slips-input">Credit Cards</label>
-          <input id="slips-input" name="slips" step=".01" type="number" placeholder="Credit Cards" />
-          <button class="add-slip" title="Add Slip">+</r
-          </button>
+          <input id="slips-input" name="slips" step=".01" type="number" placeholder="Credit Cards" inputmode="decimal" enterkeyhint="next" autocomplete="off" />
+          <button class="add-slip" title="Add Slip">+</button>
           <span>0.00</span> Slip
         </div>
         <div class="input" id="checks">
           <label for="checks-input">Checks</label>
-          <input id="checks-input" name="checks" step=".01" type="number" placeholder="Checks" min="0" />
-          <button class="add-check" title="Add Check">+</r
-          </button>
+          <input id="checks-input" name="checks" step=".01" type="number" placeholder="Checks" min="0" inputmode="decimal" enterkeyhint="next" autocomplete="off" />
+          <button class="add-check" title="Add Check">+</button>
           <span>0.00</span> Check
         </div>
 
         <div class="input" id="hundreds">
           <label for="hundreds-input">Hundreds</label>
-          <input id="hundreds-input" name="hundreds" type="number" placeholder="Hundreds" min="0" max="20" />
+          <input id="hundreds-input" name="hundreds" type="number" placeholder="Hundreds" min="0" max="20" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Hundreds
         </div>
         <div class="input" id="fifties">
           <label for="fifties-input">Fifties</label>
-          <input id="fifties-input" name="fifties" type="number" placeholder="Fifties" min="0" max="30" />
+          <input id="fifties-input" name="fifties" type="number" placeholder="Fifties" min="0" max="30" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Fifties
         </div>
         <div class="input" id="twenties">
           <label for="twenties-input">Twenties</label>
-          <input id="twenties-input" name="twenties" type="number" placeholder="Twenties" min="0" max="40" />
+          <input id="twenties-input" name="twenties" type="number" placeholder="Twenties" min="0" max="40" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Twenties
         </div>
         <div class="input" id="tens">
           <label for="tens-input">Tens</label>
-          <input id="tens-input" name="tens" type="number" placeholder="Tens" min="0" max="50" />
+          <input id="tens-input" name="tens" type="number" placeholder="Tens" min="0" max="50" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Tens
         </div>
         <div class="input" id="fives">
           <label for="fives-input">Fives</label>
-          <input id="fives-input" name="fives" type="number" placeholder="Fives" min="0" max="75" />
+          <input id="fives-input" name="fives" type="number" placeholder="Fives" min="0" max="75" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Fives
         </div>
         <div class="input" id="dollars">
           <label for="dollars-input">Dollars</label>
-          <input id="dollars-input" name="dollars" type="number" placeholder="Dollars" min="0" max="100" />
+          <input id="dollars-input" name="dollars" type="number" placeholder="Dollars" min="0" max="100" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Ones
         </div>
         <div class="input" id="quarters">
           <label for="quarters-input">Quarters</label>
-          <input id="quarters-input" name="quarters" type="number" placeholder="Quarters" min="0" max="50" />
+          <input id="quarters-input" name="quarters" type="number" placeholder="Quarters" min="0" max="50" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Quarters
         </div>
         <div class="input" id="dimes">
           <label for="dimes-input">Dimes</label>
-          <input id="dimes-input" name="dimes" type="number" placeholder="Dimes" min="0" max="50" />
+          <input id="dimes-input" name="dimes" type="number" placeholder="Dimes" min="0" max="50" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Dimes
         </div>
         <div class="input" id="nickels">
           <label for="nickels-input">Nickels</label>
-          <input id="nickels-input" name="nickels" type="number" placeholder="Nickels" min="0" max="50" />
+          <input id="nickels-input" name="nickels" type="number" placeholder="Nickels" min="0" max="50" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Nickels
         </div>
         <div class="input" id="pennies">
           <label for="pennies-input">Pennies</label>
-          <input id="pennies-input" name="pennies" type="number" placeholder="Pennies" min="0" max="50" />
+          <input id="pennies-input" name="pennies" type="number" placeholder="Pennies" min="0" max="50" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Pennies
         </div>
         <div class="input" id="quarterrolls">
           <label for="quarterrolls-input">Quarter Rolls</label>
-          <input id="quarterrolls-input" name="quarterrolls" type="number" placeholder="Quarter Rolls" min="0" max="4" />
+          <input id="quarterrolls-input" name="quarterrolls" type="number" placeholder="Quarter Rolls" min="0" max="4" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Quarter Rolls
         </div>
         <div class="input" id="dimerolls">
           <label for="dimerolls-input">Dime Rolls</label>
-          <input id="dimerolls-input" name="dimerolls" type="number" placeholder="Dime Rolls" min="0" max="4" />
+          <input id="dimerolls-input" name="dimerolls" type="number" placeholder="Dime Rolls" min="0" max="4" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Dime Rolls
         </div>
         <div class="input" id="nickelrolls">
           <label for="nickelrolls-input">Nickel Rolls</label>
-          <input id="nickelrolls-input" name="nickelrolls" type="number" placeholder="Nickel Rolls" min="0" max="4" />
+          <input id="nickelrolls-input" name="nickelrolls" type="number" placeholder="Nickel Rolls" min="0" max="4" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Nickel Rolls
         </div>
         <div class="input" id="pennyrolls">
           <label for="pennyrolls-input">Penny Rolls</label>
-          <input id="pennyrolls-input" name="pennyrolls" type="number" placeholder="Penny Rolls" min="0" max="4" />
+          <input id="pennyrolls-input" name="pennyrolls" type="number" placeholder="Penny Rolls" min="0" max="4" step="1" inputmode="numeric" enterkeyhint="done" autocomplete="off" />
           <span class="cash">0.00</span> in Penny Rolls
         </div>
 
@@ -437,18 +444,56 @@ class DrawerCount extends HTMLElement {
     // Delegated input handler on each .input block
     $$('.input').forEach((block) => block.addEventListener('input', this._onInputEvent));
 
-    // Enter to add another for base slip/check inputs
-    const slip = $('#slips input');
-    const check = $('#checks input');
-    const addKeyDownListener = (element, selector) => {
-      element?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.keyCode === 13) this._newInput(selector);
-        this._getTotal();
-        this._getBalance();
+    // Keyboard/focus behavior
+    const isTouch = this._isTouchDevice();
+    if (isTouch) {
+      // On touch devices: auto-select + scroll into view, Enter moves next (Shift+Enter prev)
+      const inputs = $$('.input input, .optional-section input');
+      const orderedInputs = inputs; // DOM order
+      const focusIdx = (idx) => {
+        const el = orderedInputs[idx];
+        if (!el) return;
+        try { el.focus({ preventScroll: false }); el.select?.(); el.scrollIntoView?.({ block: 'center', behavior: 'smooth' }); } catch(_) {}
+      };
+      orderedInputs.forEach((inp, idx) => {
+        inp.addEventListener('focus', () => { try { inp.select?.(); inp.scrollIntoView?.({ block: 'center', behavior: 'smooth' }); } catch(_) {} });
+        inp.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.keyCode === 13) {
+            e.preventDefault();
+            const dir = e.shiftKey ? -1 : 1;
+            const nextIdx = Math.max(0, Math.min(orderedInputs.length - 1, idx + dir));
+            // Special case on touch: Enter on base slip/check with a value quickly adds a new row
+            const parentId = inp.closest('.input')?.id;
+            const isSlipBase = parentId === 'slips';
+            const isCheckBase = parentId === 'checks';
+            if (!e.shiftKey && (isSlipBase || isCheckBase) && inp.value !== '') {
+              this._newInput(isSlipBase ? '#checks' : '#hundreds');
+              return;
+            }
+            focusIdx(nextIdx);
+          } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            focusIdx(Math.min(orderedInputs.length - 1, idx + 1));
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            focusIdx(Math.max(0, idx - 1));
+          }
+        });
       });
-    };
-    addKeyDownListener(slip, '#checks');
-    addKeyDownListener(check, '#hundreds');
+    } else {
+      // On desktop: preserve original behavior — Tab to move, Enter on base Slip/Check adds a row
+      const slip = $('#slips input');
+      const check = $('#checks input');
+      const addKeyDownListener = (element, selector) => {
+        element?.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.keyCode === 13) this._newInput(selector);
+          this._getTotal();
+          this._getBalance();
+        });
+      };
+      addKeyDownListener(slip, '#checks');
+      addKeyDownListener(check, '#hundreds');
+    }
 
     // Min values
     $('#checks input')?.setAttribute('min', '0');
@@ -589,6 +634,12 @@ class DrawerCount extends HTMLElement {
     } catch (_) { /* ignore */ }
   }
 
+  _isTouchDevice() {
+    try {
+      return (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches));
+    } catch(_) { return false; }
+  }
+
   _focusInputIn(node) {
     try { node?.querySelector('input')?.focus(); } catch (_) {}
   }
@@ -661,6 +712,9 @@ class DrawerCount extends HTMLElement {
     input.placeholder = `Additional ${typeOf[0].toUpperCase()}${typeOf.slice(1)}`;
     input.name = typeOf;
     input.id = `${id}-input`;
+    input.autocomplete = 'off';
+    input.inputMode = 'decimal';
+    input.setAttribute('enterkeyhint', 'next');
 
     const btn = document.createElement('button');
     btn.className = 'rem';
@@ -683,6 +737,9 @@ class DrawerCount extends HTMLElement {
     div.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.keyCode === 13) this._newInput(typeOf === 'slip' ? '#checks' : '#hundreds');
     });
+    if (this._isTouchDevice()) {
+      input.addEventListener('focus', () => { try { input.select?.(); input.scrollIntoView?.({ block: 'center', behavior: 'smooth' }); } catch(_) {} });
+    }
 
     const anchor = this._root.querySelector(anchorSelector);
     if (anchor && anchor.parentElement) {
