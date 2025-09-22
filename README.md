@@ -20,13 +20,6 @@ Status: Vanilla JS + Web Components (no framework)
 
 ## Quick start (Windows PowerShell)
 
-44.226.145.213
-54.187.200.255
-34.213.214.55
-35.164.95.156
-44.230.95.183
-44.229.200.200
-
 ```powershell
 npm install
 # Optional: create a local .env from the example
@@ -98,16 +91,21 @@ Network and Server status:
 
 ## Project structure
 
-- `index.html` – app shell and UI composition
+- `index.html` – app HTML shell and UI composition
 - `src/style.css` – base styles and theming (light/dark)
-- `src/main.js` – app shell components (header, install banner, network status, modals), persistence, theme, SW registration
-- `src/drawer-count.js` – `DrawerCount` web component (drawer calculator UI + logic)
+- `src/main.js` – lean app shell; imports libs/components and manages onboarding overlay
+- `src/components/` – all Web Components split by responsibility
+	- `app-header.js`, `count-panel.js`, `app-install-banner.js`, `network-status.js`
+	- Modals: `help-modal.js`, `settings-modal.js`, `new-profile-modal.js`, `delete-profile-modal.js`, `unlock-confirm-modal.js`, `revert-confirm-modal.js`, `optional-fields-modal.js`, `day-picker-modal.js`
+- `src/lib/` – shared utilities used across components
+	- `theme.js`, `toast.js`, `persistence.js`, `sync.js`, `days.js` (dev seeding)
+- `src/drawer-count.js` – `DrawerCount` web component (calculator UI + logic)
 - `src/images/` – background images (optimized `.png` plus generated `.webp`)
 - `sw.js` – service worker (precache + runtime caching + offline fallback; scope-aware)
 - `offline.html` – offline fallback page for navigations
 - `manifest.webmanifest` – PWA manifest (standalone display, focus-existing)
-- `src/icons/favicon.svg` – placeholder icon (add PNGs for better platform support)
- - `scripts/optimize-images.js` – utility to recompress PNGs and generate WebP with alpha
+- `src/icons/` – generated icon set; `favicon.svg` is the vector source
+- `scripts/optimize-images.js` – recompress PNGs and generate WebP with alpha
 
 ## PWA & service worker notes
 
@@ -151,9 +149,9 @@ npm run optimize-images
 
 Adding new background images:
 - Place new `.png` files in `src/images/`.
-- Add the file’s base name (without extension) to the `BG_IMAGES` list in `src/main.js`.
 - Run `npm run optimize-images` to generate `.webp` versions and recompress the PNGs.
 - Add the new image filenames (both `.png` and `.webp`) to the precache array in `sw.js` so they’re available offline.
+	- Note: background overlay and theme handling live in `src/lib/theme.js`.
 
 ### Deploy to Render (quick checklist)
 

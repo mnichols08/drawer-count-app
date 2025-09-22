@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.2.4 - 2025-09-21
+### Refactor: Modular Web Components
+- Split monolithic `src/main.js` into dedicated modules under `src/components/` and `src/lib/`.
+	- Components extracted: `app-header`, `count-panel`, `app-install-banner`, `network-status`, plus all modals (`help`, `settings`, `new-profile`, `delete-profile`, `unlock-confirm`, `revert-confirm`, `optional-fields`, `day-picker`).
+	- Shared libs: `theme.js`, `toast.js`, `persistence.js`, `sync.js`, and new `days.js` (dev seeding helper).
+- Converted `src/main.js` into a lean app shell that imports libs/components and handles a minimal onboarding overlay.
+- Settings Modal now imports dev seeding from `src/lib/days.js` to avoid circular dependencies.
+- Minor polish to tooltips, ARIA labels, and processing button states across components.
+
+### Docs
+- README updated: new project structure, clearer app-shell responsibilities, and corrected Quick Start.
+
 ## v0.2.1 - 2025-09-21
 ### Features & Enhancements
 - Onboarding overlay for improved user guidance
