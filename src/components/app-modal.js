@@ -15,6 +15,8 @@ class AppModal extends HTMLElement {
     this._upgrade('open');
     this._upgrade('title');
     this._upgrade('closable');
+    // Ensure aria-hidden is properly set on initial render
+    this._syncAria();
     if (this.open) this._onOpenSideEffects();
   }
 
@@ -24,9 +26,9 @@ class AppModal extends HTMLElement {
 
   attributeChangedCallback(name) {
     if (name === 'open') {
+      this._syncAria(); // Sync aria-hidden first
       if (this.hasAttribute('open')) this._onOpenSideEffects();
       else this._teardownSideEffects();
-      this._syncAria();
     }
     if (name === 'title') this._syncTitle();
     if (name === 'closable') this._syncClosable();
@@ -93,7 +95,14 @@ class AppModal extends HTMLElement {
 
   _syncTitle() { if (this._els?.titleEl) this._els.titleEl.textContent = this.title || ''; }
   _syncClosable() { if (!this._els?.close) return; const can = this.closable !== false; this._els.close.style.display = can ? '' : 'none'; }
-  _syncAria() { if (!this._els?.dialog) return; this._els.dialog.setAttribute('aria-hidden', this.open ? 'false' : 'true'); }
+  _syncAria() { 
+    if (!this._els?.dialog) return; 
+    if (this.open) {
+      this._els.dialog.removeAttribute('aria-hidden');
+    } else {
+      this._els.dialog.setAttribute('aria-hidden', 'true');
+    }
+  }
 
   _onBackdrop() { this.hide('backdrop'); }
   _onKeyDown(e) { if (e.key === 'Escape' && this.open) this.hide('escape'); if (e.key === 'Tab' && this.open) this._trapTab(e); }
