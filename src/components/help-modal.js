@@ -1,4 +1,5 @@
 import { toast } from '../lib/toast.js';
+import { getOnboardingTour } from './onboarding-tour.js';
 
 class HelpModal extends HTMLElement {
   constructor() {
@@ -39,11 +40,13 @@ class HelpModal extends HTMLElement {
             <li><span class="kbd">Alt</span>+<span class="kbd">Backspace</span> (in a row) → Remove that row</li>
           </ul>
           <p><strong>Install</strong>: Use the browser’s install option or the banner when available. Once installed, it opens in its own window and works offline.</p>
+          <p><button class="walkthrough" style="margin-top:.25rem;" aria-label="Open walkthrough">Open walkthrough</button></p>
         </div>
       </div>
     `;
     this._shadow.querySelector('.backdrop')?.addEventListener('click', () => this.close());
     this._shadow.querySelector('.close')?.addEventListener('click', () => this.close());
+    this._shadow.querySelector('.walkthrough')?.addEventListener('click', () => { try { getOnboardingTour().open(0); } catch(_) {} });
     window.addEventListener('keydown', this._onKeyDown);
   }
   disconnectedCallback() { window.removeEventListener('keydown', this._onKeyDown); }
