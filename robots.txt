@@ -7,4 +7,4 @@ Disallow: /api/
 Disallow: /config.js
 Disallow: /offline.html
 
-Sitemap: https://your-domain.example.com/sitemap.xml
+Sitemap: https://drawercounter.journeytocode.io/sitemap.xml
