@@ -13,11 +13,13 @@ class AppInstallBanner extends HTMLElement {
     this._onDismiss = this._onDismiss.bind(this);
     this._update = this._update.bind(this);
     this._tryCloseTab = this._tryCloseTab.bind(this);
+    this._onTourMutation = this._onTourMutation.bind(this);
     this._deferredPrompt = null;
     this._installed = false;
     this._dismissed = false;
     this._autoHideTimer = null;
     this._iosMode = false;
+    this._mo = null;
   }
 
   connectedCallback() {
@@ -60,6 +62,11 @@ class AppInstallBanner extends HTMLElement {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', this._onSwMessage);
     }
+    // Observe onboarding tour open/close state
+    try {
+      this._mo = new MutationObserver(this._onTourMutation);
+      this._mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-tour-open'] });
+    } catch (_) { /* ignore */ }
 
     this._installed = this._isAppInstalled();
     if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
@@ -81,14 +88,19 @@ class AppInstallBanner extends HTMLElement {
       navigator.serviceWorker.removeEventListener('message', this._onSwMessage);
     }
     this._clearAutoHide();
+    try { this._mo?.disconnect(); this._mo = null; } catch (_) { /* ignore */ }
   }
 
   _onBeforeInstallPrompt(e) {
     e.preventDefault();
     this._deferredPrompt = e;
-    if (!this._installed && !this._isDismissed()) {
+    // If onboarding is open, defer showing until it closes (no toast yet)
+    if (!this._installed && !this._isDismissed() && !this._isOnboardingOpen()) {
       this._showInstall();
       toast('You can install this app', { type: 'info', duration: 2500 });
+    } else {
+      // Ensure current UI reflects hidden state during onboarding
+      this._update();
     }
   }
 
@@ -153,6 +165,8 @@ class AppInstallBanner extends HTMLElement {
 
   _update() {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    // Suppress banner entirely while onboarding tour is open
+    if (this._isOnboardingOpen()) { this._el.wrap.style.display = 'none'; this._clearAutoHide(); return; }
     if (isStandalone || this._isDismissed()) { this._el.wrap.style.display = 'none'; this._clearAutoHide(); return; }
 
     if (this._installed) {
@@ -185,6 +199,10 @@ class AppInstallBanner extends HTMLElement {
   }
 
   _isDismissed() { return this._dismissed === true; }
+  _isOnboardingOpen() {
+    try { return document.documentElement?.hasAttribute('data-tour-open'); } catch (_) { return false; }
+  }
+  _onTourMutation() { this._update(); }
   _isIOS() {
     const ua = navigator.userAgent || navigator.vendor || window.opera || '';
     const isIOSUA = /iphone|ipad|ipod/i.test(ua);
