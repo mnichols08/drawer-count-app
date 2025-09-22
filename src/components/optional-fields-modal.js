@@ -1,3 +1,5 @@
+import './app-modal.js';
+
 class OptionalFieldsModal extends HTMLElement {
   constructor() {
     super();
@@ -21,17 +23,7 @@ class OptionalFieldsModal extends HTMLElement {
       <style>
         :host { display: none; }
         :host([open]) { display: block; }
-        .backdrop { position: fixed; inset: 0; background: var(--backdrop-bg, rgba(0,0,0,.5)); backdrop-filter: blur(2px); z-index: 1000; }
-        .dialog { position: fixed; inset: 10% auto auto 50%; transform: translateX(-50%);
-          max-width: min(540px, 92vw); max-height: min(85vh, 92vh); overflow-y: auto; overflow-x: hidden;
-          background: var(--card, #1b223a); color: var(--fg, #e0e6ff);
-          border: 1px solid var(--border, #2a345a); border-radius: 14px; padding: 1.1rem 1.1rem 1.25rem; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35));
-          backdrop-filter: saturate(120%) blur(6px); -webkit-backdrop-filter: saturate(120%) blur(6px);
-        }
-        .hd { display:flex; justify-content: space-between; align-items:center; gap: 8px; margin-bottom: 10px; }
-        .hd h2 { margin: 0; font-size: 1.1rem; }
         .sub { margin: 0 0 8px; color: var(--muted, #9aa3b2); font-size: .9rem; }
-        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; cursor: pointer; }
         .content { display: grid; gap: 10px; }
         .grid { display:grid; gap: 8px; }
         .row { display:grid; grid-template-columns: 1fr auto; align-items:center; gap: 10px; }
@@ -48,31 +40,24 @@ class OptionalFieldsModal extends HTMLElement {
         .btn:active { transform: translateY(1px); }
         .btn:focus { outline: 2px solid var(--accent, #5aa0ff); outline-offset: 2px; }
       </style>
-      <div class="backdrop" part="backdrop"></div>
-      <div class="dialog" role="dialog" aria-modal="true" aria-label="Optional fields">
-        <div class="hd">
-          <h2>Optional Fields</h2>
-          <button class="close" aria-label="Close">Close</button>
-        </div>
-        <p class="sub">These values are informational and do not affect totals.</p>
-        <div class="content">
+      <app-modal title="Optional Fields" closable>
+        <p class="sub" slot="body">These values are informational and do not affect totals.</p>
+        <div class="content" slot="body">
           <div class="grid fields"></div>
-          <div class="actions">
-            <button type="button" class="btn btn-cancel">Cancel</button>
-            <button type="button" class="btn btn-ok">Apply</button>
-          </div>
         </div>
-      </div>
+        <div class="actions modal-actions" slot="footer">
+          <button type="button" class="btn btn-cancel">Cancel</button>
+          <button type="button" class="btn btn-ok">Apply</button>
+        </div>
+      </app-modal>
     `;
     this._els = {
-      backdrop: this._shadow.querySelector('.backdrop'),
-      close: this._shadow.querySelector('.close'),
+      modal: this._shadow.querySelector('app-modal'),
       cancel: this._shadow.querySelector('.btn-cancel'),
       ok: this._shadow.querySelector('.btn-ok'),
       fields: this._shadow.querySelector('.fields'),
     };
-    this._els.backdrop?.addEventListener('click', () => this._cancel());
-    this._els.close?.addEventListener('click', () => this._cancel());
+    this._els.modal?.addEventListener('modal-close', () => this._cancel());
     this._els.cancel?.addEventListener('click', () => this._cancel());
     this._els.ok?.addEventListener('click', () => this._confirm());
   }
@@ -107,9 +92,10 @@ class OptionalFieldsModal extends HTMLElement {
     this._renderFields();
     this._prefillFromDrawer();
     this.setAttribute('open', '');
+    this._els.modal?.show();
     return new Promise((resolve) => { this._resolver = resolve; });
   }
-  close() { this.removeAttribute('open'); }
+  close() { this._els?.modal?.hide('programmatic'); this.removeAttribute('open'); }
   _cancel() { this.close(); this._resolve(null); }
   _confirm() {
     try {
