@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.2.16 - 2025-09-22
+### Bugfix/UX: Optional Fields button opens working modal
+- Restored the original behavior for the Optional Fields (🧾) button: it now reliably opens a modal where you edit optional daily values directly.
+- The modal pre-fills current values from the drawer and, on Apply, writes them back to the inline optional inputs inside `drawer-count`, dispatching `input` events so autosave/status logic runs.
+- Accessor `getOptionalFieldsModal()` is available as a module export and on `window` for robust use from shadow DOM and legacy code paths; the button falls back to a lazy import if needed.
+
+### Cleanup: Remove legacy modal duplicate
+- Removed the unused `src/components/optional-fields-modal-legacy.js` (functionality fully replaced by `optional-fields-modal.js`).
+	- Note: If the file persists locally due to tooling, it’s neutered to avoid duplicate customElements registrations.
+
+### Dev note
+- No data shape changes; optional values remain informative and do not affect totals/balance. No service worker bump required beyond normal releases.
+
 ## v0.2.15 - 2025-09-22
 ### Bugfix: Respect lock for Clear action
 - The "Clear inputs" button now correctly does nothing when the drawer/day is locked (read-only). A small warning toast is shown instead.

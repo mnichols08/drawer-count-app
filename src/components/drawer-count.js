@@ -427,35 +427,10 @@ class DrawerCount extends HTMLElement {
     });
     this._root.querySelector('.optional-btn')?.addEventListener('click', async () => {
       try {
-        const available = this._getOptionalFieldIds();
-        const selected = this._loadOptionalSelection();
-
-        const openModal = async () => {
-          const modal = (typeof getOptionalFieldsModal === 'function')
-            ? getOptionalFieldsModal()
-            : (window.getOptionalFieldsModal ? window.getOptionalFieldsModal() : null);
-          if (!modal) return null;
-          return await modal.open({ available, selected });
-        };
-
-        // Try existing accessor first
-        let result = await openModal();
-        if (result === null && !this._optionalModalTriedImport) {
-          // If accessor not found or returned null due to failure, lazy-load once
-          this._optionalModalTriedImport = true;
-          try {
-            const mod = await import('../components/optional-fields-modal.js');
-            const modal = (mod?.getOptionalFieldsModal) ? mod.getOptionalFieldsModal() : (window.getOptionalFieldsModal ? window.getOptionalFieldsModal() : null);
-            if (modal) result = await modal.open({ available, selected });
-          } catch(_) { /* ignore */ }
-        }
-
-        // Apply selection if user confirmed (non-null)
-        if (Array.isArray(result)) {
-          this._saveOptionalSelection(result);
-          this._applyOptionalVisibility(result);
-          try { toast?.('Optional fields updated', { type: 'success', duration: 1500 }); } catch(_) {}
-        }
+        // Prefer module export if present
+        if (typeof getOptionalFieldsModal === 'function') { getOptionalFieldsModal().open(); return; }
+        if (window.getOptionalFieldsModal) { window.getOptionalFieldsModal().open(); return; }
+        try { const mod = await import('../components/optional-fields-modal.js'); (mod?.getOptionalFieldsModal || window.getOptionalFieldsModal)?.().open(); } catch(_) {}
       } catch(_) {}
     });
 
@@ -484,8 +459,7 @@ class DrawerCount extends HTMLElement {
     this._getBalance();
     this._slipCheckCount();
 
-  // Apply saved optional fields visibility
-  try { this._applyOptionalVisibility(this._loadOptionalSelection()); } catch(_) {}
+  // Optional fields are always present in the UI; modal edits these values directly.
 
     // Optional fields should trigger save/change events but not recompute totals
     const optIds = [
@@ -500,43 +474,7 @@ class DrawerCount extends HTMLElement {
     });
   }
 
-  // Optional fields helpers
-  _getOptionalFieldIds() {
-    try {
-      // Discover optional field inputs by DOM
-      return Array.from(this._root.querySelectorAll('.optional-section .opt-row input'))
-        .map(el => '#' + el.id)
-        .filter(Boolean);
-    } catch(_) { return []; }
-  }
-  _loadOptionalSelection() {
-    try {
-      const raw = localStorage.getItem('drawer-optional-fields-v1');
-      const arr = raw ? JSON.parse(raw) : null;
-      if (Array.isArray(arr)) return arr;
-      // Default: show all
-      return this._getOptionalFieldIds();
-    } catch(_) { return this._getOptionalFieldIds(); }
-  }
-  _saveOptionalSelection(list) {
-    try { localStorage.setItem('drawer-optional-fields-v1', JSON.stringify(Array.from(new Set(list || [])))); } catch(_) {}
-  }
-  _applyOptionalVisibility(selected) {
-    try {
-      const setSel = new Set(selected || []);
-      const rows = Array.from(this._root.querySelectorAll('.optional-section .opt-row'));
-      let shown = 0;
-      for (const row of rows) {
-        const inp = row.querySelector('input');
-        const idSel = inp ? ('#' + inp.id) : '';
-        const on = setSel.has(idSel);
-        row.style.display = on ? '' : 'none';
-        if (on) shown++;
-      }
-      const section = this._root.querySelector('.optional-section');
-      if (section) section.style.display = shown > 0 ? '' : 'none';
-    } catch(_) {}
-  }
+  // (Previously: optional field visibility helpers removed; modal edits values directly.)
 
   _bindShortcuts() {
     // Global shortcuts for adding/removing rows
