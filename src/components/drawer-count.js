@@ -830,6 +830,16 @@ class DrawerCount extends HTMLElement {
     if (nextIdx >= this._stepContainers.length || nextIdx === curIdx) {
       // Last step: blur to dismiss keyboard on mobile
       try { this._stepInputs[curIdx]?.blur(); } catch(_) {}
+      
+      // Dispatch completion event when user finishes the stepper procedure
+      this.dispatchEvent(new CustomEvent('stepper-complete', {
+        bubbles: true,
+        composed: true,
+        detail: {
+          stepperCompleted: true,
+          finalStepIndex: curIdx
+        }
+      }));
       return;
     }
     this._setActiveStep(nextIdx);

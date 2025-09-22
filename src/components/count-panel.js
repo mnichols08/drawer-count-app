@@ -30,13 +30,31 @@ class CountPanel extends HTMLElement {
     this._refresh(true);
     window.addEventListener('storage', this._onVisibilityRefresh);
     window.addEventListener('focus', this._onVisibilityRefresh);
-    try { this._dc = this.querySelector('drawer-count'); this._dc?.addEventListener('change', this._onDrawerChange); } catch(_) {}
+    
+    // Set up drawer count event listeners
+    this._onStepperComplete = this._onStepperComplete.bind(this);
+    this._setupDrawerCountListeners();
+  }
+
+  _setupDrawerCountListeners() {
+    try { 
+      this._dc = this.querySelector('drawer-count'); 
+      if (this._dc) {
+        this._dc.addEventListener('change', this._onDrawerChange);
+        this._dc.addEventListener('stepper-complete', this._onStepperComplete);
+      }
+    } catch(_) {}
   }
 
   disconnectedCallback() {
     window.removeEventListener('storage', this._onVisibilityRefresh);
     window.removeEventListener('focus', this._onVisibilityRefresh);
-    try { this._dc?.removeEventListener('change', this._onDrawerChange); } catch(_) {}
+    try { 
+      if (this._dc) {
+        this._dc.removeEventListener('change', this._onDrawerChange);
+        this._dc.removeEventListener('stepper-complete', this._onStepperComplete);
+      }
+    } catch(_) {}
   }
 
   _render() {
@@ -339,6 +357,20 @@ class CountPanel extends HTMLElement {
 
   _onVisibilityRefresh() { this._refresh(); }
   _onDrawerChange(_e) { this._refresh(true); }
+  
+  _onStepperComplete(e) {
+    // Only auto-complete if the drawer count is started and not already completed
+    if (!this._state.started || this._state.completed) return;
+    
+    // Only auto-complete if not in read-only mode
+    if (this._computeReadOnly()) return;
+    
+    // Add a small delay to ensure the stepper transition is complete
+    setTimeout(() => {
+      // Trigger the same completion logic as the "Mark complete" button
+      this._onComplete();
+    }, 100);
+  }
 }
 
 if (!customElements.get('count-panel')) customElements.define('count-panel', CountPanel);
