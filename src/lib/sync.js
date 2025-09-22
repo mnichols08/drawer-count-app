@@ -195,20 +195,51 @@ export function initOnlineSync() {
 }
 
 export async function initProfilesFromRemoteIfAvailable() {
+  // Bootstrap local profiles from remote only when local is empty, or when the
+  // remote copy is newer than the local copy. Avoid clobbering a user's local
+  // active profile on every refresh.
   try {
+    // Determine if we already have local data with profiles
+    const localRaw = localStorage.getItem(DRAWER_PROFILES_KEY);
+    let hasLocalProfiles = false;
+    try {
+      const parsed = localRaw ? JSON.parse(localRaw) : null;
+      hasLocalProfiles = !!(parsed && typeof parsed === 'object' && parsed.profiles && Object.keys(parsed.profiles).length > 0);
+    } catch(_) { hasLocalProfiles = false; }
+    const localMeta = _getLocalMeta(DRAWER_PROFILES_KEY) || { updatedAt: 0 };
+
+    // Try primary key first
     const candidateKeys = [ DRAWER_PROFILES_KEY, 'drawer-profiles', 'drawer_profiles', 'profiles', 'drawer-profiles-v0' ];
-    let remote = await _fetchRemoteKV(DRAWER_PROFILES_KEY);
-    if (!remote.ok || remote.missing) {
+    let best = await _fetchRemoteKV(DRAWER_PROFILES_KEY);
+
+    // If primary missing/unavailable, try alternates to locate any legacy value
+    if (!best.ok || best.missing || !best.value) {
       for (const altKey of candidateKeys) {
         if (altKey === DRAWER_PROFILES_KEY) continue;
         try {
           const res = await _fetchRemoteKV(altKey);
-          if (res.ok && !res.missing && res.value) { localStorage.setItem(DRAWER_PROFILES_KEY, res.value); _setLocalMeta(DRAWER_PROFILES_KEY, { updatedAt: Number(res.updatedAt || Date.now()) }); break; }
+          if (res.ok && !res.missing && res.value) { best = res; break; }
         } catch(_) {}
       }
-    } else if (remote.ok && !remote.missing && remote.value) {
-      localStorage.setItem(DRAWER_PROFILES_KEY, remote.value);
-      _setLocalMeta(DRAWER_PROFILES_KEY, { updatedAt: Number(remote.updatedAt || Date.now()) });
+    }
+
+    // Nothing remote found
+    if (!best || !best.ok || best.missing || !best.value) return;
+
+    const rAt = Number(best.updatedAt || 0);
+    const lAt = Number(localMeta.updatedAt || 0);
+
+    // If we have no local profiles, seed from remote
+    if (!hasLocalProfiles) {
+      localStorage.setItem(DRAWER_PROFILES_KEY, best.value);
+      _setLocalMeta(DRAWER_PROFILES_KEY, { updatedAt: rAt || Date.now() });
+      return;
+    }
+
+    // If remote is newer than local, update; otherwise keep local
+    if (rAt > lAt) {
+      localStorage.setItem(DRAWER_PROFILES_KEY, best.value);
+      _setLocalMeta(DRAWER_PROFILES_KEY, { updatedAt: rAt });
     }
   } catch(_) { /* ignore */ }
 }

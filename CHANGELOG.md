@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.2.12 - 2025-09-22
+### Bugfix: Stable Profile on Refresh
+- Prevent active profile from changing on page refresh.
+- Changed `initProfilesFromRemoteIfAvailable()` in `src/lib/sync.js` to only seed/overwrite local profiles when:
+	- local profiles are missing/empty, or
+	- the remote copy is newer than the local copy (based on stored `updatedAt` meta).
+- This avoids clobbering `localStorage['drawer-profiles-v1']` (including `activeId`) on every load, which previously caused non-default profiles to “cycle.”
+
+### Notes
+- Remote still syncs in the background; newer remote data will update local, but local selections persist if local is current/newer.
+- If you don’t see the fix immediately in production, hard refresh or bump the service worker cache.
+
 ## v0.2.11 - 2025-09-22
 ### Refactor
 - Moved `DrawerCount` component from `src/drawer-count.js` to `src/components/drawer-count.js` to align with the modular components layout.
