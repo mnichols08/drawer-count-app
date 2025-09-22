@@ -4,6 +4,7 @@ class AppModal extends HTMLElement {
     this._shadow = this.attachShadow({ mode: 'open' });
     this._onKeyDown = this._onKeyDown.bind(this);
     this._onBackdrop = this._onBackdrop.bind(this);
+    this._onContainerClick = this._onContainerClick.bind(this);
     this._prevBodyOverflow = null;
     this._prevDocOverflow = null;
   }
@@ -82,11 +83,12 @@ class AppModal extends HTMLElement {
     `;
     this._els = {
       backdrop: this._shadow.querySelector('.backdrop'),
+      container: this._shadow.querySelector('.container'),
       dialog: this._shadow.querySelector('.dialog'),
       close: this._shadow.querySelector('.close'),
       titleEl: this._shadow.querySelector('#titleEl')
     };
-    this._els.backdrop?.addEventListener('click', this._onBackdrop);
+    this._els.container?.addEventListener('click', this._onContainerClick);
     this._els.close?.addEventListener('click', () => this.hide('close'));
     this._syncTitle();
     this._syncClosable();
@@ -105,6 +107,12 @@ class AppModal extends HTMLElement {
   }
 
   _onBackdrop() { this.hide('backdrop'); }
+  _onContainerClick(e) { 
+    // Only close if the click was directly on the container (outside the dialog)
+    if (e.target === this._els.container) {
+      this.hide('backdrop'); 
+    }
+  }
   _onKeyDown(e) { if (e.key === 'Escape' && this.open) this.hide('escape'); if (e.key === 'Tab' && this.open) this._trapTab(e); }
 
   _onOpenSideEffects() {

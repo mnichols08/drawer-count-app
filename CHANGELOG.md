@@ -1,6 +1,25 @@
 # Changelog
 
 ## v0.2.24 - 2025-09-22
+### UX Improvements
+- **Enhanced date picker behavior**: Day picker modal now intelligently defaults to today's date when it has saved data, providing more intuitive navigation and selection.
+- **Fresh app load improvements**: Application now consistently defaults to today's date on fresh loads instead of potentially showing random or cached dates.
+
+### Bugfixes
+- **Fixed modal click-outside behavior**: Resolved issue where clicking outside modal windows (date picker, help, onboarding, etc.) would not close them. All modals now properly close when clicking on the backdrop area outside the dialog, improving user experience and interaction consistency.
+- **Fixed sitemap URL**: Updated robots.txt to reference the correct domain for sitemap accessibility.
+
+### Code Cleanup
+- **Removed legacy component**: Cleaned up duplicate drawer-count component file that was no longer in use, reducing bundle size and potential confusion.
+
+### Technical Implementation
+- Updated `app-modal` component to handle click events on the container element instead of the backdrop element, which was being obscured by the overlaid container.
+- Added smart click detection that only closes modals when clicking directly outside the dialog content, preserving existing functionality for clicks within modal dialogs.
+- Enhanced day picker selection logic to prioritize today's date when saved data exists.
+- Added initialization logic to reset active view date to today on fresh application loads.
+- Maintained all existing modal behaviors including Escape key dismissal, close button functionality, and proper focus management.
+
+## v0.2.24 - 2025-09-22
 ### Documentation
 - **Fixed changelog version history**: Corrected version attribution where v0.2.21 stepper completion features were incorrectly documented under v0.2.22, and properly separated bugfixes into their respective versions.
 
