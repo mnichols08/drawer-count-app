@@ -1,5 +1,5 @@
 /* Drawer Count Service Worker */
-const CACHE_VERSION = 'v0.2.17';
+const CACHE_VERSION = 'v0.2.18';
 const PRECACHE = `precache-${CACHE_VERSION}`;
 const RUNTIME = `runtime-${CACHE_VERSION}`;
 
