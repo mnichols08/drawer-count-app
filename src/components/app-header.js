@@ -31,25 +31,27 @@ class AppHeader extends HTMLElement {
     this.innerHTML = `
       <style>
         :host { display: block; width: 100%; }
-        .bar { display: grid; align-items: center; gap: .35rem; grid-template-columns: 1fr auto; grid-template-areas: "title title" "left right"; position: relative; }
+        .bar { display: grid; align-items: center; gap: .4rem; grid-template-columns: 1fr auto; grid-template-areas: "title title" "left right"; position: relative; }
         .title { grid-area: title; text-align: center; margin: 0; font-size: clamp(1rem, 3.5vw, 1.1rem); letter-spacing: .2px; }
-        .left { grid-area: left; justify-self: start; display: flex; gap: .35rem; align-items: center; flex-wrap: wrap; }
-        .right { grid-area: right; justify-self: end; display: flex; gap: .35rem; align-items: center; flex-wrap: wrap; }
-        .icon-btn, .action-btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 10px; cursor: pointer; min-height: 44px; }
+        .left { grid-area: left; justify-self: start; display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
+        .right { grid-area: right; justify-self: end; display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
+        .icon-btn, .action-btn { background: var(--button-bg-color, var(--btn)); color: var(--button-color, var(--fg)); border: 1px solid var(--border, #2a345a); border-radius: 10px; padding: 6px 10px; cursor: pointer; min-height: 44px; }
+        .icon-btn:hover, .action-btn:hover { filter: brightness(1.08); }
+        .icon-btn:focus, .action-btn:focus { outline: 2px solid var(--accent, #5aa0ff); outline-offset: 2px; }
         .action-btn { font-weight: 600; }
-        select.profile-select { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 10px; min-height: 44px; min-width: 0; max-width: min(55vw, 320px); }
-        .status-pill { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border, #2a345a); font-size: .85rem; }
-        .status-pill.saved { background: #12371f; color: #baf0c3; border-color: #2a5a3a; }
-        .status-pill.dirty { background: #42201e; color: #ffd6d6; border-color: #5a2a2a; }
+        select.profile-select { background: var(--button-bg-color, var(--btn)); color: var(--button-color, var(--fg)); border: 1px solid var(--border, #2a345a); border-radius: 10px; padding: 6px 10px; min-height: 44px; min-width: 0; max-width: min(55vw, 320px); }
+        .status-pill { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--panel-border, var(--border)); font-size: .85rem; }
+        .status-pill.saved { background: color-mix(in srgb, #10b981 20%, transparent); color: #baf0c3; border-color: #2a5a3a; }
+        .status-pill.dirty { background: color-mix(in srgb, #ef4444 15%, transparent); color: #ffd6d6; border-color: #5a2a2a; }
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,1px,1px); white-space: nowrap; border: 0; }
-        .menu-toggle { display: inline-flex; align-items: center; justify-content: center; background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 8px; padding: 6px 10px; cursor: pointer; min-height: 44px; }
+        .menu-toggle { display: inline-flex; align-items: center; justify-content: center; background: var(--button-bg-color, var(--btn)); color: var(--button-color, var(--fg)); border: 1px solid var(--border, #2a345a); border-radius: 10px; padding: 6px 10px; cursor: pointer; min-height: 44px; }
         .menu-toggle[aria-expanded="true"] { filter: brightness(1.08); }
-        .nav-menu { position: absolute; right: 0; top: 100%; margin-top: 8px; background: var(--card, #1c2541); color: var(--fg, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 12px; padding: 8px; z-index: 50; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); min-width: 220px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; opacity: 0; transform: translateY(-6px) scale(0.98); visibility: hidden; pointer-events: none; transition: opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms; }
+        .nav-menu { position: absolute; right: 0; top: 100%; margin-top: 8px; background: var(--panel-bg, var(--card)); color: var(--panel-fg, var(--fg)); border: 1px solid var(--panel-border, var(--border)); border-radius: 14px; padding: 10px; z-index: 50; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); min-width: 220px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; opacity: 0; transform: translateY(-6px) scale(0.98); visibility: hidden; pointer-events: none; transition: opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms; }
         .nav-menu.open { opacity: 1; transform: translateY(0) scale(1); visibility: visible; pointer-events: auto; transition-delay: 0s; }
         .nav-menu .row { display: contents; }
         .nav-menu .icon-btn { width: 100%; min-height: 40px; }
         .menu-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.25); z-index: 40; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 140ms ease, visibility 0s linear 140ms; }
-        .menu-backdrop.show { opacity: 1; visibility: visible; transition-delay: 0s; backdrop-filter: blur(1px); pointer-events: auto; }
+        .menu-backdrop.show { opacity: 1; visibility: visible; transition-delay: 0s; backdrop-filter: blur(2px); pointer-events: auto; }
         @media (max-width: 380px) { .nav-menu { grid-template-columns: 1fr; min-width: 180px; } }
         .right.inline-actions { display: none; }
         .right.menu-area { display: inline-flex; }
