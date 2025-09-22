@@ -141,9 +141,22 @@ class AppHeader extends HTMLElement {
       let started = false, completed = false;
       try { const pid = getActiveProfileId?.(); const key = `${pid || 'default'}::${today}`; const raw = localStorage.getItem('drawer-panel-v1'); const all = raw ? JSON.parse(raw) : {}; const st = all[key]; if (st && typeof st === 'object') { started = !!st.started; completed = !!st.completed; } } catch(_) {}
       if (panel) {
-        if (completed && typeof panel.showCompletedSummary === 'function') { panel.showCompletedSummary(); }
-        else if (!started) { try { panel.querySelector('.start-btn')?.click?.(); } catch(_) {} }
-        else { try { if (typeof panel.expand === 'function') panel.expand(); else panel.querySelector('.toggle-btn')?.click?.(); } catch(_) {} }
+        if (completed && typeof panel.showCompletedSummary === 'function') {
+          panel.showCompletedSummary();
+        }
+        else if (!started) {
+          try { panel.querySelector('.start-btn')?.click?.(); } catch(_) {}
+        }
+        else {
+          // If counting already started for today, toggle collapse/expand instead of forcing re-expand
+          try {
+            if (typeof panel.isCollapsed === 'function' && typeof panel.expand === 'function' && typeof panel.collapse === 'function') {
+              panel.isCollapsed() ? panel.expand() : panel.collapse();
+            } else {
+              panel.querySelector('.toggle-btn')?.click?.();
+            }
+          } catch(_) {}
+        }
       }
       try { applyReadOnlyByActiveDate(this); updateLockButtonUI(this); } catch(_) {}
       this._closeMenu();

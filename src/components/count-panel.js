@@ -97,8 +97,20 @@ class CountPanel extends HTMLElement {
 
   isCollapsed() { return !!this._state.collapsed; }
   refresh() { this._refresh(); }
-  expand() { if (!this._state.started) return false; this._state.collapsed = false; this._refresh(); return true; }
-  collapse() { if (!this._state.started) return false; this._state.collapsed = true; this._refresh(); return true; }
+  expand() {
+    if (!this._state.started) return false;
+    this._state.collapsed = false;
+    this._savePersisted({ collapsed: false, started: true });
+    this._refresh();
+    return true;
+  }
+  collapse() {
+    if (!this._state.started) return false;
+    this._state.collapsed = true;
+    this._savePersisted({ collapsed: true, started: true });
+    this._refresh();
+    return true;
+  }
   toggleCollapsed() { if (!this._state.started) return false; this._state.collapsed = !this._state.collapsed; this._savePersisted({ collapsed: this._state.collapsed, started: this._state.started }); this._refresh(); return true; }
 
   showCompletedSummary() { this._state.started = true; this._state.completed = true; this._state.collapsed = false; this._savePersisted({ started: true, completed: true, collapsed: false }); try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch (_) {} this._refresh(); }
@@ -166,8 +178,16 @@ class CountPanel extends HTMLElement {
     if (completed) this._renderSummary();
     const collapsedChanged = this._lastCollapsed !== collapsed;
     const completedChanged = this._lastCompleted !== completed;
-    if (!isEmpty && (collapsedChanged || completedChanged || !noAnim)) { if (collapsed) this._collapseEl(container, !noAnim); else this._expandEl(container, !noAnim); }
-    else if (isEmpty) { try { this._els.body.hidden = true; this._els.body.setAttribute('aria-hidden', 'true'); this._els.body.style.height = '0px'; this._els.summary.hidden = true; this._els.summary.setAttribute('aria-hidden', 'true'); this._els.summary.style.height = '0px'; } catch(_) {} }
+    // Only animate on actual state changes; if nothing changed and caller requested noAnim, skip animations
+    if (!isEmpty && (collapsedChanged || completedChanged)) {
+      if (collapsed) this._collapseEl(container, !noAnim);
+      else this._expandEl(container, !noAnim);
+    } else if (isEmpty) {
+      try {
+        this._els.body.hidden = true; this._els.body.setAttribute('aria-hidden', 'true'); this._els.body.style.height = '0px';
+        this._els.summary.hidden = true; this._els.summary.setAttribute('aria-hidden', 'true'); this._els.summary.style.height = '0px';
+      } catch(_) {}
+    }
     this._lastCollapsed = collapsed; this._lastCompleted = completed;
 
     this._els.doneHint.hidden = !completed;
