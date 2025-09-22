@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.2.9 - 2025-09-21
+### SEO & Social Sharing
+- Added canonical URL, author, `robots`, and `color-scheme` meta to `index.html`.
+- Added Open Graph and Twitter Card tags for rich previews.
+- Added JSON-LD (`WebApplication`) structured data to improve search visibility.
+- Created `robots.txt` and `sitemap.xml` (root) and wired them for production; offline page excluded from sitemap.
+- Marked `offline.html` as `noindex` and gave it an explicit canonical URL.
+
+### Server
+- Serve `robots.txt`, `sitemap.xml`, and `manifest.webmanifest` with correct content types and caching.
+- Added lightweight security headers (`X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`).
+- Improved cache-control: long-lived for static assets; limited for XML/manifest; no-store for HTML/config.
+
+### Docs
+- README: new SEO section with instructions to replace `https://your-domain.example.com` in meta tags, sitemap, and robots.
+
 ## v0.2.8 - 2025-09-21
 ### Features: Per-Profile Theme Preference
 - Theme preference is now stored per profile. Each profile can choose `System`, `Light`, or `Dark`.

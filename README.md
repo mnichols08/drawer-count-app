@@ -18,6 +18,24 @@ Status: Vanilla JS + Web Components (no framework)
 - Keyboard shortcuts for faster entry
  - Visual polish: random background image with smooth fade-in; light/dark overlays for readability
 
+## SEO
+
+This app includes sensible defaults for search and sharing:
+
+- Canonical URL, Open Graph, and Twitter meta tags in `index.html`.
+- JSON-LD (`WebApplication`) structured data in `index.html`.
+- `offline.html` is marked `noindex` and excluded from the sitemap.
+- Root `robots.txt` and `sitemap.xml` are served with proper content types.
+
+Before deploying to production, replace `https://your-domain.example.com` in:
+
+- `index.html`: `link rel="canonical"`, `og:*`, `twitter:*`, and JSON-LD `url`/`image`.
+- `offline.html`: canonical link.
+- `robots.txt`: `Sitemap:` URL.
+- `sitemap.xml`: `<loc>` entries. Add any other top-level routes if you introduce them.
+
+The Express server sets security headers and cache policies. Static assets get long-term caching, while HTML and configuration endpoints avoid caching to ensure fresh content.
+
 ## Quick start (Windows PowerShell)
 
 ```powershell

@@ -309,7 +309,47 @@ app.get('/config.js', (req, res) => {
 
 // Serve static files (PWA)
 const rootDir = path.resolve(__dirname);
-app.use(express.static(rootDir, { extensions: ['html'], index: 'index.html', maxAge: '1h' }));
+// Basic security headers and sensible caching for static assets
+app.use((req, res, next) => {
+	res.setHeader('X-Content-Type-Options', 'nosniff');
+	res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+	res.setHeader('Permissions-Policy', 'geolocation=(), camera=(), microphone=()');
+	next();
+});
+
+// Explicit handlers for SEO assets
+app.get('/robots.txt', (req, res) => {
+	res.type('text/plain; charset=utf-8');
+	res.set('Cache-Control', 'public, max-age=3600');
+	res.send(fs.readFileSync(path.join(rootDir, 'robots.txt'), 'utf8'));
+});
+app.get('/sitemap.xml', (req, res) => {
+	res.type('application/xml; charset=utf-8');
+	res.set('Cache-Control', 'public, max-age=3600');
+	res.send(fs.readFileSync(path.join(rootDir, 'sitemap.xml'), 'utf8'));
+});
+
+// Ensure correct content type for the Web App Manifest
+app.get('/manifest.webmanifest', (req, res) => {
+	res.type('application/manifest+json; charset=utf-8');
+	res.set('Cache-Control', 'public, max-age=3600');
+	res.send(fs.readFileSync(path.join(rootDir, 'manifest.webmanifest'), 'utf8'));
+});
+
+// Serve static with long cache for hashed/static assets
+app.use(express.static(rootDir, {
+	extensions: ['html'],
+	index: 'index.html',
+	setHeaders: (res, filePath) => {
+		if (/\.(?:js|css|png|jpg|jpeg|webp|svg|ico|woff2?)$/i.test(filePath)) {
+			res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+		} else if (/\.(?:xml|webmanifest)$/i.test(filePath)) {
+			res.setHeader('Cache-Control', 'public, max-age=3600');
+		} else {
+			res.setHeader('Cache-Control', 'no-store');
+		}
+	}
+}));
 
 // SPA fallback to index.html for unknown routes (except /api/*)
 app.use((req, res, next) => {
