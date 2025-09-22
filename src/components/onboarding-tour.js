@@ -106,8 +106,9 @@ class OnboardingTour extends HTMLElement {
   .backdrop { position: fixed; inset: 0; background: var(--backdrop-bg, rgba(0,0,0,.5)); z-index: 1000; }
   .spotlight { position: fixed; z-index: 1001; pointer-events: none; border-radius: 10px; box-shadow: 0 0 0 9999px var(--backdrop-bg, rgba(0,0,0,.55)), 0 0 0 2px var(--accent, #5aa0ff) inset; transition: all 120ms ease; }
         .tour { position: fixed; inset: 6% auto auto 50%; transform: translateX(-50%);
-          max-width: min(720px, 95vw); background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
-          border: 1px solid var(--border, #2a345a); border-radius: 14px; padding: 16px; z-index: 1001;
+          max-width: min(720px, 95vw); background: var(--card); color: var(--fg);
+          border: 1px solid var(--border); border-radius: 14px; padding: 16px; z-index: 1001;
+          backdrop-filter: saturate(120%) blur(6px); -webkit-backdrop-filter: saturate(120%) blur(6px);
           box-shadow: var(--shadow, 0 18px 48px rgba(0,0,0,.35)); display: grid; grid-template-rows: auto 1fr auto; gap: 10px; }
         .hd { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
         .hd h2 { margin: 0; font-size: 1.1rem; letter-spacing: .2px; }
@@ -147,9 +148,9 @@ class OnboardingTour extends HTMLElement {
         `;
     // Wire up event listeners after (re)rendering
     this._wire();
-    const hasAnchor = !!(this._steps[this._idx]?.anchor);
-    const backdrop = this._shadow.querySelector('.backdrop');
-    if (backdrop) backdrop.style.background = hasAnchor ? 'transparent' : 'rgba(0,0,0,.5)';
+  const hasAnchor = !!(this._steps[this._idx]?.anchor);
+  const backdrop = this._shadow.querySelector('.backdrop');
+  if (backdrop) backdrop.style.background = hasAnchor ? 'transparent' : 'var(--backdrop-bg, rgba(0,0,0,.5))';
     this._updateSpotlight();
   }
   _updateStep() { this._render(); }
@@ -173,13 +174,13 @@ class OnboardingTour extends HTMLElement {
       if (!spot) return;
       if (!sel) {
         spot.setAttribute('hidden', '');
-        if (backdrop) backdrop.style.background = 'rgba(0,0,0,.5)';
+  if (backdrop) backdrop.style.background = 'var(--backdrop-bg, rgba(0,0,0,.5))';
         return;
       }
       const el = document.querySelector(sel);
       if (!el || !el.getBoundingClientRect) {
         spot.setAttribute('hidden', '');
-        if (backdrop) backdrop.style.background = 'rgba(0,0,0,.5)';
+  if (backdrop) backdrop.style.background = 'var(--backdrop-bg, rgba(0,0,0,.5))';
         return;
       }
       // Ensure it’s visible

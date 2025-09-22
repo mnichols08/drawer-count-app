@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.2.14 - 2025-09-22
+### Theme & UI Consistency
+- Fixed light-mode Calendar: previous/past days no longer render with a blue background; day cells now use input theme variables for a neutral look in light mode and stay correct in dark mode.
+- Standardized all surfaces to shared theme variables: `--card` (surface), `--fg` (foreground), and `--border` (stroke). Removed legacy `--panel-*` usages across components.
+- Adopted a frosted-glass UI: translucent `--card` backgrounds with `backdrop-filter: blur(6px)` applied to dialogs, menus, onboarding, and toast notifications for a consistent feel.
+- Tuned light theme contrast by slightly increasing the light `--card` alpha for readability.
+
+### Overlays & Backdrops
+- Introduced theme-aware backdrop variables: `--backdrop-bg` and `--backdrop-weak-bg`, replacing hard-coded rgba overlays in modals, header menus, and onboarding.
+
+### Components touched (high level)
+- Day Picker Modal, Settings Modal, New Profile, Optional Fields, Delete Profile, Unlock Confirm, Revert Confirm, Help Modal, App Header menu, Onboarding Tour, and Toasts.
+
+### Developer notes
+- If clients don’t immediately pick up the new styles, perform a hard refresh or bump the service worker cache before deploy.
+
 ## v0.2.13 - 2025-09-22
 ### UX / PWA: Onboarding-aware Install Banner
 - Install banner now stays hidden while the onboarding tour is open (respects `html[data-tour-open]`).

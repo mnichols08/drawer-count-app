@@ -3,7 +3,8 @@
   --fg: #e7ecff;
   --muted: #9aa3b2;
   --accent: #5aa0ff;
-  --card: #151c35;
+  /* Translucent card surface for frosted effect */
+  --card: rgba(21, 28, 53, 0.72);
   --border: #263056;
   --btn: #3a506b;
   /* Backdrop overlays (used by modals/menus) */
@@ -71,7 +72,8 @@ body {
   --fg: #0b132b;        /* darker text for stronger contrast */
   --muted: #334155;     /* slate-700 for better readability */
   --accent: #1c64f2;
-  --card: #ffffff;
+  /* Light theme translucent card (slightly more opaque for contrast) */
+  --card: rgba(255, 255, 255, 0.30);
   --border: #b8c1e1;    /* darker border for clearer separation */
   --btn: #dbe4ff;       /* slightly darker button bg */
   /* Backdrops in light mode slightly lighter to avoid over-dimming */
@@ -132,7 +134,7 @@ body {
 
 .card {
   /* Translucent card to let the background image subtly show through */
-  background: rgba(21, 28, 53, 0.72);
+  background: var(--card);
   /* Frosted-glass effect where supported */
   backdrop-filter: saturate(120%) blur(6px);
   -webkit-backdrop-filter: saturate(120%) blur(6px);
@@ -146,10 +148,7 @@ body {
   margin: auto;
 }
 
-/* Light theme translucency for card */
-:root[data-theme="light"] .card {
-  background: rgba(255, 255, 255, 0.25);
-}
+/* Light theme translucency is controlled via --card */
 
 /* Bridge theme variables into <drawer-count> shadow via host */
 drawer-count {
@@ -319,11 +318,6 @@ main.container {
 main.container > .card {
   width: min(900px, 92vw);
   margin-inline: auto;
-  background: var(--card);
-  color: var(--fg);
-  backdrop-filter: saturate(120%) blur(6px);
-  -webkit-backdrop-filter: saturate(120%) blur(6px);
-  border: 1px solid var(--border);
 }
 
 /* Collapsible count panel */

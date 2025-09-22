@@ -29,8 +29,10 @@ class DayPickerModal extends HTMLElement {
   .backdrop { position: fixed; inset: 0; background: var(--backdrop-bg, rgba(0,0,0,.5)); backdrop-filter: blur(2px); z-index: 1000; }
         .dialog { position: fixed; inset: 12% auto auto 50%; transform: translateX(-50%);
          max-width: min(520px, 92vw); max-height: min(85vh, 92vh); overflow: hidden;
-          background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
-          border: 1px solid var(--border, #2a345a); border-radius: 14px; padding: 0; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
+          background: var(--card); color: var(--fg);
+          border: 1px solid var(--border); border-radius: 14px; padding: 0; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35));
+          backdrop-filter: saturate(120%) blur(6px); -webkit-backdrop-filter: saturate(120%) blur(6px);
+        }
         .hd { display:flex; justify-content: space-between; align-items:center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--border, #2a345a); }
         .hd h2 { margin: 0; font-size: 1.1rem; }
         .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; cursor: pointer; }
