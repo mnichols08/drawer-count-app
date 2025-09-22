@@ -1,11 +1,20 @@
 # Changelog
 
+## v0.2.24 - 2025-09-22
+### Documentation
+- **Fixed changelog version history**: Corrected version attribution where v0.2.21 stepper completion features were incorrectly documented under v0.2.22, and properly separated bugfixes into their respective versions.
+
 ## v0.2.23 - 2025-09-22
 ### Bugfixes
 - **Fixed modal accessibility violation**: Resolved `aria-hidden` attribute conflict that occurred when modals contained focused elements, eliminating browser accessibility warnings and improving screen reader compatibility.
 - **Enhanced modal focus management**: Modal dialogs now properly remove `aria-hidden` attributes when open and set focus order correctly to prevent assistive technology conflicts.
 
 ## v0.2.22 - 2025-09-22
+### Bugfixes
+- **Fixed calendar date selection**: Calendar modal now properly returns selected dates instead of null, resolving issue where clicking calendar dates wouldn't change the active view.
+- **Fixed seeding balance calculations**: Developer seed functions now generate perfectly balanced test data (balance = $0.00) using the correct mathematical formula.
+
+## v0.2.21 - 2025-09-22
 ### Auto-Completion on Stepper Navigation Finish
 - **Stepper completion workflow**: When using mobile stepper navigation, completing the final step (pressing "Done" or Enter on the last field) now automatically marks the drawer count as complete.
 - **Seamless UX**: Users no longer need to manually tap "Mark complete" after finishing the stepper procedure - the completion happens automatically.
@@ -16,10 +25,6 @@
 - Added `stepper-complete` event dispatch from drawer-count component when reaching end of stepper navigation.
 - Enhanced count-panel component to listen for stepper completion events and trigger existing completion logic.
 - Maintained all existing safeguards and state management for consistent behavior.
-
-### Bugfixes
-- **Fixed calendar date selection**: Calendar modal now properly returns selected dates instead of null, resolving issue where clicking calendar dates wouldn't change the active view.
-- **Fixed seeding balance calculations**: Developer seed functions now generate perfectly balanced test data (balance = $0.00) using the correct mathematical formula.
 
 ## v0.2.20 - 2025-09-22
 ### Mobile UX: Enhanced Stepper Navigation & Per-Profile Preferences
