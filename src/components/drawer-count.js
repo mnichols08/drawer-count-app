@@ -5,13 +5,14 @@ class DrawerCount extends HTMLElement {
     super();
     this._root = this.attachShadow({ mode: 'open' });
     this._readOnly = false;
-    this._onInputEvent = this._onInputEvent.bind(this);
-    this._newInput = this._newInput.bind(this);
-    this.remInput = this.remInput.bind(this);
-    this._getTotal = this._getTotal.bind(this);
-    this._countCash = this._countCash.bind(this);
-    this._getBalance = this._getBalance.bind(this);
-    this._slipCheckCount = this._slipCheckCount.bind(this);
+    const bind = (name) => { try { if (typeof this[name] === 'function') this[name] = this[name].bind(this); } catch(_) {} };
+    bind('_onInputEvent');
+    bind('_newInput');
+    bind('remInput');
+    bind('_getTotal');
+    bind('_countCash');
+    bind('_getBalance');
+    bind('_slipCheckCount');
   }
 
   connectedCallback() {
@@ -241,9 +242,10 @@ class DrawerCount extends HTMLElement {
         }
   /* Subtle style for dynamic row labels (Slip/Check) shown to the left of input */
   .dyn-label { color: var(--muted, #9aa3b2); margin-right: .35rem; font-size: .9rem; }
-        button { background: var(--button-bg-color, #222222f0); color: var(--button-color, green); }
+  button { background: var(--button-bg-color, #222222f0); color: var(--button-color, green); }
         button.rem { color: var(--button-rem-color, red); margin-left: .35rem; }
-        span:before { content: '$'; }
+  /* Prefix currency only for value spans inside main content */
+  .wrap span:before { content: '$'; }
 
         @media only print {
           #drawer input, #roa input, #drawer label, #roa label,
@@ -262,10 +264,20 @@ class DrawerCount extends HTMLElement {
         /* Mobile-focused tweaks */
         @media (max-width: 640px) {
           .wrap { gap: .5rem; }
-          .input { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .4rem; }
+          /* Only hide/show one input when stepper is enabled */
+          :host([data-stepper="on"]) .input { display: none; }
+          :host([data-stepper="on"]) .input.active { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .4rem; }
+          /* Fallback: if stepper hasn't initialized yet, still show a single input at a time */
+          :host(:not([data-stepper="on"])) .input { display: none; }
+          :host(:not([data-stepper="on"])) .input.initial { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .4rem; }
+          :host(:not([data-stepper="on"])) .input:first-of-type { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .4rem; }
+          :host(:not([data-stepper="on"])) .input:focus-within { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .4rem; }
           .input label { font-size: 1rem; }
           .input input { width: 100%; font-size: 16px; min-height: 40px; padding: 0.2rem 0.4rem; }
           .input button { align-self: stretch; min-height: 40px; padding: 0 .6rem; border-radius: .25rem; }
+          .mobile-controls { display: flex; position: sticky; bottom: 0; gap: .5rem; padding: .5rem; background: var(--panel-bg, #0b1022e0); backdrop-filter: blur(2px); z-index: 2; align-items: center; justify-content: space-between; }
+          .mobile-controls .prev, .mobile-controls .next { min-height: 40px; padding: 0 .9rem; border-radius: .35rem; background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); }
+          .mobile-controls .step-indicator { flex: 1; text-align: center; color: var(--muted, #9aa3b2); }
         }
       </style>
 
@@ -281,7 +293,7 @@ class DrawerCount extends HTMLElement {
         <div class="output" id="cardTotal">Slip Total: $<balance>0.00</balance></div>
         <div class="output" id="checkTotal">Check Total: $<balance>0.00</balance></div>
 
-        <div class="input" id="drawer">
+        <div class="input initial" id="drawer">
           <label for="drawer-input">Cash Total</label>
           <input id="drawer-input" name="drawer" step=".01" type="number" placeholder="Cash Total" inputmode="decimal" enterkeyhint="next" autocomplete="off" />
            Cash Total: $<drawer>0.00</drawer>
@@ -410,6 +422,12 @@ class DrawerCount extends HTMLElement {
           </div>
         </div>
       </div>
+      <!-- Mobile-only stepper controls (hidden by default; shown via JS on touch + small screens) -->
+      <div class="mobile-controls" aria-label="Field navigation" role="group" style="display:none;">
+        <button class="prev" type="button" title="Previous field">Back</button>
+        <span class="step-indicator">1 / 1</span>
+        <button class="next" type="button" title="Next field">Next</button>
+      </div>
     `;
   }
 
@@ -445,41 +463,9 @@ class DrawerCount extends HTMLElement {
     $$('.input').forEach((block) => block.addEventListener('input', this._onInputEvent));
 
     // Keyboard/focus behavior
-    const isTouch = this._isTouchDevice();
-    if (isTouch) {
-      // On touch devices: auto-select + scroll into view, Enter moves next (Shift+Enter prev)
-      const inputs = $$('.input input, .optional-section input');
-      const orderedInputs = inputs; // DOM order
-      const focusIdx = (idx) => {
-        const el = orderedInputs[idx];
-        if (!el) return;
-        try { el.focus({ preventScroll: false }); el.select?.(); el.scrollIntoView?.({ block: 'center', behavior: 'smooth' }); } catch(_) {}
-      };
-      orderedInputs.forEach((inp, idx) => {
-        inp.addEventListener('focus', () => { try { inp.select?.(); inp.scrollIntoView?.({ block: 'center', behavior: 'smooth' }); } catch(_) {} });
-        inp.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' || e.keyCode === 13) {
-            e.preventDefault();
-            const dir = e.shiftKey ? -1 : 1;
-            const nextIdx = Math.max(0, Math.min(orderedInputs.length - 1, idx + dir));
-            // Special case on touch: Enter on base slip/check with a value quickly adds a new row
-            const parentId = inp.closest('.input')?.id;
-            const isSlipBase = parentId === 'slips';
-            const isCheckBase = parentId === 'checks';
-            if (!e.shiftKey && (isSlipBase || isCheckBase) && inp.value !== '') {
-              this._newInput(isSlipBase ? '#checks' : '#hundreds');
-              return;
-            }
-            focusIdx(nextIdx);
-          } else if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            focusIdx(Math.min(orderedInputs.length - 1, idx + 1));
-          } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            focusIdx(Math.max(0, idx - 1));
-          }
-        });
-      });
+    const mobileMode = this._shouldUseMobileStepper() || this._isTouchDevice();
+    if (mobileMode) {
+      this._bindMobileInputKeys?.();
     } else {
       // On desktop: preserve original behavior — Tab to move, Enter on base Slip/Check adds a row
       const slip = $('#slips input');
@@ -517,6 +503,9 @@ class DrawerCount extends HTMLElement {
         this.dispatchEvent(new CustomEvent('change', { detail: this.getCount(), bubbles: true, composed: true }));
       });
     });
+
+    // Initialize mobile stepper
+    this._initMobileStepper?.();
   }
 
   // (Previously: optional field visibility helpers removed; modal edits values directly.)
@@ -634,12 +623,6 @@ class DrawerCount extends HTMLElement {
     } catch (_) { /* ignore */ }
   }
 
-  _isTouchDevice() {
-    try {
-      return (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches));
-    } catch(_) { return false; }
-  }
-
   _focusInputIn(node) {
     try { node?.querySelector('input')?.focus(); } catch (_) {}
   }
@@ -698,6 +681,145 @@ class DrawerCount extends HTMLElement {
     }
   }
 
+  _isTouchDevice() {
+    try {
+      return (("ontouchstart" in window) || (navigator.maxTouchPoints > 0) || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches));
+    } catch(_) { return false; }
+  }
+
+  _shouldUseMobileStepper() {
+    try {
+      const mq = window.matchMedia('(max-width: 640px)');
+      // Enable on small screens regardless of touch to ensure it works on phones and emulators
+      return mq.matches;
+    } catch(_) { return false; }
+  }
+
+  _initMobileStepper() {
+    try {
+      const controls = this._root.querySelector('.mobile-controls');
+      if (!controls) return;
+      const enable = this._shouldUseMobileStepper();
+      controls.style.display = enable ? 'flex' : 'none';
+      // toggle :host attribute to control CSS that shows one input at a time
+      try { if (enable) this.setAttribute('data-stepper', 'on'); else this.removeAttribute('data-stepper'); } catch(_) {}
+      if (!enable) {
+        Array.from(this._root.querySelectorAll('.input.active')).forEach((n) => n.classList.remove('active'));
+        // Restore initial visibility for fallback CSS
+        const first = this._root.querySelector('.wrap > .input');
+        first?.classList.add('initial');
+        return;
+      }
+      this._refreshSteps();
+      if (!this._stepInputs?.length) return;
+      if (typeof this._currentStepIdx !== 'number') this._currentStepIdx = 0;
+      this._setActiveStep(this._currentStepIdx);
+      // Remove fallback class so only the active step shows
+      Array.from(this._root.querySelectorAll('.wrap > .input.initial')).forEach((n) => n.classList.remove('initial'));
+      const prev = controls.querySelector('.prev');
+      const next = controls.querySelector('.next');
+      prev.onclick = () => this._gotoPrev();
+      next.onclick = () => this._gotoNext();
+      this._stepInputs.forEach((inp, i) => inp.addEventListener('focus', () => this._setActiveStep(i)));
+      if (!this._resizeHandler) {
+        this._resizeHandler = () => this._initMobileStepper();
+        window.addEventListener('resize', this._resizeHandler);
+      }
+    } catch(_) {}
+  }
+
+  _refreshSteps() {
+    const containers = Array.from(this._root.querySelectorAll('.wrap > .input'));
+    this._stepContainers = containers;
+    this._stepInputs = containers.map((c) => c.querySelector('input')).filter(Boolean);
+    const indicator = this._root.querySelector('.mobile-controls .step-indicator');
+    if (indicator) {
+      const total = this._stepInputs.length || 1;
+      const idx = (this._currentStepIdx || 0) + 1;
+      indicator.textContent = `${Math.min(idx, total)} of ${total}`;
+    }
+  }
+
+  _setActiveStep(idx) {
+    if (!this._stepContainers?.length) return;
+    this._currentStepIdx = Math.max(0, Math.min(this._stepContainers.length - 1, idx));
+    this._stepContainers.forEach((c, i) => c.classList.toggle('active', i === this._currentStepIdx));
+    const indicator = this._root.querySelector('.mobile-controls .step-indicator');
+  if (indicator) indicator.textContent = `${this._currentStepIdx + 1} of ${this._stepContainers.length}`;
+    try {
+      const inp = this._stepInputs[this._currentStepIdx];
+      if (document.activeElement !== inp) {
+        inp?.focus({ preventScroll: false });
+        inp?.select?.();
+        inp?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+      }
+    } catch(_) {}
+    const next = this._root.querySelector('.mobile-controls .next');
+    if (next) next.textContent = (this._currentStepIdx === this._stepContainers.length - 1) ? 'Done' : 'Next';
+  }
+
+  _bindMobileInputKeys() {
+    try {
+      const inputs = Array.from(this._root.querySelectorAll('.input input, .optional-section input'));
+      const focusIdx = (idx) => {
+        const fresh = Array.from(this._root.querySelectorAll('.input input, .optional-section input'));
+        const el = fresh[idx];
+        if (!el) return;
+        try { el.focus({ preventScroll: false }); el.select?.(); el.scrollIntoView?.({ block: 'center', behavior: 'smooth' }); } catch(_) {}
+      };
+      inputs.forEach((inp) => {
+        if (inp.dataset.mobkeys === '1') return; // avoid double-binding
+        const onFocus = () => { try { inp.select?.(); inp.scrollIntoView?.({ block: 'center', behavior: 'smooth' }); } catch(_) {} };
+        const onKey = (e) => {
+          const key = e.key || e.code;
+          if (key === 'Enter' || e.keyCode === 13) {
+            e.preventDefault();
+            // Compute current position each time for dynamic rows
+            const fresh = Array.from(this._root.querySelectorAll('.input input, .optional-section input'));
+            const idx = Math.max(0, fresh.indexOf(inp));
+            const dir = e.shiftKey ? -1 : 1;
+            const nextIdx = Math.max(0, Math.min(fresh.length - 1, idx + dir));
+            // Special case: Enter on base slip/check with a value quickly adds a new row
+            const parentId = inp.closest('.input')?.id;
+            const isSlipBase = parentId === 'slips';
+            const isCheckBase = parentId === 'checks';
+            if (!e.shiftKey && (isSlipBase || isCheckBase) && inp.value !== '') {
+              this._newInput(isSlipBase ? '#checks' : '#hundreds');
+              return;
+            }
+            focusIdx(nextIdx);
+          } else if (key === 'ArrowDown') {
+            e.preventDefault();
+            const fresh = Array.from(this._root.querySelectorAll('.input input, .optional-section input'));
+            const idx = Math.max(0, fresh.indexOf(inp));
+            focusIdx(Math.min(fresh.length - 1, idx + 1));
+          } else if (key === 'ArrowUp') {
+            e.preventDefault();
+            const fresh = Array.from(this._root.querySelectorAll('.input input, .optional-section input'));
+            const idx = Math.max(0, fresh.indexOf(inp));
+            focusIdx(Math.max(0, idx - 1));
+          }
+        };
+        inp.addEventListener('focus', onFocus);
+        inp.addEventListener('keydown', onKey);
+        inp.addEventListener('keypress', onKey);
+        inp.addEventListener('keyup', onKey);
+        inp.dataset.mobkeys = '1';
+      });
+    } catch(_) {}
+  }
+
+  _gotoNext() {
+    if (!this._stepContainers?.length) return;
+    if (this._currentStepIdx >= this._stepContainers.length - 1) { try { this._stepInputs[this._currentStepIdx]?.blur(); } catch(_) {} return; }
+    this._setActiveStep(this._currentStepIdx + 1);
+  }
+
+  _gotoPrev() {
+    if (!this._stepContainers?.length) return;
+    this._setActiveStep(Math.max(0, this._currentStepIdx - 1));
+  }
+
   _newInput(anchorSelector) {
     if (this._readOnly) return;
     // Determine type based on anchor (match original logic: before #checks => slip, else check)
@@ -722,16 +844,16 @@ class DrawerCount extends HTMLElement {
     btn.textContent = 'x';
     btn.addEventListener('click', () => this.remInput(id));
 
-  const span = document.createElement('span');
-  span.textContent = '0.00';
-  // Visible, clickable label tied to the input, shown to the left
-  const visLabel = document.createElement('label');
-  visLabel.setAttribute('for', input.id);
-  visLabel.textContent = `${typeOf[0].toUpperCase()}${typeOf.slice(1)}`;
-  visLabel.className = 'dyn-label';
+    const span = document.createElement('span');
+    span.textContent = '0.00';
+    // Visible, clickable label tied to the input, shown to the left
+    const visLabel = document.createElement('label');
+    visLabel.setAttribute('for', input.id);
+    visLabel.textContent = `${typeOf[0].toUpperCase()}${typeOf.slice(1)}`;
+    visLabel.className = 'dyn-label';
 
-  // Append in UI order: label (left), input, button, value
-  div.append(visLabel, input, btn, span);
+    // Append in UI order: label (left), input, button, value
+    div.append(visLabel, input, btn, span);
     // delegate input/keydown
     div.addEventListener('input', this._onInputEvent);
     div.addEventListener('keydown', (e) => {
@@ -754,6 +876,14 @@ class DrawerCount extends HTMLElement {
     this._slipCheckCount();
     this._renumberDynamicLabels();
     input.focus();
+    if (this._shouldUseMobileStepper && this._shouldUseMobileStepper()) {
+      this._refreshSteps?.();
+      const containers = this._stepContainers || [];
+      const idx = containers.indexOf(div);
+      if (idx >= 0) this._setActiveStep?.(idx);
+      // Ensure new input has mobile key bindings
+      this._bindMobileInputKeys?.();
+    }
   }
 
   remInput(id) {
@@ -765,10 +895,17 @@ class DrawerCount extends HTMLElement {
     this._slipCheckCount();
     this._renumberDynamicLabels();
     this.dispatchEvent(new CustomEvent('change', { detail: this.getCount(), bubbles: true, composed: true }));
+    if (this._shouldUseMobileStepper && this._shouldUseMobileStepper()) {
+      const prev = this._currentStepIdx || 0;
+      this._refreshSteps?.();
+      this._setActiveStep?.(Math.max(0, Math.min(prev, (this._stepContainers?.length || 1) - 1)));
+      this._bindMobileInputKeys?.();
+    }
   }
 
   _getTotal() {
-    const spans = Array.from(this._root.querySelectorAll('span'));
+    // Only sum numeric spans inside the component content to avoid NaN from unrelated spans (e.g., mobile step indicator)
+    const spans = Array.from(this._root.querySelectorAll('.wrap span'));
     const total = spans.reduce((a, b) => a + Number(b.innerText || 0), 0);
     const totalEl = this._root.querySelector('total');
     if (totalEl) totalEl.innerText = total.toFixed(2);

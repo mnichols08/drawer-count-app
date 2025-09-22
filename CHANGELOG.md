@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.2.17 - 2025-09-22
+### Mobile UX: Single-field Stepper (small screens)
+- On viewports ≤ 640px, the drawer count now shows one field at a time with sticky Back/Next controls and a clear "X of Y" step indicator.
+- Stepper activates by width (no touch requirement) so it works in desktop device emulation and on phones.
+- Enter advances to the next field; Shift+Enter moves to the previous. Pressing Enter in the base Credit Cards or Checks field with a value quickly adds another row.
+- The first field is guaranteed visible immediately via a CSS fallback (even before JS initializes), and step activation focuses, selects, and scrolls the active input into view.
+
+### Bugfixes & Stability
+- Fixed a NaN total issue by summing only numeric spans inside the main component (ignoring UI spans like the step indicator).
+- Scoped the currency prefix (`$`) to value spans inside the content so non-value text (e.g., the step indicator) doesn’t get prefixed.
+- Hardened mobile key handling by binding `keydown`/`keypress`/`keyup` for Enter navigation and re-binding after dynamic add/remove of slip/check rows.
+- Removed an invalid reference in dynamic label renumbering and added the missing helper methods (`_onInputEvent`, `_getMultiplier`, `_focusInputIn`, `_focusAfterRemoval`) to stabilize event flows.
+- Desktop behavior and styling remain unchanged (Tab to move; Enter on base slip/check adds a row).
+
+### Dev note
+- This is a PWA; if you don’t see the new stepper immediately, perform a hard refresh (Ctrl+F5) or temporarily bypass/unregister the service worker. Before deploy, consider `npm run bump-sw` so clients fetch the latest assets.
+
 ## v0.2.16 - 2025-09-22
 ### Bugfix/UX: Optional Fields button opens working modal
 - Restored the original behavior for the Optional Fields (🧾) button: it now reliably opens a modal where you edit optional daily values directly.
