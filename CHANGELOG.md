@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.2.15 - 2025-09-22
+### Bugfix: Respect lock for Clear action
+- The "Clear inputs" button now correctly does nothing when the drawer/day is locked (read-only). A small warning toast is shown instead.
+- The clear button is disabled whenever read-only mode is active, matching other mutating controls.
+
+### Cleanup: Consolidate DrawerCount source
+- Removed legacy duplicate `src/drawer-count.js`; all logic now lives in `src/components/drawer-count.js`.
+- Removed a redundant direct `<script>` include for the component in `index.html`; the component is imported via `main.js` and `count-panel`.
+
+### Deploy note
+- If the PWA still loads an older HTML/script, hard refresh (Ctrl+F5) or run `npm run bump-sw` before deploy to ensure clients fetch the latest assets.
+
 ## v0.2.14 - 2025-09-22
 ### Theme & UI Consistency
 - Fixed light-mode Calendar: previous/past days no longer render with a blue background; day cells now use input theme variables for a neutral look in light mode and stay correct in dark mode.
