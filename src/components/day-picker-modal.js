@@ -1,4 +1,5 @@
 import { toast } from '../lib/toast.js';
+import './app-modal.js';
 
 class DayPickerModal extends HTMLElement {
   constructor() {
@@ -26,16 +27,6 @@ class DayPickerModal extends HTMLElement {
       <style>
         :host { display: none; }
         :host([open]) { display: block; }
-  .backdrop { position: fixed; inset: 0; background: var(--backdrop-bg, rgba(0,0,0,.5)); backdrop-filter: blur(2px); z-index: 1000; }
-        .dialog { position: fixed; inset: 12% auto auto 50%; transform: translateX(-50%);
-         max-width: min(520px, 92vw); max-height: min(85vh, 92vh); overflow: hidden;
-          background: var(--card); color: var(--fg);
-          border: 1px solid var(--border); border-radius: 14px; padding: 0; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35));
-          backdrop-filter: saturate(120%) blur(6px); -webkit-backdrop-filter: saturate(120%) blur(6px);
-        }
-        .hd { display:flex; justify-content: space-between; align-items:center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--border, #2a345a); }
-        .hd h2 { margin: 0; font-size: 1.1rem; }
-        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; cursor: pointer; }
         .content { display: grid; gap: 10px; padding: 12px 14px 14px; }
         .cal-hd { display:flex; align-items:center; justify-content: space-between; gap: 8px; }
         .nav { display:flex; gap: 6px; align-items: center; }
@@ -58,13 +49,8 @@ class DayPickerModal extends HTMLElement {
         .btn:active { transform: translateY(1px); }
         .btn:focus { outline: 2px solid var(--accent, #5aa0ff); outline-offset: 2px; }
       </style>
-      <div class="backdrop" part="backdrop"></div>
-      <div class="dialog" role="dialog" aria-modal="true" aria-label="Pick a day">
-        <div class="hd">
-          <h2>Pick a Day</h2>
-          <button class="close" aria-label="Close">Close</button>
-        </div>
-        <div class="content">
+      <app-modal title="Pick a Day" closable>
+        <div class="content" slot="body">
           <div class="cal-hd">
             <div class="nav">
               <button type="button" class="btn btn-prev" aria-label="Previous month">‹</button>
@@ -83,12 +69,11 @@ class DayPickerModal extends HTMLElement {
             <button type="button" class="btn btn-cancel">Cancel</button>
           </div>
         </div>
-      </div>
+      </app-modal>
     `;
 
     this._els = {
-      backdrop: this._shadow.querySelector('.backdrop'),
-      close: this._shadow.querySelector('.close'),
+      modal: this._shadow.querySelector('app-modal'),
       cancel: this._shadow.querySelector('.btn-cancel'),
   ok: this._shadow.querySelector('.btn-ok'),
       prev: this._shadow.querySelector('.btn-prev'),
@@ -98,9 +83,7 @@ class DayPickerModal extends HTMLElement {
       gridDOW: this._shadow.querySelector('.grid-dow'),
       gridDays: this._shadow.querySelector('.grid-days'),
     };
-
-    this._els.backdrop?.addEventListener('click', () => this._cancel());
-    this._els.close?.addEventListener('click', () => this._cancel());
+    this._els.modal?.addEventListener('modal-close', () => this._cancel());
     this._els.cancel?.addEventListener('click', () => this._cancel());
   // no explicit OK button; clicking a saved day loads immediately
     this._els.prev?.addEventListener('click', () => this._nav(-1));
@@ -192,7 +175,8 @@ class DayPickerModal extends HTMLElement {
     const sdt = sel ? (this._parse(sel) || new Date()) : new Date();
     this._ym = this._clampYM({ y: sdt.getFullYear(), m: sdt.getMonth() });
     this._renderMonth();
-    this.setAttribute('open', '');
+  this.setAttribute('open', '');
+  this._els.modal?.show();
     // focus selected if possible
     setTimeout(()=>{ 
       try { 
@@ -203,7 +187,7 @@ class DayPickerModal extends HTMLElement {
     return new Promise((resolve) => { this._resolver = resolve; });
   }
 
-  close() { this.removeAttribute('open'); }
+  close() { this._els?.modal?.hide('programmatic'); this.removeAttribute('open'); }
   _cancel() { this.close(); this._resolve(null); }
   _confirm() {
     const sel = this._selected || '';

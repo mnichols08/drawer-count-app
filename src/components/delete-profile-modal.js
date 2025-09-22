@@ -1,4 +1,5 @@
 import { loadProfilesData } from '../lib/persistence.js';
+import './app-modal.js';
 
 class DeleteProfileModal extends HTMLElement {
   constructor() {
@@ -15,16 +16,6 @@ class DeleteProfileModal extends HTMLElement {
       <style>
         :host { display: none; }
         :host([open]) { display: block; }
-  .backdrop { position: fixed; inset: 0; background: var(--backdrop-bg, rgba(0,0,0,.5)); backdrop-filter: blur(2px); z-index: 1000; }
-        .dialog { position: fixed; inset: 12% auto auto 50%; transform: translateX(-50%);
-         max-width: min(520px, 92vw); max-height: min(85vh, 92vh); overflow-y: auto; overflow-x: hidden;
-          background: var(--card); color: var(--fg);
-          border: 1px solid var(--border); border-radius: 14px; padding: 1.1rem 1.1rem 1.25rem; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35));
-          backdrop-filter: saturate(120%) blur(6px); -webkit-backdrop-filter: saturate(120%) blur(6px);
-        }
-        .hd { display:flex; justify-content: space-between; align-items:center; gap: 8px; margin-bottom: 10px; }
-        .hd h2 { margin: 0; font-size: 1.1rem; }
-        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; cursor: pointer; }
         .content { display: grid; gap: 10px; }
         .danger { color: #ffb4b4; }
         .actions { display:flex; gap: 8px; justify-content: flex-end; }
@@ -33,35 +24,26 @@ class DeleteProfileModal extends HTMLElement {
         .btn:active { transform: translateY(1px); }
         .btn:focus { outline: 2px solid var(--accent, #5aa0ff); outline-offset: 2px; }
         .btn-danger { background: #5a2a2a; color: #ffd6d6; border-color: #7a3a3a; }
-        @media (max-width: 480px) { .dialog { inset: 6% auto auto 50%; padding: 12px; } }
       </style>
-      <div class="backdrop" part="backdrop"></div>
-      <div class="dialog" role="dialog" aria-modal="true" aria-label="Delete profile">
-        <div class="hd">
-          <h2>Delete Profile</h2>
-          <button class="close" aria-label="Close">Close</button>
-        </div>
-        <div class="content">
+      <app-modal title="Delete Profile" closable>
+        <div class="content" slot="body">
           <p>Are you sure you want to delete the profile <strong class="pname"></strong>? This action cannot be undone.</p>
           <p class="danger" aria-live="polite"></p>
-          <div class="actions">
-            <button type="button" class="btn btn-cancel">Cancel</button>
-            <button type="button" class="btn btn-danger btn-delete">Delete</button>
-          </div>
         </div>
-      </div>
+        <div class="actions modal-actions" slot="footer">
+          <button type="button" class="btn btn-cancel">Cancel</button>
+          <button type="button" class="btn btn-danger btn-delete">Delete</button>
+        </div>
+      </app-modal>
     `;
     this._els = {
-      backdrop: this._shadow.querySelector('.backdrop'),
-      dialog: this._shadow.querySelector('.dialog'),
-      close: this._shadow.querySelector('.close'),
+      modal: this._shadow.querySelector('app-modal'),
       cancel: this._shadow.querySelector('.btn-cancel'),
       del: this._shadow.querySelector('.btn-delete'),
       name: this._shadow.querySelector('.pname'),
       warn: this._shadow.querySelector('.danger'),
     };
-    this._els.backdrop?.addEventListener('click', () => this._cancel());
-    this._els.close?.addEventListener('click', () => this._cancel());
+    this._els.modal?.addEventListener('modal-close', () => this._cancel());
     this._els.cancel?.addEventListener('click', () => this._cancel());
     this._els.del?.addEventListener('click', () => this._confirm());
   }
@@ -76,9 +58,10 @@ class DeleteProfileModal extends HTMLElement {
       else { this._els.warn.textContent = ''; this._els.del.disabled = false; }
     } catch(_) {}
     this.setAttribute('open', '');
+    this._els.modal?.show();
     return new Promise((resolve) => { this._resolver = resolve; });
   }
-  close() { this.removeAttribute('open'); }
+  close() { this._els?.modal?.hide('programmatic'); this.removeAttribute('open'); }
   _cancel() { this.close(); this._resolve(false); }
   _confirm() { this.close(); this._resolve(true); }
   _resolve(v) { const r = this._resolver; this._resolver = null; if (r) r(v); }

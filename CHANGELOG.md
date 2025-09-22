@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.2.19 - 2025-09-22
+### UI/Accessibility: Standardized, Scrollable Modals
+- Introduced a reusable modal component `app-modal` with a scrollable body and sticky header/footer for consistent behavior across screens, especially mobile.
+- Standardized all modals to use it: Optional Fields, Unlock Confirm, Revert Confirm, Help, Settings, Delete Profile, Day Picker, and New Profile.
+- Features: background scroll lock while open, Escape/backdrop to close (when appropriate), focus trapping including slotted content, and ARIA-compliant dialog semantics.
+- Day Picker maintains full keyboard navigation and saved/today indicators; selecting a saved day confirms immediately.
+
+### Dev note
+- Consider running `npm run bump-sw` before deploy so clients pick up the latest modal scripts/styles via an SW cache bump.
+
 ## v0.2.17 - 2025-09-22
 ### Mobile UX: Single-field Stepper (small screens)
 - On viewports ≤ 640px, the drawer count now shows one field at a time with sticky Back/Next controls and a clear "X of Y" step indicator.
