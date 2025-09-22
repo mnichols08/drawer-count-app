@@ -43,6 +43,10 @@ class SettingsModal extends HTMLElement {
         .btn .dots { display: inline-block; width: 1.5em; text-align: left; }
         @keyframes dca-ellipsis { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } 100% { content: ''; } }
         .btn.processing .dots::after { content: ''; display: inline-block; animation: dca-ellipsis 1.2s steps(4, end) infinite; }
+        /* Only show mobile-only prefs on small screens */
+        @media (min-width: 641px) {
+          .mobile-only { display: none !important; }
+        }
       </style>
       <app-modal title="Settings" closable>
         <div class="content" slot="body">
@@ -75,7 +79,7 @@ class SettingsModal extends HTMLElement {
               </div>
             </div>
           </div>
-          <div class="section">
+          <div class="section mobile-only">
             <div class="row" style="align-items: center; gap: 12px;">
               <div>Preferences</div>
               <label title="On mobile, pressing Enter on Slips/Checks will add a new row instead of moving to Next">
@@ -157,7 +161,19 @@ class SettingsModal extends HTMLElement {
     if (this._els.dayLoadBtn) this._els.dayLoadBtn.disabled = !this._els.daySelect?.value;
     if (this._els.dayDeleteBtn) this._els.dayDeleteBtn.disabled = !this._els.daySelect?.value;
   // Initialize preferences
-  try { if (this._els.prefEnterAdds) { this._els.prefEnterAdds.checked = !!getMobileEnterAddsRow(); this._els.prefEnterAdds.addEventListener('change', (e) => { try { setMobileEnterAddsRow(!!e.target.checked); } catch(_) {} }); } } catch(_) {}
+    try {
+      if (this._els.prefEnterAdds) {
+        this._els.prefEnterAdds.checked = !!getMobileEnterAddsRow();
+        this._els.prefEnterAdds.addEventListener('change', (e) => {
+          try {
+            const val = !!e.target.checked;
+            setMobileEnterAddsRow(val);
+            // notify interested components
+            window.dispatchEvent(new CustomEvent('dca:prefs-changed', { detail: { mobileEnterAddsRow: val } }));
+          } catch(_) {}
+        });
+      }
+    } catch(_) {}
   }
   open() { this.setAttribute('open', ''); try { this._populateDaysSelect(); } catch(_) {} this._els?.modal?.show(); }
   close() { this._els?.modal?.hide('programmatic'); this.removeAttribute('open'); }

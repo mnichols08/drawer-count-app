@@ -30,6 +30,24 @@ class DrawerCount extends HTMLElement {
         this._mobileEnterAddsRow = !!getMobileEnterAddsRow();
       }
     } catch(_) { /* ignore */ }
+    // Listen for live preference changes
+    this._onPrefsChanged = (e) => {
+      try {
+        if (e?.detail && typeof e.detail.mobileEnterAddsRow === 'boolean') {
+          this._mobileEnterAddsRow = !!e.detail.mobileEnterAddsRow;
+        } else {
+          // fallback refresh
+          import('../lib/persistence.js').then((mod) => { this._mobileEnterAddsRow = !!mod.getMobileEnterAddsRow?.(); }).catch(()=>{});
+        }
+      } catch(_) {}
+    };
+    window.addEventListener('dca:prefs-changed', this._onPrefsChanged);
+  }
+
+  disconnectedCallback() {
+    try { if (this._onKeyDownGlobal) window.removeEventListener('keydown', this._onKeyDownGlobal); } catch(_) {}
+    try { if (this._resizeHandler) window.removeEventListener('resize', this._resizeHandler); } catch(_) {}
+    try { if (this._onPrefsChanged) window.removeEventListener('dca:prefs-changed', this._onPrefsChanged); } catch(_) {}
   }
 
   // Public API: get current drawer data
