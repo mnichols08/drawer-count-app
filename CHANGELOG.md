@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.2.20 - 2025-09-22
+### Mobile UX: Enhanced Stepper Navigation & Per-Profile Preferences
+- **Fixed mobile stepper navigation**: Next/Prev buttons now reliably advance past entire slip/check groups instead of getting stuck on individual dynamic rows.
+- **Enter key improvements**: On mobile, pressing Enter now triggers the Next button (Shift+Enter for Previous) instead of requiring manual taps.
+- **Light theme stepper colors**: Mobile stepper bar and buttons now properly inherit theme variables for consistent appearance in both light and dark modes.
+- **Per-profile preferences**: Added a new mobile-only setting "Mobile: Enter adds slip/check row" in Settings → Preferences.
+  - When enabled, Enter on base Credit Cards/Checks with a value quickly adds a new row (legacy behavior).
+  - When disabled (default), Enter always navigates to the next field for streamlined data entry.
+  - Setting is stored per profile and updates live without reload.
+- **Better keyboard navigation**: Arrow Up/Down also trigger stepper navigation; final field blurs to dismiss mobile keyboard.
+
+### Technical Improvements
+- Enhanced step computation logic to scan and skip over entire slip/check groups during navigation.
+- Added global event system for preference changes with proper cleanup on component disconnect.
+- Mobile-only UI elements are now properly hidden on desktop (≥641px) via responsive CSS.
+- Improved mobile key event handling to use only `keydown` and avoid duplicate triggers on some browsers.
+
 ## v0.2.19 - 2025-09-22
 ### UI/Accessibility: Standardized, Scrollable Modals
 - Introduced a reusable modal component `app-modal` with a scrollable body and sticky header/footer for consistent behavior across screens, especially mobile.
