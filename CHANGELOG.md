@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.2.21 - 2025-09-22
+### Auto-Completion on Stepper Navigation Finish
+- **Stepper completion workflow**: When using mobile stepper navigation, completing the final step (pressing "Done" or Enter on the last field) now automatically marks the drawer count as complete.
+- **Seamless UX**: Users no longer need to manually tap "Mark complete" after finishing the stepper procedure - the completion happens automatically.
+- **Smart completion logic**: Auto-completion only triggers when appropriate (drawer count started, not already completed, and not in read-only mode).
+- **Existing workflows preserved**: Manual completion via "Mark complete" button continues to work as before.
+
+### Technical Implementation
+- Added `stepper-complete` event dispatch from drawer-count component when reaching end of stepper navigation.
+- Enhanced count-panel component to listen for stepper completion events and trigger existing completion logic.
+- Maintained all existing safeguards and state management for consistent behavior.
+
 ## v0.2.20 - 2025-09-22
 ### Mobile UX: Enhanced Stepper Navigation & Per-Profile Preferences
 - **Fixed mobile stepper navigation**: Next/Prev buttons now reliably advance past entire slip/check groups instead of getting stuck on individual dynamic rows.
