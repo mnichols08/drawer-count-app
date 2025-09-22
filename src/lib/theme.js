@@ -1,18 +1,49 @@
-// Theme utilities shared by components
-export const THEME_KEY = 'theme';
+// Theme utilities shared by components (now per-profile)
+export const THEME_KEY = 'theme'; // legacy global key; kept for one-time migration
+import { loadProfilesData, saveProfilesData, getActiveProfileId } from './persistence.js';
 
-export function getPreferredTheme() {
+// Read the active profile's theme mode: 'system' | 'light' | 'dark'
+export function getProfileThemeMode() {
   try {
-    const stored = localStorage.getItem(THEME_KEY);
-    if (stored === 'light' || stored === 'dark') return stored;
-  } catch (_) {}
-  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    const data = loadProfilesData();
+    const id = data.activeId || 'default';
+    const mode = data?.profiles?.[id]?.theme;
+    return (mode === 'light' || mode === 'dark' || mode === 'system') ? mode : 'system';
+  } catch (_) { return 'system'; }
 }
 
+// Persist the active profile's theme mode
+export function setProfileThemeMode(mode) {
+  try {
+    const data = loadProfilesData();
+    const id = data.activeId || 'default';
+    data.profiles = data.profiles || {};
+    data.profiles[id] = data.profiles[id] || { name: id, state: null };
+    const m = (mode === 'light' || mode === 'dark') ? mode : 'system';
+    data.profiles[id].theme = m;
+    data.profiles[id].updatedAt = Date.now();
+    data.updatedAt = Date.now();
+    saveProfilesData(data);
+    return true;
+  } catch (_) { return false; }
+}
+
+// Effective theme considering profile mode and system prefs
+export function getPreferredTheme() {
+  try {
+    const mode = getProfileThemeMode();
+    if (mode === 'light' || mode === 'dark') return mode;
+  } catch (_) {}
+  return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+}
+
+// Apply a theme (accepts 'light' | 'dark' | 'system'); if persist, store mode on profile
 export function applyTheme(theme, persist = true) {
-  const t = theme === 'light' ? 'light' : 'dark';
+  const mode = (theme === 'light' || theme === 'dark') ? theme : 'system';
+  const effective = mode === 'system' ? getPreferredTheme() : mode;
+  const t = effective === 'light' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', t);
-  if (persist) { try { localStorage.setItem(THEME_KEY, t); } catch (_) {} }
+  if (persist) { try { setProfileThemeMode(mode); } catch (_) {} }
   try {
     document.querySelectorAll('app-header .theme-toggle')
       .forEach((btn) => { btn.textContent = t === 'dark' ? '🌙' : '☀️'; });
@@ -23,8 +54,18 @@ export function applyTheme(theme, persist = true) {
 }
 
 export function toggleTheme() {
-  const cur = document.documentElement.getAttribute('data-theme') || getPreferredTheme();
-  applyTheme(cur === 'dark' ? 'light' : 'dark');
+  try {
+    const mode = getProfileThemeMode();
+    const currentEffective = document.documentElement.getAttribute('data-theme') || getPreferredTheme();
+    const next = (mode === 'system')
+      ? (currentEffective === 'dark' ? 'light' : 'dark')
+      : (mode === 'dark' ? 'light' : 'dark');
+    setProfileThemeMode(next);
+    applyTheme(next, false); // don't double-persist
+  } catch (_) {
+    const cur = document.documentElement.getAttribute('data-theme') || getPreferredTheme();
+    applyTheme(cur === 'dark' ? 'light' : 'dark');
+  }
 }
 
 // Background image helpers (kept here so header/components can reference)
@@ -97,5 +138,17 @@ export function updateBodyBackground(theme) {
   document.body.style.backgroundAttachment = 'fixed';
 }
 
-// Initialize theme without persisting so system mode works until user toggles
-applyTheme(getPreferredTheme(), false);
+// One-time migration: move legacy global theme to active profile, then remove key
+(function migrateLegacyThemeOnce(){
+  try {
+    const stored = localStorage.getItem(THEME_KEY);
+    if (stored === 'light' || stored === 'dark') {
+      // Only set if profile hasn't chosen yet
+      if (getProfileThemeMode() === 'system') setProfileThemeMode(stored);
+      localStorage.removeItem(THEME_KEY);
+    }
+  } catch(_) {}
+})();
+
+// Initialize theme from active profile without persisting (so System respects OS)
+applyTheme('system', false);

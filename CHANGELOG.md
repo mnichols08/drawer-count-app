@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.2.8 - 2025-09-21
+### Features: Per-Profile Theme Preference
+- Theme preference is now stored per profile. Each profile can choose `System`, `Light`, or `Dark`.
+- Switching profiles immediately applies that profile’s saved theme.
+- Settings → Theme now reads and writes the active profile’s theme preference.
+- New profiles inherit the currently effective theme mode for a seamless experience.
+
+### Behavior & Migration Notes
+- One-time migration moves the legacy global `localStorage['theme']` value into the active profile’s theme (if that profile didn’t already choose one), then removes the global key.
+- On initial load, the app applies `System` without persisting so OS dark mode is respected until a profile preference is set.
+- Theme toggle now flips the active profile’s theme preference rather than a global setting.
+
 ## v0.2.7 - 2025-09-21
 ### UI / Cleanup
 - Removed the header status pill (saved/unsaved indicator) as it wasn’t providing meaningful value.

@@ -1,4 +1,4 @@
-import { THEME_KEY, getPreferredTheme, applyTheme } from '../lib/theme.js';
+import { getPreferredTheme, applyTheme, getProfileThemeMode, setProfileThemeMode } from '../lib/theme.js';
 import { toast } from '../lib/toast.js';
 import { saveToActiveProfile, restoreActiveProfile, exportProfilesToFile, openImportDialog } from '../lib/persistence.js';
 import { listSavedDaysForActiveProfile, _getActiveDaysEntry, getTodayKey, setDayLabel, setActiveViewDateKey, restoreDay, deleteDay } from '../lib/persistence.js';
@@ -20,9 +20,8 @@ class SettingsModal extends HTMLElement {
   connectedCallback() { this._render(); window.addEventListener('keydown', this._onKeyDown); }
   disconnectedCallback() { window.removeEventListener('keydown', this._onKeyDown); }
   _render() {
-    const currentTheme = document.documentElement.getAttribute('data-theme') || getPreferredTheme();
-    let mode = 'system';
-    try { const stored = localStorage.getItem(THEME_KEY); if (stored === 'light' || stored === 'dark') mode = stored; } catch(_) {}
+  const currentTheme = document.documentElement.getAttribute('data-theme') || getPreferredTheme();
+  const mode = getProfileThemeMode();
     const devMode = (() => { try { return !!window.DCA_DEV; } catch(_) { return false; } })();
     this._shadow.innerHTML = `
       <style>
@@ -133,7 +132,7 @@ class SettingsModal extends HTMLElement {
       seed14: this._shadow.querySelector('.dev-seed-14'),
       clearDays: this._shadow.querySelector('.dev-clear-days'),
     };
-    const chosen = mode || currentTheme;
+  const chosen = mode || currentTheme;
     this._els.radios.forEach((r) => { r.checked = r.value === chosen; r.addEventListener('change', this._onThemeChange); });
     this._els.backdrop?.addEventListener('click', () => this.close());
     this._els.close?.addEventListener('click', () => this.close());
@@ -166,8 +165,8 @@ class SettingsModal extends HTMLElement {
   _onThemeChange(e) {
     const val = e.target?.value;
     try {
-      if (val === 'system') { localStorage.removeItem(THEME_KEY); applyTheme(getPreferredTheme(), false); toast('Theme: System', { type:'info', duration: 1200}); }
-      else if (val === 'light' || val === 'dark') { applyTheme(val); toast(`Theme: ${val[0].toUpperCase()}${val.slice(1)}`, { type:'info', duration: 1200}); }
+      if (val === 'system') { setProfileThemeMode('system'); applyTheme('system', false); toast('Theme: System', { type:'info', duration: 1200}); }
+      else if (val === 'light' || val === 'dark') { setProfileThemeMode(val); applyTheme(val, false); toast(`Theme: ${val[0].toUpperCase()}${val.slice(1)}`, { type:'info', duration: 1200}); }
     } catch (_) { /* ignore */ }
   }
   async _onExport() { const btn = this._els?.exportBtn; await this._withProcessing(btn, async () => { try { exportProfilesToFile(); } catch(_) { toast('Export failed', { type: 'error', duration: 2500 }); } await this._sleep(350); }); }

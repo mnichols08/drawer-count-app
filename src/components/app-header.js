@@ -1,4 +1,4 @@
-import { toggleTheme, getPreferredTheme } from '../lib/theme.js';
+import { toggleTheme, getPreferredTheme, applyTheme, getProfileThemeMode } from '../lib/theme.js';
 import { toast } from '../lib/toast.js';
 import { ensureProfilesInitialized, populateProfilesSelect, updateLockButtonUI, applyReadOnlyByActiveDate, ensureDayResetIfNeeded } from '../lib/persistence.js';
 import { getTodayKey, setActiveViewDateKey, restoreDay, getActiveProfileId, setActiveProfile, saveToActiveProfile, loadProfilesData, saveProfilesData, createProfile, restoreActiveProfile } from '../lib/persistence.js';
@@ -111,6 +111,8 @@ class AppHeader extends HTMLElement {
       try { await initProfilesFromRemoteIfAvailable(); } catch (_) {}
       try { ensureProfilesInitialized(); } catch (_) {}
   try { populateProfilesSelect(this); updateLockButtonUI(this); this._updatePanelBtnUI(); } catch (_) {}
+      // Ensure theme reflects active profile preference
+      try { const mode = getProfileThemeMode(); applyTheme(mode, false); } catch(_) {}
       try { window.addEventListener('storage', this._updatePanelBtnUI); window.addEventListener('focus', this._updatePanelBtnUI); } catch(_) {}
     })();
   }
@@ -158,9 +160,9 @@ class AppHeader extends HTMLElement {
     } catch(_) {}
   }
 
-  _onProfileChange(e) { try { const id = e.target?.value; if (!id) return; setActiveProfile(id); restoreActiveProfile(); ensureDayResetIfNeeded(this); setActiveViewDateKey(getTodayKey()); applyReadOnlyByActiveDate(this); populateProfilesSelect(this); toast('Switched profile', { type:'info', duration: 1200}); } catch(_){} }
-  async _onNewProfile() { try { const modal = getNewProfileModal(); const name = await modal.open(''); if (!name) return; const id = createProfile(name); setActiveProfile(id); saveToActiveProfile(); populateProfilesSelect(this); applyReadOnlyByActiveDate(this); toast('Profile created', { type: 'success', duration: 1800 }); } catch(_){} }
-  async _onDeleteProfile() { try { const data = loadProfilesData(); const ids = Object.keys(data.profiles||{}); if (ids.length<=1) { toast('Cannot delete last profile', { type:'warning', duration: 2200}); return; } const active = data.activeId; const name = data.profiles[active]?.name || active; const modal = getDeleteProfileModal(); const ok = await modal.open(name); if (!ok) return; delete data.profiles[active]; const nextId = ids.find((x)=>x!==active) || 'default'; data.activeId = nextId; saveProfilesData(data); restoreActiveProfile(); populateProfilesSelect(this); applyReadOnlyByActiveDate(this); toast('Profile deleted', { type: 'success', duration: 1800}); } catch(_){} }
+  _onProfileChange(e) { try { const id = e.target?.value; if (!id) return; setActiveProfile(id); restoreActiveProfile(); ensureDayResetIfNeeded(this); setActiveViewDateKey(getTodayKey()); applyReadOnlyByActiveDate(this); populateProfilesSelect(this); try { const mode = getProfileThemeMode(); applyTheme(mode, false); } catch(_) {} toast('Switched profile', { type:'info', duration: 1200}); } catch(_){} }
+  async _onNewProfile() { try { const modal = getNewProfileModal(); const name = await modal.open(''); if (!name) return; const currentMode = getProfileThemeMode?.() || 'system'; const id = createProfile(name); setActiveProfile(id); try { if (currentMode) applyTheme(currentMode, true); } catch(_) {} saveToActiveProfile(); populateProfilesSelect(this); applyReadOnlyByActiveDate(this); toast('Profile created', { type: 'success', duration: 1800 }); } catch(_){} }
+  async _onDeleteProfile() { try { const data = loadProfilesData(); const ids = Object.keys(data.profiles||{}); if (ids.length<=1) { toast('Cannot delete last profile', { type:'warning', duration: 2200}); return; } const active = data.activeId; const name = data.profiles[active]?.name || active; const modal = getDeleteProfileModal(); const ok = await modal.open(name); if (!ok) return; delete data.profiles[active]; const nextId = ids.find((x)=>x!==active) || 'default'; data.activeId = nextId; saveProfilesData(data); restoreActiveProfile(); populateProfilesSelect(this); applyReadOnlyByActiveDate(this); try { const mode = getProfileThemeMode?.(); applyTheme(mode, false); } catch(_) {} toast('Profile deleted', { type: 'success', duration: 1800}); } catch(_){} }
   async _onOpenDays() {
     try {
       const days = (listSavedDaysForActiveProfile() || []).map(d => d.date);
