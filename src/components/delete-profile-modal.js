@@ -15,7 +15,7 @@ class DeleteProfileModal extends HTMLElement {
       <style>
         :host { display: none; }
         :host([open]) { display: block; }
-        .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(2px); z-index: 1000; }
+  .backdrop { position: fixed; inset: 0; background: var(--backdrop-bg, rgba(0,0,0,.5)); backdrop-filter: blur(2px); z-index: 1000; }
         .dialog { position: fixed; inset: 12% auto auto 50%; transform: translateX(-50%);
          max-width: min(520px, 92vw); max-height: min(85vh, 92vh); overflow-y: auto; overflow-x: hidden;
           background: var(--card, #1c2541); color: var(--fg, #e0e6ff);

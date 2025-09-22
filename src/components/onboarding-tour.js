@@ -103,8 +103,8 @@ class OnboardingTour extends HTMLElement {
       <style>
         :host { display: none; }
         :host([open]) { display: block; }
-        .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 1000; }
-        .spotlight { position: fixed; z-index: 1001; pointer-events: none; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0,0,0,.55), 0 0 0 2px var(--accent, #5aa0ff) inset; transition: all 120ms ease; }
+  .backdrop { position: fixed; inset: 0; background: var(--backdrop-bg, rgba(0,0,0,.5)); z-index: 1000; }
+  .spotlight { position: fixed; z-index: 1001; pointer-events: none; border-radius: 10px; box-shadow: 0 0 0 9999px var(--backdrop-bg, rgba(0,0,0,.55)), 0 0 0 2px var(--accent, #5aa0ff) inset; transition: all 120ms ease; }
         .tour { position: fixed; inset: 6% auto auto 50%; transform: translateX(-50%);
           max-width: min(720px, 95vw); background: var(--panel-bg, var(--card, #1c2541)); color: var(--panel-fg, var(--fg, #e0e6ff));
           border: 1px solid var(--panel-border, var(--border, #2a345a)); border-radius: 14px; padding: 16px; z-index: 1001;

@@ -6,6 +6,9 @@
   --card: #151c35;
   --border: #263056;
   --btn: #3a506b;
+  /* Backdrop overlays (used by modals/menus) */
+  --backdrop-bg: rgba(0,0,0,0.50);
+  --backdrop-weak-bg: rgba(0,0,0,0.25);
   --header-h: 64px; /* default; updated by JS at runtime */
   --banner-h: 0px;  /* height of install banner; updated by JS at runtime */
   /* App-wide input vars (used by modals, etc.) */
@@ -71,6 +74,9 @@ body {
   --card: #ffffff;
   --border: #b8c1e1;    /* darker border for clearer separation */
   --btn: #dbe4ff;       /* slightly darker button bg */
+  /* Backdrops in light mode slightly lighter to avoid over-dimming */
+  --backdrop-bg: rgba(0,0,0,0.35);
+  --backdrop-weak-bg: rgba(0,0,0,0.18);
   /* App-wide input vars (light) */
   --input-bg-color: #f3f6ff;
   --input-fg-color: #0b132b;

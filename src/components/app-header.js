@@ -48,7 +48,7 @@ class AppHeader extends HTMLElement {
         .nav-menu.open { opacity: 1; transform: translateY(0) scale(1); visibility: visible; pointer-events: auto; transition-delay: 0s; }
         .nav-menu .row { display: contents; }
         .nav-menu .icon-btn { width: 100%; min-height: 40px; }
-        .menu-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.25); z-index: 40; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 140ms ease, visibility 0s linear 140ms; }
+  .menu-backdrop { position: fixed; inset: 0; background: var(--backdrop-weak-bg, rgba(0,0,0,.25)); z-index: 40; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 140ms ease, visibility 0s linear 140ms; }
         .menu-backdrop.show { opacity: 1; visibility: visible; transition-delay: 0s; backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); pointer-events: auto; }
         html[data-tour-open] app-header .menu-backdrop.show { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
         @media (max-width: 380px) { .nav-menu { grid-template-columns: 1fr; min-width: 180px; } }
