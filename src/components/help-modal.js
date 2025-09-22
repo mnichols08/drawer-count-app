@@ -51,7 +51,11 @@ class HelpModal extends HTMLElement {
     `;
     this._shadow.querySelector('.backdrop')?.addEventListener('click', () => this.close());
     this._shadow.querySelector('.close')?.addEventListener('click', () => this.close());
-    this._shadow.querySelector('.walkthrough')?.addEventListener('click', () => { try { getOnboardingTour().open(0); } catch(_) {} });
+    this._shadow.querySelector('.walkthrough')?.addEventListener('click', (e) => {
+      try { e?.preventDefault?.(); } catch(_) {}
+      try { this.close(); } catch(_) {}
+      try { setTimeout(() => { try { getOnboardingTour().open(0); } catch(_) {} }, 120); } catch(_) {}
+    });
     window.addEventListener('keydown', this._onKeyDown);
   }
   disconnectedCallback() { window.removeEventListener('keydown', this._onKeyDown); }

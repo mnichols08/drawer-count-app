@@ -5,6 +5,7 @@ class OnboardingTour extends HTMLElement {
     this._idx = 0;
     this._steps = this._buildSteps();
     this._onKey = this._onKey.bind(this);
+    this._onReflow = this._onReflow.bind(this);
   }
 
   connectedCallback() { this._render(); }
@@ -16,10 +17,14 @@ class OnboardingTour extends HTMLElement {
     this._render();
     setTimeout(() => { try { this._shadow.querySelector('.tour dialog, .tour [tabindex]')?.focus(); } catch(_) {} }, 0);
     window.addEventListener('keydown', this._onKey);
+    window.addEventListener('scroll', this._onReflow, true);
+    window.addEventListener('resize', this._onReflow, true);
   }
   close() {
     this.removeAttribute('open');
     window.removeEventListener('keydown', this._onKey);
+    window.removeEventListener('scroll', this._onReflow, true);
+    window.removeEventListener('resize', this._onReflow, true);
   }
   next() { if (this._idx < this._steps.length - 1) { this._idx++; this._updateStep(); } else { this._done(); } }
   prev() { if (this._idx > 0) { this._idx--; this._updateStep(); } }
@@ -49,12 +54,14 @@ class OnboardingTour extends HTMLElement {
       {
         title: 'Profiles',
         html: `<p>Use the <strong>Profile</strong> selector in the header to keep separate states for different stores or registers.</p>
-               <p>Click <em>＋</em> to create a profile, or 🗑️ to delete the current one (you can’t delete the last remaining profile).</p>`
+               <p>Click <em>＋</em> to create a profile, or 🗑️ to delete the current one (you can’t delete the last remaining profile).</p>`,
+        anchor: 'app-header .profile-select'
       },
       {
         title: 'Start Today’s Count',
         html: `<p>Press the header button ⬒ labeled “Today’s count” to jump to today. If nothing started yet, click <strong>Start</strong>.</p>
-               <p>Use the <strong>Lock</strong> icon to control whether past days are editable.</p>`
+               <p>Use the <strong>Lock</strong> icon to control whether past days are editable.</p>`,
+        anchor: 'app-header .panel-toggle-btn'
       },
       {
         title: 'Add Slips and Checks',
@@ -68,12 +75,14 @@ class OnboardingTour extends HTMLElement {
       },
       {
         title: 'Daily History',
-        html: `<p>Use the 📅 button to open the <strong>Daily history</strong> and load a saved day. Past days open in read-only mode unless you unlock editing.</p>`
+        html: `<p>Use the 📅 button to open the <strong>Daily history</strong> and load a saved day. Past days open in read-only mode unless you unlock editing.</p>`,
+        anchor: 'app-header .days-btn'
       },
       {
         title: 'Save, Export, and Offline',
         html: `<p>Your work auto-saves in the active profile. You can export/import profiles from the <strong>Settings</strong> menu.</p>
-               <p>Install the app for an offline, app-like experience. The install banner appears when supported.</p>`
+               <p>Install the app for an offline, app-like experience. The install banner appears when supported.</p>`,
+        anchor: 'app-header .settings-btn'
       }
     ];
   }
@@ -87,6 +96,7 @@ class OnboardingTour extends HTMLElement {
         :host { display: none; }
         :host([open]) { display: block; }
         .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(3px); z-index: 1000; }
+        .spotlight { position: fixed; z-index: 1001; pointer-events: none; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0,0,0,.55), 0 0 0 2px var(--accent, #5aa0ff) inset; transition: all 120ms ease; }
         .tour { position: fixed; inset: 6% auto auto 50%; transform: translateX(-50%);
           max-width: min(720px, 95vw); background: var(--panel-bg, var(--card, #1c2541)); color: var(--panel-fg, var(--fg, #e0e6ff));
           border: 1px solid var(--panel-border, var(--border, #2a345a)); border-radius: 14px; padding: 16px; z-index: 1001;
@@ -110,6 +120,7 @@ class OnboardingTour extends HTMLElement {
         .btn[disabled] { opacity: .7; cursor: not-allowed; }
       </style>
       <div class="backdrop" part="backdrop"></div>
+      <div class="spotlight" hidden></div>
       <div class="tour" role="dialog" aria-modal="true" aria-label="Onboarding walkthrough" tabindex="-1">
         <div class="hd">
           <h2>${step.title || ''}</h2>
@@ -128,6 +139,11 @@ class OnboardingTour extends HTMLElement {
       </div>
     `;
     this._wire();
+    // Adjust backdrop when spotlight is active
+    const hasAnchor = !!(this._steps[this._idx]?.anchor);
+    const backdrop = this._shadow.querySelector('.backdrop');
+    if (backdrop) backdrop.style.background = hasAnchor ? 'transparent' : 'rgba(0,0,0,.5)';
+    this._updateSpotlight();
   }
 
   _updateStep() { this._render(); }
@@ -139,6 +155,37 @@ class OnboardingTour extends HTMLElement {
     $('.prev')?.addEventListener('click', () => this.prev());
     $('.next')?.addEventListener('click', () => this.next());
     this._shadow.querySelectorAll('.dot')?.forEach((d)=> d.addEventListener('click', (e)=>{ const i = Number(e.currentTarget?.getAttribute('data-i')); this.goto(i); }));
+    // Keep spotlight positioned
+    this._onReflow();
+  }
+
+  _onReflow() { this._updateSpotlight(); }
+
+  _updateSpotlight() {
+    try {
+      const step = this._steps[this._idx] || {};
+      const sel = step.anchor;
+      const spot = this._shadow.querySelector('.spotlight');
+      if (!spot) return;
+      if (!sel) { spot.setAttribute('hidden', ''); return; }
+      const el = document.querySelector(sel);
+      if (!el || !el.getBoundingClientRect) { spot.setAttribute('hidden', ''); return; }
+      // Ensure it’s visible
+  try { el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'center' }); } catch (_) {}
+      const r = el.getBoundingClientRect();
+      const pad = 6;
+      const top = Math.max(0, r.top - pad);
+      const left = Math.max(0, r.left - pad);
+      const width = Math.min(window.innerWidth, r.width + pad * 2);
+      const height = Math.min(window.innerHeight, r.height + pad * 2);
+      spot.style.top = `${Math.round(top)}px`;
+      spot.style.left = `${Math.round(left)}px`;
+      spot.style.width = `${Math.round(width)}px`;
+      spot.style.height = `${Math.round(height)}px`;
+      spot.removeAttribute('hidden');
+    } catch (_) {
+      try { this._shadow.querySelector('.spotlight')?.setAttribute('hidden', ''); } catch(__) {}
+    }
   }
 }
 
