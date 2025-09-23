@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.3.3 - 2025-09-23
+### CI/CD & Deployment
+- Adjusted GitHub Pages workflow to deploy only on pushes to `main`.
+	- PRs targeting `main` and `development` still build, but skip the deploy step to avoid PR failures.
+	- Upload of the Pages artifact is also gated to `push` on `main`.
+	- Keeps production build aligned with local/Render: `npm run build:prod` producing `dist/`.
+
+### Tests
+- Simplified the Tests workflow to a single `npm test` job across Node 18/20/22.
+	- Removed fragile per-category ESM invocations that were failing in CI.
+	- CI now mirrors the local test runner behavior that passes consistently.
+
+### Package Scripts
+- Added missing script aliases referenced by CI and docs:
+	- `test:build`, `test:bump`, `test:icons`, `test:images`, `test:server`, `test:scripts`.
+	- These complement the consolidated `npm test` flow used by CI.
+
+Developer note: If you want preview deployments for PRs in the future, we can add a separate preview job or environment without affecting `main`.
+
 ## v0.3.2 - 2025-09-23
 ### Developer Tooling & Code Quality
 - Introduced ESLint v9 with a flat config (`eslint.config.cjs`) tailored per area:
