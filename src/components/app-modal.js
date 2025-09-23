@@ -54,7 +54,7 @@ class AppModal extends HTMLElement {
       <style>
         :host { position: fixed; inset: 0; display: none; z-index: 1000; }
         :host([open]) { display: block; }
-        .backdrop { position: fixed; inset: 0; background: var(--backdrop-bg, rgba(0,0,0,.5)); backdrop-filter: blur(2px); }
+        .backdrop { position: fixed; inset: 0; background: var(--backdrop-bg, rgba(0,0,0,.5)); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
         .container { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; }
         .dialog { background: var(--card, #1b223a); color: var(--fg, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 14px; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); width: min(var(--modal-max-w, 560px), 92vw); max-height: min(92dvh, 720px); display: flex; flex-direction: column; overflow: hidden; }
         .header { position: sticky; top: 0; z-index: 2; background: inherit; border-bottom: 1px solid var(--border, #2a345a); padding: 12px 14px; display:flex; align-items:center; justify-content: space-between; gap: 8px; }
