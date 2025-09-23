@@ -376,6 +376,15 @@ This project includes comprehensive documentation in the `/docs` folder for deve
 3. **Testing**: Follow [Testing Guide](/docs/testing/README.md) to run and understand tests
 4. **Deployment**: Use [Deployment Guide](/docs/deployment/README.md) for production setup
 
+## 🤝 Community & Support
+
+- Code of Conduct: see `.github/CODE_OF_CONDUCT.md`
+- Contributing Guide: see `.github/CONTRIBUTING.md`
+- Security Policy: see `.github/SECURITY.md`
+- Support: see `.github/SUPPORT.md`
+- Issue Templates: see `.github/ISSUE_TEMPLATE/*`
+- Pull Request Template: see `.github/pull_request_template.md`
+
 ### 🔧 Documentation Standards
 
 All documentation follows consistent formatting and includes:
