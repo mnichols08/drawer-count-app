@@ -66,9 +66,11 @@ class CountPanel extends HTMLElement {
           <button class="start-btn" type="button">Start count</button>
           <button class="toggle-btn" type="button" aria-expanded="false" aria-label="Expand">▼</button>
           <button class="lock-btn" type="button" aria-label="Toggle edit lock" title="Toggle edit lock">🔒</button>
-          <button class="complete-btn" type="button">Mark complete</button>
+          <button class="clear-btn icon-btn" type="button" aria-label="Clear inputs" title="Clear inputs">🧹</button>
+          <button class="optional-btn icon-btn" type="button" aria-label="Optional fields" title="Optional fields">🧾</button>
+          <button class="complete-btn" type="button" aria-label="Mark complete" title="Mark complete">✓</button>
           <button class="reopen-btn" type="button">Reopen</button>
-          <button class="cancel-btn" type="button">Cancel</button>
+          <button class="cancel-btn" type="button" aria-label="Cancel" title="Cancel">✕</button>
         </div>
       </div>
       <div class="panel-body" aria-hidden="true"></div>

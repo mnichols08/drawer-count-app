@@ -310,6 +310,45 @@ class DrawerCount extends HTMLElement {
         .wrap { display: grid; gap: .35rem; }
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,1px,1px); white-space: nowrap; border: 0; }
 
+        /* Panel actions for clear/optional buttons - styled to match count-panel */
+        .panel-actions { 
+          display: flex; 
+          gap: 0.5rem; 
+          margin-bottom: 0.75rem; 
+          justify-content: flex-start;
+        }
+        .panel-actions .icon-btn {
+          padding: 0.4rem 0.65rem;
+          border-radius: 8px;
+          border: 1px solid var(--border-color, var(--border));
+          background: var(--btn-muted-bg, rgba(255,255,255,0.08));
+          color: var(--btn-muted-fg, var(--fg));
+          transition: transform 200ms ease, background-color 200ms ease, box-shadow 200ms ease;
+          cursor: pointer;
+          min-height: 44px;
+          touch-action: manipulation;
+          -webkit-tap-highlight-color: transparent;
+          font-size: 1rem;
+          min-width: 44px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .panel-actions .icon-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          background: var(--button-bg-color, var(--btn));
+          color: var(--button-color, var(--fg));
+        }
+        .panel-actions .icon-btn:active {
+          transform: translateY(0);
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .panel-actions .icon-btn:focus {
+          outline: 2px solid var(--accent);
+          outline-offset: 2px;
+        }
+
         /* Original component-local styles */
         .output { text-align: right; }
         .input { display: block; }
@@ -415,7 +454,7 @@ class DrawerCount extends HTMLElement {
       </style>
 
       <div class="wrap">
-        <div class="panel-actions" style="display: flex; gap: 8px; margin-bottom: 10px;">
+        <div class="panel-actions">
           <button class="icon-btn clear-btn" aria-label="Clear inputs" title="Clear inputs">🧹</button>
           <button class="icon-btn optional-btn" aria-label="Optional fields" title="Optional fields">🧾</button>
         </div>
