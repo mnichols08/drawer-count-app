@@ -16,7 +16,7 @@ class AppModal extends HTMLElement {
     this._upgrade('open');
     this._upgrade('title');
     this._upgrade('closable');
-    // Ensure aria-hidden is properly set on initial render
+    // Initialize modal accessibility
     this._syncAria();
     if (this.open) this._onOpenSideEffects();
   }
@@ -27,7 +27,7 @@ class AppModal extends HTMLElement {
 
   attributeChangedCallback(name) {
     if (name === 'open') {
-      this._syncAria(); // Sync aria-hidden first
+      this._syncAria(); // Update accessibility state
       if (this.hasAttribute('open')) this._onOpenSideEffects();
       else this._teardownSideEffects();
     }
@@ -98,12 +98,9 @@ class AppModal extends HTMLElement {
   _syncTitle() { if (this._els?.titleEl) this._els.titleEl.textContent = this.title || ''; }
   _syncClosable() { if (!this._els?.close) return; const can = this.closable !== false; this._els.close.style.display = can ? '' : 'none'; }
   _syncAria() { 
-    if (!this._els?.dialog) return; 
-    if (this.open) {
-      this._els.dialog.removeAttribute('aria-hidden');
-    } else {
-      this._els.dialog.setAttribute('aria-hidden', 'true');
-    }
+    // For modal dialogs with aria-modal="true", aria-hidden is not necessary
+    // The aria-modal attribute already properly indicates the modal nature to assistive technology
+    // Using aria-hidden on modal dialogs can cause focus issues and is not recommended
   }
 
   _onBackdrop() { this.hide('backdrop'); }
@@ -124,6 +121,11 @@ class AppModal extends HTMLElement {
   }
   _teardownSideEffects() {
     try {
+      // Ensure any focused elements inside the modal lose focus before closing
+      const focusedElement = this._shadow.activeElement || document.activeElement;
+      if (focusedElement && this._els?.dialog?.contains(focusedElement)) {
+        focusedElement.blur();
+      }
       window.removeEventListener('keydown', this._onKeyDown);
       this._unlockScroll();
     } catch(_) {}
