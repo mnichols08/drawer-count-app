@@ -25,34 +25,11 @@ class DrawerCount extends HTMLElement {
     this._wire();
     this._bindShortcuts();
     try { this.setReadOnly(false); } catch(_) {}
-    // Cache preference at connect time; can be refreshed if settings change
-    try {
-      const { getMobileEnterAddsRow } = window.__DCA_PREFS__ || {};
-      if (typeof getMobileEnterAddsRow !== 'function') {
-        // lazy import when available
-        import('../lib/persistence.js').then((mod) => { this._mobileEnterAddsRow = !!mod.getMobileEnterAddsRow?.(); }).catch(()=>{});
-      } else {
-        this._mobileEnterAddsRow = !!getMobileEnterAddsRow();
-      }
-    } catch(_) { /* ignore */ }
-    // Listen for live preference changes
-    this._onPrefsChanged = (e) => {
-      try {
-        if (e?.detail && typeof e.detail.mobileEnterAddsRow === 'boolean') {
-          this._mobileEnterAddsRow = !!e.detail.mobileEnterAddsRow;
-        } else {
-          // fallback refresh
-          import('../lib/persistence.js').then((mod) => { this._mobileEnterAddsRow = !!mod.getMobileEnterAddsRow?.(); }).catch(()=>{});
-        }
-      } catch(_) {}
-    };
-    window.addEventListener('dca:prefs-changed', this._onPrefsChanged);
   }
 
   disconnectedCallback() {
     try { if (this._onKeyDownGlobal) window.removeEventListener('keydown', this._onKeyDownGlobal); } catch(_) {}
     try { if (this._resizeHandler) window.removeEventListener('resize', this._resizeHandler); } catch(_) {}
-    try { if (this._onPrefsChanged) window.removeEventListener('dca:prefs-changed', this._onPrefsChanged); } catch(_) {}
   }
 
   // Public API: get current drawer data
@@ -953,7 +930,7 @@ class DrawerCount extends HTMLElement {
             const parentId = inp.closest('.input')?.id;
             const isSlipBase = parentId === 'slips';
             const isCheckBase = parentId === 'checks';
-            const allowQuickAdd = !!this._mobileEnterAddsRow;
+            const allowQuickAdd = true; // Always enable Enter to add new slip/check rows
             if (!e.shiftKey && allowQuickAdd && (isSlipBase || isCheckBase) && inp.value !== '') {
               this._newInput(isSlipBase ? '#checks' : '#hundreds');
               return;

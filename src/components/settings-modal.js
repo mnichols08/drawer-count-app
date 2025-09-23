@@ -3,7 +3,6 @@ import { toast } from '../lib/toast.js';
 import { saveToActiveProfile, restoreActiveProfile, exportProfilesToFile, openImportDialog } from '../lib/persistence.js';
 import { listSavedDaysForActiveProfile, _getActiveDaysEntry, getTodayKey, setDayLabel, setActiveViewDateKey, restoreDay, deleteDay } from '../lib/persistence.js';
 import { getDrawerComponent, updateStatusPill, applyReadOnlyByActiveDate, saveDaysData } from '../lib/persistence.js';
-import { getMobileEnterAddsRow, setMobileEnterAddsRow } from '../lib/persistence.js';
 import './app-modal.js';
 
 class SettingsModal extends HTMLElement {
@@ -79,15 +78,6 @@ class SettingsModal extends HTMLElement {
               </div>
             </div>
           </div>
-          <div class="section mobile-only">
-            <div class="row" style="align-items: center; gap: 12px;">
-              <div>Preferences</div>
-              <label title="On mobile, pressing Enter on Slips/Checks will add a new row instead of moving to Next">
-                <input type="checkbox" class="pref-enter-adds" />
-                <span>Mobile: Enter adds slip/check row</span>
-              </label>
-            </div>
-          </div>
           <div class="section">
             <div class="row" style="align-items: start; gap: 12px;">
               <div>Daily History</div>
@@ -125,7 +115,6 @@ class SettingsModal extends HTMLElement {
       saveBtn: this._shadow.querySelector('.save-btn'),
       restoreBtn: this._shadow.querySelector('.restore-btn'),
       clearBtn: this._shadow.querySelector('.clear-btn'),
-  prefEnterAdds: this._shadow.querySelector('.pref-enter-adds'),
       daySelect: this._shadow.querySelector('.day-select'),
       dayLoadBtn: this._shadow.querySelector('.day-load-btn'),
       dayDeleteBtn: this._shadow.querySelector('.day-delete-btn'),
@@ -160,20 +149,6 @@ class SettingsModal extends HTMLElement {
     this._populateDaysSelect();
     if (this._els.dayLoadBtn) this._els.dayLoadBtn.disabled = !this._els.daySelect?.value;
     if (this._els.dayDeleteBtn) this._els.dayDeleteBtn.disabled = !this._els.daySelect?.value;
-  // Initialize preferences
-    try {
-      if (this._els.prefEnterAdds) {
-        this._els.prefEnterAdds.checked = !!getMobileEnterAddsRow();
-        this._els.prefEnterAdds.addEventListener('change', (e) => {
-          try {
-            const val = !!e.target.checked;
-            setMobileEnterAddsRow(val);
-            // notify interested components
-            window.dispatchEvent(new CustomEvent('dca:prefs-changed', { detail: { mobileEnterAddsRow: val } }));
-          } catch(_) {}
-        });
-      }
-    } catch(_) {}
   }
   open() { this.setAttribute('open', ''); try { this._populateDaysSelect(); } catch(_) {} this._els?.modal?.show(); }
   close() { this._els?.modal?.hide('programmatic'); this.removeAttribute('open'); }

@@ -57,11 +57,9 @@ export function getProfilePrefs() {
 export function setProfilePrefs(next) {
   try { const d = loadProfilesData(); const id = d.activeId || 'default'; d.profiles = d.profiles || {}; d.profiles[id] = d.profiles[id] || { name: id, state: null, updatedAt: Date.now() }; d.profiles[id].prefs = { ...(d.profiles[id].prefs||{}), ...(next||{}) }; d.profiles[id].updatedAt = Date.now(); d.updatedAt = Date.now(); saveProfilesData(d); return true; } catch(_) { return false; }
 }
-export function getMobileEnterAddsRow() { try { const p = getProfilePrefs(); return !!p.mobileEnterAddsRow; } catch(_) { return false; } }
-export function setMobileEnterAddsRow(flag) { try { return setProfilePrefs({ mobileEnterAddsRow: !!flag }); } catch(_) { return false; } }
 
 // Expose preference helpers for lazy access in components
-try { Object.assign(window.__DCA_PREFS__ = (window.__DCA_PREFS__||{}), { getMobileEnterAddsRow, setMobileEnterAddsRow }); } catch(_) {}
+try { Object.assign(window.__DCA_PREFS__ = (window.__DCA_PREFS__||{}), { }); } catch(_) {}
 
 export function createProfile(name) {
   const d = loadProfilesData(); d.profiles = d.profiles || {};
