@@ -338,6 +338,52 @@ Adding new background images:
 4) In Atlas → Network Access: allow Render’s egress IP or temporarily `0.0.0.0/0` to validate.
 5) After deploy, verify `https://<your-service>.onrender.com/api/health` shows DB connected.
 
+## 📚 Documentation
+
+This project includes comprehensive documentation in the `/docs` folder for developers, deployment, and testing.
+
+### 📖 Quick Navigation
+
+- **[📁 Documentation Hub](/docs/README.md)** - Main documentation index with complete overview
+- **[🧪 Testing Guide](/docs/testing/README.md)** - Complete testing documentation and guides
+- **[⚙️ Scripts Reference](/docs/scripts/README.md)** - Detailed script documentation and usage
+- **[🚀 Deployment Guide](/docs/deployment/README.md)** - Comprehensive deployment instructions
+
+### 📋 What's Documented
+
+#### Testing & Quality Assurance
+- Comprehensive test suite (19 tests covering all build scripts)
+- Testing framework details and best practices
+- CI/CD integration with GitHub Actions
+- Test coverage reports and debugging guides
+
+#### Build Scripts & Automation
+- All package.json scripts with detailed explanations
+- Build system architecture and customization
+- Asset optimization (images, icons, SW cache)
+- Version management and deployment automation
+
+#### Deployment & Production
+- Multiple deployment options (GitHub Pages, Render, self-hosted)
+- Environment configuration and security
+- Performance optimization techniques
+- Multi-environment setup (dev/staging/production)
+
+### 🎯 For New Contributors
+
+1. **Start Here**: Read the [Documentation Hub](/docs/README.md) for overview
+2. **Development**: Check [Scripts Reference](/docs/scripts/README.md) for build commands
+3. **Testing**: Follow [Testing Guide](/docs/testing/README.md) to run and understand tests
+4. **Deployment**: Use [Deployment Guide](/docs/deployment/README.md) for production setup
+
+### 🔧 Documentation Standards
+
+All documentation follows consistent formatting and includes:
+- Clear navigation and cross-references
+- Code examples with explanations
+- Troubleshooting sections
+- Best practices and conventions
+
 ## License
 
 ISC — see `LICENSE` (or the license field in `package.json`).
