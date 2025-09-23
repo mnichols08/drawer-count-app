@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.3.6 - 2025-09-23
+#### CI/CD & Deployment
+- Fix: There was a duplicate workflow content starting at line 53. This change replaces the old one entirely, not appends to it.
+## v0.3.5 - 2025-09-23
+### CI/CD & Deployment
+- Fix: GitHub Pages was serving the repository docs instead of the built site.
+	- Added an official Pages workflow that builds the app and deploys the `dist/` folder using `actions/upload-pages-artifact` and `actions/deploy-pages`.
+	- Pages settings should now use: Settings → Pages → Source: GitHub Actions.
+	- Deploys are triggered on pushes to `main`; no deploys on PRs.
+
+### Build
+- Improve GitHub Pages base path handling when using a custom domain.
+	- `scripts/build.js` now detects a `CNAME` file and forces `baseUrl` to `/`, avoiding unnecessary path rewrites for assets/manifest.
+	- Prevents incorrect `/repo-name/` prefixes when deploying to a custom domain, ensuring icons, manifest, and service worker paths resolve correctly.
+- Outcome: Visiting the production URL now serves the built PWA from `dist/` (not the docs), with correct paths for assets and installability.
+
 ## v0.3.4 - 2025-09-23
 ### CI/CD & Deployment
 - Prevent PR-triggered deploys to GitHub Pages.
