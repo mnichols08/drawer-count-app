@@ -27,7 +27,7 @@ This app includes sensible defaults for search and sharing:
 - `offline.html` is marked `noindex` and excluded from the sitemap.
 - Root `robots.txt` and `sitemap.xml` are served with proper content types.
 
-Before deploying to production, replace `https://your-domain.example.com` in:
+Before deploying to production, replace `https://drawercounter.journeytocode.io` in:
 
 - `index.html`: `link rel="canonical"`, `og:*`, `twitter:*`, and JSON-LD `url`/`image`.
 - `offline.html`: canonical link.
@@ -63,6 +63,59 @@ $env:PORT=8081; npm run dev
 Local API base note (avoiding CORS): when the app is served to `localhost` (or `127.0.0.1`), the server responds from `/config.js` with `window.DCA_API_BASE = '/api'` regardless of any `API_BASE` environment variable. This ensures the frontend talks to the same-origin Express API during local development and avoids browser CORS errors. In production (non-localhost), `API_BASE` will be respected if set; otherwise it defaults to the built-in Render URL.
 
 Alternative: if you only need to serve static files, any simple HTTP server on port 8080 works. Ensure the service worker is reachable at the root scope.
+
+## Build & Deployment
+
+The app supports both development and production builds:
+
+### Development
+```powershell
+npm run dev          # Development with auto-reload (serves from /src)
+npm run start:dev    # Development without auto-reload (serves from /src)
+```
+
+### Production Build
+```powershell
+npm run build        # Build /dist folder from /src
+npm run build:prod   # Build with image optimization
+npm start            # Production mode (serves from /dist)
+```
+
+The build process:
+1. Cleans the `/dist` directory
+2. Copies all files from `/src` to `/dist`
+3. Validates that critical files exist
+4. Creates a production-ready distribution
+
+The server automatically serves:
+- `/src` folder in development mode
+- `/dist` folder in production mode (NODE_ENV=production)
+
+Deploy the `/dist` folder to your hosting provider after running `npm run build:prod`.
+
+### GitHub Pages Deployment
+
+This repository includes a GitHub Actions workflow that automatically builds and deploys to GitHub Pages:
+
+1. **Automatic Deployment**: Pushes to `main` branch trigger automatic build and deploy
+2. **Manual Deployment**: Use the "Actions" tab to manually trigger deployment
+3. **Custom Domain**: Configured to use `drawercounter.journeytocode.io`
+
+**Recommended Workflow**:
+- Develop on `development` branch
+- Create Pull Request to merge `development` → `main`
+- Merge PR triggers automatic deployment to production
+
+The GitHub Actions workflow:
+- Installs dependencies
+- Runs `npm run build:prod` (includes image optimization)
+- Deploys the `/dist` folder to GitHub Pages
+- Handles path updates automatically for GitHub Pages environment
+
+To enable GitHub Pages for your repository:
+1. Go to Repository Settings → Pages
+2. Set Source to "GitHub Actions"
+3. The workflow will handle the rest automatically
 
 ## Using the app
 

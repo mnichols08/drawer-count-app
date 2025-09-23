@@ -308,7 +308,24 @@ app.get('/config.js', (req, res) => {
 });
 
 // Serve static files (PWA)
-const rootDir = path.resolve(__dirname);
+// Use dist/ in production, src/ in development
+const isDev = process.env.NODE_ENV !== 'production';
+const staticDir = isDev ? 'src' : 'dist';
+const rootDir = path.resolve(__dirname, staticDir);
+
+console.log(`[server] Serving static files from: ${staticDir}/`);
+
+// Check if static directory exists
+if (!fs.existsSync(rootDir)) {
+	if (!isDev) {
+		console.error(`[server] ERROR: Distribution folder '${rootDir}' does not exist!`);
+		console.error('[server] Please run "npm run build" to create the dist folder before starting in production mode.');
+		process.exit(1);
+	} else {
+		console.error(`[server] ERROR: Source folder '${rootDir}' does not exist!`);
+		process.exit(1);
+	}
+}
 // Basic security headers and sensible caching for static assets
 app.use((req, res, next) => {
 	res.setHeader('X-Content-Type-Options', 'nosniff');
