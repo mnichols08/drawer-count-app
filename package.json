@@ -1,10 +1,13 @@
 {
   "name": "drawer-count-app",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "description": "A minimal, installable PWA to help myself and coworkers count drawers at the end of the day.",
   "main": "src/index.html",
   "scripts": {
     "test": "node tests/run-tests.js",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "e2e:install": "playwright install --with-deps",
     "test:setup": "node --test tests/setup.test.js",
     "test:basic": "node --test tests/scripts/basic-tests.test.js",
     "test:build": "node --test tests/scripts/build.test.js",
@@ -32,7 +35,10 @@
     "optimize-images": "node ./scripts/optimize-images.js",
     "predeploy": "npm run build:prod",
     "deploy": "echo \"Deploy the /dist folder to your hosting provider\"",
-    "clean": "node -e \"const fs=require('fs'); if(fs.existsSync('./dist')) fs.rmSync('./dist', {recursive:true, force:true}); console.log('Cleaned dist/ folder');\"",
+  "clean": "node -e \"const fs=require('fs'); if(fs.existsSync('./dist')) fs.rmSync('./dist', {recursive:true, force:true}); console.log('Cleaned dist/ folder');\"",
+  "clean:e2e": "node -e \"const fs=require('fs'); for (const p of ['playwright-report','test-results']) { if (fs.existsSync(p)) fs.rmSync(p, { recursive: true, force: true }); } console.log('Removed Playwright artifacts');\"",
+  "clean:all": "npm run clean && npm run clean:e2e",
+  "verify:git": "git status --porcelain=v1 && git ls-files --others --exclude-standard",
     "lint": "npm run lint:js && npm run lint:md",
     "lint:js": "eslint . --ext .js || exit 0",
     "lint:md": "markdownlint **/*.md --ignore node_modules --ignore dist || exit 0"
@@ -60,6 +66,7 @@
     "undici": "^6.19.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.48.2",
     "cross-env": "^10.0.0",
     "eslint": "^9.36.0",
     "favicons": "^7.2.0",

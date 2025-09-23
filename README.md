@@ -162,6 +162,15 @@ npm run clean        # Remove /dist folder
 npm run lint         # Run JS + Markdown linters
 npm run lint:js      # ESLint (flat config)
 npm run lint:md      # markdownlint (relaxed rules)
+
+# End-to-End (E2E) Tests
+npm run e2e:install  # One-time: install Playwright browsers
+npm run test:e2e     # Run E2E tests (headless)
+npm run test:e2e:ui  # Run E2E tests in UI mode
+
+# Housekeeping
+npm run clean:e2e    # Remove Playwright artifacts (playwright-report/, test-results/)
+npm run clean:all    # Remove dist/ and Playwright artifacts
 ```
 
 The server automatically serves:
@@ -169,6 +178,25 @@ The server automatically serves:
 - `/dist` folder in production mode (NODE_ENV=production)
 
 Deploy the `/dist` folder to your hosting provider after running `npm run build:prod`.
+
+### E2E Testing
+
+This project includes Playwright-based E2E tests that drive the app in a real browser.
+
+Basics:
+- One-time: `npm run e2e:install`
+- Run: `npm run test:e2e`
+- UI mode: `npm run test:e2e:ui`
+
+Seeding configuration used by E2E:
+- Tests seed recent days with balanced values for determinism.
+- You can override defaults via env:
+	- `SEED_COUNT=10 INCLUDE_TODAY=true npm run test:e2e`
+	- Backed by `tests/e2e/config.js`.
+
+Artifacts and cleanup:
+- Test artifacts live in `playwright-report/` and `test-results/` and are git-ignored.
+- Use `npm run clean:e2e` to remove artifacts, or `npm run clean:all` to also clear `dist/`.
 
 ### GitHub Pages Deployment
 

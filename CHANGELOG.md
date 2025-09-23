@@ -1,4 +1,23 @@
 # Changelog
+## v0.3.8 - 2025-09-24
+### Testing: Client E2E suite, offline, and no-console-errors
+- Added robust end-to-end (E2E) browser tests using Playwright:
+	- `drawer-balance.spec.js`: verifies drawer math and asserts no console/page errors.
+	- `seeding-offline.spec.js`: seeds recent days with balanced entries, restores a past day, asserts summary itemization for slips/checks, verifies near-zero balance, and validates basic offline behavior via the service worker.
+- Introduced `tests/e2e/config.js` to parameterize seeding (override with `SEED_COUNT` and `INCLUDE_TODAY` env vars).
+- Hardened test helpers to avoid flakiness (programmatic panel startup, shadow DOM-safe reads, onboarding suppression, and SW-ready waits).
+
+### Developer Experience
+- Improved development seeding to be deterministic and consistently produce near‑zero balances for test data.
+- Ensured E2E test artifacts are ignored by VCS and easy to clean:
+	- `.gitignore`: `playwright-report/`, `test-results/`, `coverage/`, `*.log`.
+	- Scripts: `clean:e2e` removes Playwright artifacts, `clean:all` removes both `dist/` and E2E artifacts.
+- Documentation updates:
+	- Root `README.md`: how to run E2E tests, configure seeds, and clean artifacts.
+	- `docs/testing/README.md`: E2E section and link to `tests/e2e/README.md`.
+
+No user-facing UI changes in this release; this is a test and DX-focused update.
+
 ## v0.3.7 - 2025-09-24
 ### Assets & UI
 - Updated the base background image URI to point to the new optimized asset location for improved load performance and reliability.

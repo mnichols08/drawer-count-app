@@ -143,6 +143,30 @@ The project includes a comprehensive CI/CD pipeline:
 - [Test Guide](test-guide.md) - Detailed guide for running and writing tests
 - [Test Coverage](test-coverage.md) - Complete coverage analysis
 - [Advanced Testing](../tests/README.md) - Original comprehensive test documentation
+ - [E2E Tests](../../tests/e2e/README.md) - Playwright E2E usage
+
+## 🌐 End-to-End (E2E) Browser Tests
+
+The project includes Playwright-based E2E tests that exercise the app in a real browser and validate:
+- Drawer math correctness and UI stability
+- Deterministic development seeding with balanced past days
+- Offline behavior through the service worker
+- Absence of console and page errors during typical flows
+
+Quick start:
+```bash
+npm run e2e:install  # one-time install of Playwright browsers
+npm run test:e2e     # run E2E suite
+npm run test:e2e:ui  # interactive UI mode
+```
+
+Configuration:
+- Seeding params are controlled via `tests/e2e/config.js` and can be overridden at runtime:
+    - `SEED_COUNT=10 INCLUDE_TODAY=true npm run test:e2e`
+
+Artifacts & cleanup:
+- E2E artifacts (`playwright-report/`, `test-results/`) are git-ignored.
+- Use `npm run clean:e2e` to remove artifacts, or `npm run clean:all` to also clear `dist/`.
 
 ## 🤝 Contributing to Tests
 
