@@ -29,7 +29,17 @@ module.exports = [
     },
     rules: {
       "no-console": "off",
-      "no-unused-vars": ["warn", { args: "none", varsIgnorePattern: "^_" }]
+      "no-unused-vars": [
+        "warn",
+        {
+          args: "after-used",
+          varsIgnorePattern: "^_",
+          argsIgnorePattern: "^_",
+          caughtErrors: "all",
+          caughtErrorsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_"
+        }
+      ]
     }
   },
   // Node scripts and server (CJS)
@@ -44,7 +54,17 @@ module.exports = [
     },
     rules: {
       "no-console": "off",
-      "no-unused-vars": ["warn", { args: "none", varsIgnorePattern: "^_" }]
+      "no-unused-vars": [
+        "warn",
+        {
+          args: "after-used",
+          varsIgnorePattern: "^_",
+          argsIgnorePattern: "^_",
+          caughtErrors: "all",
+          caughtErrorsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_"
+        }
+      ]
     }
   },
   // Tests (ESM imports)
