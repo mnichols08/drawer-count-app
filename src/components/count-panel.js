@@ -220,8 +220,24 @@ class CountPanel extends HTMLElement {
       isCompletedToday = false;
     }
     
-    // Show lock button for past days or completed today that are expanded (in edit mode)
-    const showLockButton = !!(started && (isPast || isCompletedToday) && !this._state.collapsed);
+    // Show lock button for past days or completed/reopened items that are expanded (in edit mode)
+    let showLockButton = false;
+    try {
+      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
+      const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; 
+      if (key && today) {
+        isPast = (key !== today);
+        isCompletedToday = (key === today) && (this._hasSavedDay(key) || this._state.completed);
+      }
+      
+      // Show lock button when:
+      // - Past days with saved data (always need unlock to edit)
+      // - Today's completed/reopened items (need unlock to edit after completion)
+      // - Currently expanded (in edit mode)
+      showLockButton = !!(started && (isPast || isCompletedToday || this._state.completed || this._state.reopened) && !this._state.collapsed);
+    } catch(_) { 
+      showLockButton = false;
+    }
     this._els.lock.hidden = !showLockButton;
 
     let showCancel = false;
@@ -484,9 +500,15 @@ class CountPanel extends HTMLElement {
     try {
       const today = getTodayKey(); 
       const key = getActiveViewDateKey(); 
-      if (key === today) { 
-        toast('Today is always editable', { type: 'info', duration: 1400 }); 
-        return; 
+      
+      // Special handling for today's completed counts
+      if (key === today) {
+        // If it's today but not completed, it's always editable
+        if (!this._state?.completed && !this._state?.reopened) {
+          toast('Today is always editable', { type: 'info', duration: 1400 }); 
+          return; 
+        }
+        // If it's today and completed/reopened, allow unlock/lock toggle
       }
       
       btn = this._els?.lock; 
@@ -509,10 +531,14 @@ class CountPanel extends HTMLElement {
           return; 
         }
         
-        setDayEditUnlocked(true); 
+        setDayEditUnlocked(true);
         
-        // When unlocking past days, don't enable auto-save but allow editing
-        // The timestamp should remain locked to preserve the original count time
+        // When unlocking, set the state to reopened to indicate editing of completed item
+        if (this._state?.completed) {
+          this._state.reopened = true;
+          this._state.collapsed = false; // Expand for editing
+          this._savePersisted({ ...this._state, reopened: true, collapsed: false });
+        }
         
         toast('Editing unlocked for this day', { type: 'info', duration: 1600 }); 
       }
