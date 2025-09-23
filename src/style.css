@@ -603,12 +603,9 @@ main.container > .card {
   display: none;
 }
 
-/* Fallback for browsers that don't support :has() selector */
-.card.card-empty {
-  display: none;
-}
-
-.count-panel.empty {
+/* Hide specific content areas when card is empty, but keep header with start button visible */
+.card.card-empty .panel-body,
+.card.card-empty .panel-summary {
   display: none;
 }
 
@@ -624,7 +621,7 @@ main.container > .card {
 /* Show a subtle placeholder message when no card is visible */
 .container:has(.count-panel.empty)::after,
 .container.show-empty-hint::after {
-  content: "Use the menu button (≡) in the header to start counting";
+  content: "Click the drawer icon in the header to start today's count";
   display: block;
   text-align: center;
   color: var(--muted);

@@ -40,6 +40,14 @@ class CountPanel extends HTMLElement {
         // Force collapsed for past dates and completed today
         this._state.collapsed = true;
       }
+      
+      // Reset started flag if there's no saved data (show welcome screen)
+      const hasSavedData = key ? this._hasSavedDay(key) : false;
+      if (!hasSavedData) {
+        if (!this._state) this._state = {};
+        this._state.started = false;
+        this._savePersisted(this._state);
+      }
     } catch(_) {}
     
     this._refresh(true);
@@ -95,6 +103,7 @@ class CountPanel extends HTMLElement {
   }
 
   _cacheEls() {
+    this._els = {};
     this._els.header = this.querySelector('.panel-header');
     this._els.title = this.querySelector('.panel-title');
     this._els.actions = this.querySelector('.panel-actions');
@@ -112,6 +121,7 @@ class CountPanel extends HTMLElement {
   }
 
   _bind() {
+    console.log('Binding events, start button element:', this._els.start);
     this._els.start.addEventListener('click', this._onStart);
     this._els.toggle.addEventListener('click', this._onToggle);
     this._els.lock.addEventListener('click', this._onToggleLock.bind(this));
@@ -167,7 +177,14 @@ class CountPanel extends HTMLElement {
     this._state = { ...{ started: false, collapsed: true, completed: false, reopened: false }, ...this._loadPersisted() };
     const { started, completed } = this._state;
     if (!started) this._state.collapsed = true;
-    const isEmpty = !started && !completed;
+    
+    // Check if there's actually saved data for this date
+    const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
+    const hasSavedData = key ? this._hasSavedDay(key) : false;
+    
+    // Empty state: show when no saved data exists AND user hasn't started the UI session
+    // This shows the initial welcome state, but once started shows the form even without data
+    const isEmpty = !hasSavedData && !started;
     const collapsed = this._state.collapsed;
     const readOnly = this._computeReadOnly();
 
@@ -187,8 +204,9 @@ class CountPanel extends HTMLElement {
     // Manage card visibility for empty state
     this._manageCardVisibility(isEmpty);
 
-    this._els.start.hidden = !!started;
-    this._els.toggle.hidden = !started;
+    // Show start button when in empty state (no saved data), hide when there's actual data
+    this._els.start.hidden = !isEmpty;
+    this._els.toggle.hidden = isEmpty;
     let isPast = false;
     let isCompletedToday = false;
     try { 
@@ -757,7 +775,14 @@ class CountPanel extends HTMLElement {
 
   _onStart() {
     try { const today = (typeof getTodayKey === 'function') ? getTodayKey() : null; const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; if (today && key && key !== today) { try { setActiveViewDateKey(today); } catch(_) {} try { restoreDay(today); } catch(_) {} try { setDayEditUnlocked(true); } catch(_) {} try { const header = document.querySelector('app-header'); applyReadOnlyByActiveDate(header); } catch(_) {} } } catch(_) {}
-    this._state.started = true; this._state.collapsed = false; this._state.completed = false; this._state.reopened = false; this._savePersisted(this._state);
+    
+    // Reset state for new count
+    this._state.started = true; 
+    this._state.collapsed = false; 
+    this._state.completed = false; 
+    this._state.reopened = false; 
+    this._savePersisted(this._state);
+    
     try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(true); } catch (_) {}
     
     // Enable auto-save for first input if this is a new count
