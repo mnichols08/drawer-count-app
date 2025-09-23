@@ -367,6 +367,11 @@ main.container {
   display: grid;
   place-items: start center;
 }
+
+/* When empty, center the initial message vertically */
+main.container:has(.count-panel.empty) {
+  place-items: center;
+}
 /* Background image layer managed by JS (fades in when ready) */
 #bg-layer {
   position: fixed;
