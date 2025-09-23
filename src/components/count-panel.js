@@ -838,6 +838,11 @@ class CountPanel extends HTMLElement {
         // Protect against interference from other code
         this._protectStateTemporarily();
         
+        // Explicitly show completed summary
+        setTimeout(() => {
+          this.showCompletedSummary();
+        }, 100);
+        
         toast('Saved. Editing locked.', { type: 'success', duration: 3000 }); 
       } catch (_) { }
       setTimeout(() => this._endProcessing(), 200); 
@@ -849,6 +854,12 @@ class CountPanel extends HTMLElement {
     try { if (typeof getActiveViewDateKey === 'function' && typeof saveSpecificDay === 'function') { const key = getActiveViewDateKey(); if (key) saveSpecificDay(key); } } catch (_) {}
     try { toast('Marked complete for this day.'); } catch(_) {}
     this._state.collapsed = true;
+    
+    // Explicitly show completed summary
+    setTimeout(() => {
+      this.showCompletedSummary();
+    }, 100);
+    
     setTimeout(() => this._endProcessing(), 250);
     this._refresh();
   }
