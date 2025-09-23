@@ -68,9 +68,9 @@ class CountPanel extends HTMLElement {
           <button class="lock-btn" type="button" aria-label="Toggle edit lock" title="Toggle edit lock">🔒</button>
           <button class="clear-btn icon-btn" type="button" aria-label="Clear inputs" title="Clear inputs">🧹</button>
           <button class="optional-btn icon-btn" type="button" aria-label="Optional fields" title="Optional fields">🧾</button>
-          <button class="complete-btn" type="button" aria-label="Mark complete" title="Mark complete">✓</button>
+          <button class="complete-btn" type="button" aria-label="Mark complete" title="Mark complete">💾</button>
           <button class="reopen-btn" type="button">Reopen</button>
-          <button class="cancel-btn" type="button" aria-label="Cancel" title="Cancel">✕</button>
+          <button class="cancel-btn" type="button" aria-label="Cancel" title="Cancel">⊘</button>
         </div>
       </div>
       <div class="panel-body" aria-hidden="true"></div>
@@ -199,6 +199,20 @@ class CountPanel extends HTMLElement {
     this._els.clear.hidden = !showActionButtons;
     this._els.optional.hidden = !showActionButtons;
 
+    // Save/Complete button should be disabled until changes are made (like cancel button)
+    let showComplete = !started || !!completed || readOnly || !!this._state.collapsed;
+    if (!showComplete && started && !this._state.collapsed && !readOnly) {
+      // For save mode (past days or reopened), require unsaved changes
+      const saveMode = this._isSaveMode();
+      if (saveMode || this._state.reopened) {
+        const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
+        const hasSaved = key ? this._hasSavedDay(key) : false;
+        const hasUnsaved = this._hasUnsavedChangesComparedToSaved();
+        showComplete = hasSaved && !hasUnsaved; // Disable if no unsaved changes
+      }
+    }
+    this._els.complete.hidden = showComplete;
+
     if (this._els.complete) this._els.complete.disabled = !!this._isProcessing || readOnly;
     if (this._els.cancel) this._els.cancel.disabled = !!this._isProcessing;
     if (this._els.lock) this._els.lock.disabled = !!this._isProcessing;
@@ -224,9 +238,10 @@ class CountPanel extends HTMLElement {
     if (!this._els.complete.hidden) {
       const baseLabel = saveMode ? 'Save' : 'Mark complete';
       const processingLabel = saveMode ? 'Saving…' : 'Completing…';
+      const baseIcon = saveMode ? '💾' : '✅';
       this._els.complete.classList.toggle('processing', !!this._isProcessing);
       if (this._isProcessing) { this._els.complete.innerHTML = `${processingLabel} <span class="dots" aria-hidden="true"></span>`; }
-      else { this._els.complete.textContent = baseLabel; }
+      else { this._els.complete.textContent = baseIcon; }
       this._els.complete.setAttribute('aria-label', this._isProcessing ? processingLabel : baseLabel);
       this._els.complete.title = this._isProcessing ? processingLabel : baseLabel;
     }
