@@ -195,21 +195,41 @@ class CountPanel extends HTMLElement {
     }
 
     const container = this._visibleContainer();
-    this._syncContainersVisibility();
+    
+    // Render summary data when completed
     if (completed) this._renderSummary();
+    
     const collapsedChanged = this._lastCollapsed !== collapsed;
     const completedChanged = this._lastCompleted !== completed;
-    // Only animate on actual state changes; if nothing changed and caller requested noAnim, skip animations
+    
+    // Handle animations for state changes
     if (!isEmpty && (collapsedChanged || completedChanged)) {
-      if (collapsed) this._collapseEl(container, !noAnim);
-      else this._expandEl(container, !noAnim);
+      if (collapsed) {
+        this._collapseEl(container, !noAnim);
+      } else {
+        this._expandEl(container, !noAnim);
+      }
     } else if (isEmpty) {
+      // For empty state, immediately hide without animation conflicts
       try {
-        this._els.body.hidden = true; this._els.body.setAttribute('aria-hidden', 'true'); this._els.body.style.height = '0px';
-        this._els.summary.hidden = true; this._els.summary.setAttribute('aria-hidden', 'true'); this._els.summary.style.height = '0px';
+        this._els.body.classList.remove('expanding', 'collapsing');
+        this._els.summary.classList.remove('expanding', 'collapsing');
+        this._els.body.hidden = true; 
+        this._els.body.setAttribute('aria-hidden', 'true'); 
+        this._els.body.style.height = '0px';
+        this._els.summary.hidden = true; 
+        this._els.summary.setAttribute('aria-hidden', 'true'); 
+        this._els.summary.style.height = '0px';
       } catch(_) {}
     }
-    this._lastCollapsed = collapsed; this._lastCompleted = completed;
+    
+    // Only sync visibility after handling animations
+    if (!collapsedChanged && !completedChanged) {
+      this._syncContainersVisibility();
+    }
+    
+    this._lastCollapsed = collapsed; 
+    this._lastCompleted = completed;
 
     this._els.doneHint.hidden = !completed;
     if (this._els.lockHint) this._els.lockHint.hidden = !(started && !completed && readOnly);
@@ -260,22 +280,97 @@ class CountPanel extends HTMLElement {
 
   _syncContainersVisibility() {
     const { completed, collapsed } = this._state;
+    
+    // Simple visibility management - let animations handle the transitions
     if (completed) {
-      this._els.body.hidden = true; this._els.body.setAttribute('aria-hidden', 'true');
-      this._els.summary.hidden = !!collapsed; this._els.summary.setAttribute('aria-hidden', String(!!collapsed));
+      this._els.body.hidden = true;
+      this._els.body.setAttribute('aria-hidden', 'true');
+      if (collapsed) {
+        this._els.summary.hidden = true;
+        this._els.summary.setAttribute('aria-hidden', 'true');
+      }
     } else {
-      this._els.summary.hidden = true; this._els.summary.setAttribute('aria-hidden', 'true');
-      this._els.body.hidden = !!collapsed; this._els.body.setAttribute('aria-hidden', String(!!collapsed));
+      this._els.summary.hidden = true;
+      this._els.summary.setAttribute('aria-hidden', 'true');
+      if (collapsed) {
+        this._els.body.hidden = true;
+        this._els.body.setAttribute('aria-hidden', 'true');
+      }
     }
   }
 
   _expandEl(el, animate = true) {
-    el.setAttribute('aria-hidden', 'false'); el.hidden = false; if (!animate) { el.style.height = 'auto'; return; }
-    el.style.overflow = 'hidden'; const target = el.scrollHeight; el.style.height = '0px'; requestAnimationFrame(() => { el.style.height = `${target}px`; const onEnd = () => { el.style.height = 'auto'; el.removeEventListener('transitionend', onEnd); }; el.addEventListener('transitionend', onEnd); });
+    if (!el) return;
+    
+    // Clear any existing animation classes
+    el.classList.remove('collapsing', 'expanding');
+    
+    // Set initial visibility and aria state
+    el.setAttribute('aria-hidden', 'false');
+    el.hidden = false;
+    
+    if (!animate) {
+      el.style.height = 'auto';
+      return;
+    }
+
+    // Get target height
+    el.style.height = 'auto';
+    const target = el.scrollHeight;
+    
+    // Start animation from collapsed state
+    el.style.height = '0px';
+    
+    // Force reflow
+    el.offsetHeight;
+    
+    // Animate to target height
+    requestAnimationFrame(() => {
+      el.style.height = `${target}px`;
+      
+      // Clean up after animation
+      const onEnd = () => {
+        el.style.height = 'auto';
+        el.removeEventListener('transitionend', onEnd);
+      };
+      
+      el.addEventListener('transitionend', onEnd, { once: true });
+    });
   }
+
   _collapseEl(el, animate = true) {
-    el.setAttribute('aria-hidden', 'true'); if (!animate) { el.style.height = '0px'; el.hidden = false; return; }
-    el.style.overflow = 'hidden'; const current = el.scrollHeight; el.style.height = `${current}px`; el.offsetHeight; requestAnimationFrame(() => { el.style.height = '0px'; const onEnd = () => { el.removeEventListener('transitionend', onEnd); }; el.addEventListener('transitionend', onEnd); });
+    if (!el) return;
+    
+    // Clear any existing animation classes
+    el.classList.remove('collapsing', 'expanding');
+    
+    if (!animate) {
+      el.style.height = '0px';
+      el.hidden = true;
+      el.setAttribute('aria-hidden', 'true');
+      return;
+    }
+
+    // Get current height
+    const current = el.scrollHeight;
+    el.style.height = `${current}px`;
+    
+    // Force reflow
+    el.offsetHeight;
+    
+    // Animate to collapsed state
+    requestAnimationFrame(() => {
+      el.style.height = '0px';
+      
+      // Clean up after animation
+      const onEnd = () => {
+        el.hidden = true;
+        el.setAttribute('aria-hidden', 'true');
+        el.removeEventListener('transitionend', onEnd);
+      };
+      
+      el.addEventListener('transitionend', onEnd, { once: true });
+    });
   }
 
   _renderSummary() {
