@@ -191,8 +191,8 @@ class CountPanel extends HTMLElement {
     let isPast = false;
     try { const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; if (key && today) isPast = (key !== today); } catch(_) { isPast = false; }
     
-    // Show lock button for any past day that has been saved, regardless of completion status
-    const showLockButton = !!(started && isPast);
+    // Show lock button only for past days that are expanded (in edit mode)
+    const showLockButton = !!(started && isPast && !this._state.collapsed);
     this._els.lock.hidden = !showLockButton;
 
     let showCancel = false;
@@ -263,7 +263,17 @@ class CountPanel extends HTMLElement {
       
       this._els.cancel.disabled = disabled;
     }
-    if (this._els.lock) this._els.lock.disabled = !!this._isProcessing;
+    if (this._els.lock) {
+      this._els.lock.disabled = !!this._isProcessing;
+      
+      // Update lock button icon based on current lock state
+      try {
+        const isUnlocked = (typeof isDayEditUnlocked === 'function') ? isDayEditUnlocked() : false;
+        this._els.lock.textContent = isUnlocked ? '🔓' : '🔒';
+        this._els.lock.title = isUnlocked ? 'Lock editing' : 'Unlock editing';
+        this._els.lock.setAttribute('aria-label', isUnlocked ? 'Lock editing' : 'Unlock editing');
+      } catch(_) {}
+    }
     if (this._els.toggle) this._els.toggle.disabled = !!this._isProcessing;
 
     this._els.toggle.textContent = collapsed ? '▼' : '▲';
