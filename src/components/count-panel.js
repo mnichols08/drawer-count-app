@@ -14,7 +14,6 @@ class CountPanel extends HTMLElement {
     this._onStart = this._onStart.bind(this);
     this._onToggle = this._onToggle.bind(this);
     this._onComplete = this._onComplete.bind(this);
-    this._onReopen = this._onReopen.bind(this);
     this._onVisibilityRefresh = this._onVisibilityRefresh.bind(this);
     this._onDrawerChange = this._onDrawerChange.bind(this);
   }
@@ -27,6 +26,21 @@ class CountPanel extends HTMLElement {
       const dc = document.createElement('drawer-count');
       this._els.body.appendChild(dc);
     }
+    
+    // Force past dates to start collapsed (summary first)
+    try {
+      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
+      const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; 
+      const isPastDate = key && today && (key !== today);
+      
+      if (isPastDate) {
+        // Initialize state if needed
+        if (!this._state) this._state = {};
+        // Force collapsed for past dates
+        this._state.collapsed = true;
+      }
+    } catch(_) {}
+    
     this._refresh(true);
     window.addEventListener('storage', this._onVisibilityRefresh);
     window.addEventListener('focus', this._onVisibilityRefresh);
@@ -69,13 +83,12 @@ class CountPanel extends HTMLElement {
           <button class="clear-btn icon-btn" type="button" aria-label="Clear inputs" title="Clear inputs">🧹</button>
           <button class="optional-btn icon-btn" type="button" aria-label="Optional fields" title="Optional fields">🧾</button>
           <button class="complete-btn" type="button" aria-label="Mark complete" title="Mark complete">💾</button>
-          <button class="reopen-btn" type="button">Reopen</button>
           <button class="cancel-btn" type="button" aria-label="Cancel" title="Cancel">⊘</button>
         </div>
       </div>
       <div class="panel-body" aria-hidden="true"></div>
       <div class="panel-summary" aria-hidden="true" hidden></div>
-      <p class="hint done-hint" hidden>Completed for this day. Tap Reopen to edit.</p>
+      <p class="hint done-hint" hidden>Completed for this day. Use the toggle button to edit.</p>
       <p class="hint lock-hint" hidden>Editing is locked for this saved day. To make changes, click the lock button (🔒) in this card to unlock.</p>
     `;
   }
@@ -90,7 +103,6 @@ class CountPanel extends HTMLElement {
     this._els.clear = this.querySelector('.clear-btn');
     this._els.optional = this.querySelector('.optional-btn');
     this._els.complete = this.querySelector('.complete-btn');
-    this._els.reopen = this.querySelector('.reopen-btn');
     this._els.cancel = this.querySelector('.cancel-btn');
     this._els.body = this.querySelector('.panel-body');
     this._els.doneHint = this.querySelector('.done-hint');
@@ -105,7 +117,6 @@ class CountPanel extends HTMLElement {
     this._els.clear.addEventListener('click', this._onClear.bind(this));
     this._els.optional.addEventListener('click', this._onOptional.bind(this));
     this._els.complete.addEventListener('click', this._onComplete);
-    this._els.reopen.addEventListener('click', this._onReopen);
     this._els.cancel.addEventListener('click', this._onCancel.bind(this));
   }
 
@@ -138,6 +149,11 @@ class CountPanel extends HTMLElement {
   toggleCollapsed() { if (!this._state.started) return false; this._state.collapsed = !this._state.collapsed; this._savePersisted({ collapsed: this._state.collapsed, started: this._state.started }); this._refresh(); return true; }
 
   showCompletedSummary() { 
+    // Don't override when state is temporarily protected (e.g., right after saving)
+    if (this._stateProtected) {
+      return;
+    }
+    
     // Don't override reopened state - if something is reopened, let it stay reopened
     if (this._state?.reopened) {
       return;
@@ -174,47 +190,79 @@ class CountPanel extends HTMLElement {
     this._els.toggle.hidden = !started;
     let isPast = false;
     try { const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; if (key && today) isPast = (key !== today); } catch(_) { isPast = false; }
-    const reopenActive = !!(started && !completed && isPast && !this._state.collapsed);
-    this._els.lock.hidden = !reopenActive;
-    this._els.complete.hidden = !started || !!completed || readOnly || !!this._state.collapsed;
-    this._els.reopen.hidden = !completed;
+    
+    // Show lock button for any past day that has been saved, regardless of completion status
+    const showLockButton = !!(started && isPast);
+    this._els.lock.hidden = !showLockButton;
 
     let showCancel = false;
+    let showComplete = false;
+    
     try {
-      if (started && !this._state.collapsed) {
-        const actionsVisible = !this._els.complete.hidden;
+      if (started && !this._state.collapsed && !readOnly) {
         const saveMode = this._isSaveMode();
         const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
         const hasSaved = key ? this._hasSavedDay(key) : false;
         const hasUnsaved = this._hasUnsavedChangesComparedToSaved();
-        const todayReopenCase = (!saveMode && !!this._state.reopened && hasSaved && hasUnsaved);
-        const pastSaveCase = (saveMode && hasSaved && hasUnsaved);
-        showCancel = !!(actionsVisible && (pastSaveCase || todayReopenCase));
+        
+        // Show cancel button when editing (has saved data and potentially unsaved changes)
+        const todayReopenCase = (!saveMode && !!this._state.reopened && hasSaved);
+        const pastEditCase = (saveMode && hasSaved);
+        showCancel = !!(pastEditCase || todayReopenCase);
+        
+        // Show save/complete button when editing, but disable if no unsaved changes
+        showComplete = !!(pastEditCase || todayReopenCase || !completed);
       }
-    } catch(_) { showCancel = false; }
+    } catch(_) { 
+      showCancel = false; 
+      showComplete = !started || !!completed || readOnly || !!this._state.collapsed;
+    }
+    
     this._els.cancel.hidden = !showCancel;
+    this._els.complete.hidden = !showComplete;
 
     // Show clear and optional buttons only when unlocked and expanded
     const showActionButtons = started && !readOnly && !this._state.collapsed;
     this._els.clear.hidden = !showActionButtons;
     this._els.optional.hidden = !showActionButtons;
 
-    // Save/Complete button should be disabled until changes are made (like cancel button)
-    let showComplete = !started || !!completed || readOnly || !!this._state.collapsed;
-    if (!showComplete && started && !this._state.collapsed && !readOnly) {
-      // For save mode (past days or reopened), require unsaved changes
-      const saveMode = this._isSaveMode();
-      if (saveMode || this._state.reopened) {
-        const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
-        const hasSaved = key ? this._hasSavedDay(key) : false;
-        const hasUnsaved = this._hasUnsavedChangesComparedToSaved();
-        showComplete = hasSaved && !hasUnsaved; // Disable if no unsaved changes
+    if (this._els.complete) {
+      let disabled = !!this._isProcessing || readOnly;
+      
+      // Also disable if no unsaved changes for save mode or reopened items
+      if (!disabled && started && !this._state.collapsed && !readOnly) {
+        const saveMode = this._isSaveMode();
+        if (saveMode || this._state.reopened) {
+          const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
+          const hasSaved = key ? this._hasSavedDay(key) : false;
+          const hasUnsaved = this._hasUnsavedChangesComparedToSaved();
+          if (hasSaved && !hasUnsaved) {
+            disabled = true; // Disable if no unsaved changes
+          }
+        }
       }
+      
+      this._els.complete.disabled = disabled;
     }
-    this._els.complete.hidden = showComplete;
-
-    if (this._els.complete) this._els.complete.disabled = !!this._isProcessing || readOnly;
-    if (this._els.cancel) this._els.cancel.disabled = !!this._isProcessing;
+    
+    if (this._els.cancel) {
+      let disabled = !!this._isProcessing;
+      
+      // Also disable cancel if no unsaved changes (nothing to cancel)
+      if (!disabled && started && !this._state.collapsed && !readOnly) {
+        const saveMode = this._isSaveMode();
+        if (saveMode || this._state.reopened) {
+          const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
+          const hasSaved = key ? this._hasSavedDay(key) : false;
+          const hasUnsaved = this._hasUnsavedChangesComparedToSaved();
+          if (hasSaved && !hasUnsaved) {
+            disabled = true; // Disable if no unsaved changes to cancel
+          }
+        }
+      }
+      
+      this._els.cancel.disabled = disabled;
+    }
     if (this._els.lock) this._els.lock.disabled = !!this._isProcessing;
     if (this._els.toggle) this._els.toggle.disabled = !!this._isProcessing;
 
@@ -248,8 +296,18 @@ class CountPanel extends HTMLElement {
 
     const container = this._visibleContainer();
     
-    // Render summary data when completed or reopened
-    if (completed || this._state.reopened) this._renderSummary();
+    // Render summary data when completed, reopened, or past dates with data
+    let shouldRenderSummary = completed || this._state.reopened;
+    if (!shouldRenderSummary) {
+      // Also render summary for past dates with data
+      try {
+        const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
+        const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; 
+        const isPastWithData = key && today && (key !== today) && this._state.started;
+        shouldRenderSummary = isPastWithData;
+      } catch(_) {}
+    }
+    if (shouldRenderSummary) this._renderSummary();
     
     const collapsedChanged = this._lastCollapsed !== collapsed;
     const completedChanged = this._lastCompleted !== completed;
@@ -451,44 +509,57 @@ class CountPanel extends HTMLElement {
   }
 
   _visibleContainer() { 
-    const { completed, collapsed, reopened } = this._state;
+    const { completed, collapsed, reopened, started } = this._state;
+    
+    // Check if this is a past date with data
+    let isPastWithData = false;
+    try {
+      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
+      const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; 
+      isPastWithData = key && today && (key !== today) && started;
+    } catch(_) {}
+    
+    // Force summary view for past dates (override any stored collapsed state)
+    if (isPastWithData) {
+      // For past dates, show summary unless explicitly expanded (collapsed = false)
+      return collapsed ? this._els.summary : this._els.body;
+    }
+    
+    // Regular logic for today and other dates
     if (completed || reopened) {
-      // When completed OR reopened: collapsed=true shows summary, collapsed=false shows body for editing
       return collapsed ? this._els.summary : this._els.body;
     } else {
-      // When not completed: always body
       return this._els.body;
     }
   }
 
   _syncContainersVisibility() {
-    const { completed, collapsed, reopened } = this._state;
+    const { completed, collapsed, reopened, started } = this._state;
     
-    // Skip if visibility state hasn't changed
-    const currentVisState = `${completed}_${collapsed}_${reopened}`;
+    // Check if this is a past date with data
+    let isPastWithData = false;
+    try {
+      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
+      const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; 
+      isPastWithData = key && today && (key !== today) && started;
+    } catch(_) {}
+    
+    // Skip if visibility state hasn't changed (include isPastWithData in state check)
+    const currentVisState = `${completed}_${collapsed}_${reopened}_${isPastWithData}`;
     if (this._lastVisState === currentVisState) {
       return;
     }
     this._lastVisState = currentVisState;
     
-    // Simple visibility management - let animations handle the transitions
-    if (completed || reopened) {
-      // When completed OR reopened: collapsed=true shows summary, collapsed=false shows body for editing
-      if (collapsed) {
-        // Show summary, hide body
-        this._els.body.hidden = true;
-        this._els.body.setAttribute('aria-hidden', 'true');
-        this._els.summary.hidden = false;
-        this._els.summary.setAttribute('aria-hidden', 'false');
-      } else {
-        // Show body for editing, hide summary
-        this._els.summary.hidden = true;
-        this._els.summary.setAttribute('aria-hidden', 'true');
-        this._els.body.hidden = false;
-        this._els.body.setAttribute('aria-hidden', 'false');
-      }
+    // Simplified logic: if collapsed and we have data, show summary; otherwise show body
+    if (collapsed && (isPastWithData || completed || reopened)) {
+      // Show summary, hide body
+      this._els.body.hidden = true;
+      this._els.body.setAttribute('aria-hidden', 'true');
+      this._els.summary.hidden = false;
+      this._els.summary.setAttribute('aria-hidden', 'false');
     } else {
-      // When not completed: collapsed=true hides body, collapsed=false shows body
+      // Show body, hide summary
       this._els.summary.hidden = true;
       this._els.summary.setAttribute('aria-hidden', 'true');
       if (collapsed) {
@@ -680,13 +751,13 @@ class CountPanel extends HTMLElement {
         try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch(_) {} 
         try { const header = document.querySelector('app-header'); updateStatusPill(header); applyReadOnlyByActiveDate(header); } catch(_) {} 
         
-        // Set completed state to show summary after saving
-        // But don't override reopened state  
-        if (!this._state.reopened) {
-          this._state.completed = true; 
-          this._state.collapsed = true;
-          this._savePersisted({ completed: true, started: true, collapsed: true });
-        }
+        // Always set completed and collapsed state to show summary after saving
+        this._state.completed = true; 
+        this._state.collapsed = true;
+        this._savePersisted({ completed: true, started: true, collapsed: true, reopened: this._state.reopened });
+        
+        // Protect against interference from other code
+        this._protectStateTemporarily();
         
         toast('Saved. Editing locked.', { type: 'success', duration: 3000 }); 
       } catch (_) { }
@@ -703,25 +774,13 @@ class CountPanel extends HTMLElement {
     this._refresh();
   }
 
-  _onReopen() {
-    this._state.completed = false; this._state.collapsed = false; this._state.started = true; this._state.reopened = true; this._savePersisted(this._state);
-    try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch(_) {}
-    try { const header = document.querySelector('app-header'); applyReadOnlyByActiveDate(header); } catch(_) {}
-    
-    // When reopening, disable auto-save since this is existing data being edited
-    try {
-      const dc = this.querySelector('drawer-count');
-      if (dc && typeof dc.disableAutoSave === 'function') {
-        dc.disableAutoSave();
-      }
-    } catch(_) {}
-    
-    try { toast('Reopened. Editing locked for past days.', { type: 'info', duration: 1800 }); } catch(_) {}
-    this._refresh();
-    queueMicrotask(() => this._focusFirstInput());
+  _onVisibilityRefresh() { 
+    // Don't refresh when state is temporarily protected (e.g., right after saving)
+    if (this._stateProtected) {
+      return;
+    }
+    this._refresh(); 
   }
-
-  _onVisibilityRefresh() { this._refresh(); }
   _onDrawerChange(e) { 
     // Check if this change should trigger an auto-save
     const shouldAutoSave = e?.autoSave || false;
@@ -777,6 +836,16 @@ class CountPanel extends HTMLElement {
         }, 50);
       }
     } catch(_) {}
+  }
+
+  _protectStateTemporarily() {
+    // Protect against interference from showCompletedSummary() and other functions
+    if (this._stateProtected) return;
+    this._stateProtected = true;
+    
+    setTimeout(() => {
+      this._stateProtected = false;
+    }, 1000); // Protect for 1 second after save
   }
 }
 
