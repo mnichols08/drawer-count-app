@@ -77,26 +77,40 @@ self.addEventListener('message', (event) => {
   if (data.type === 'GET_NETWORK_STATUS') {
     event.source?.postMessage({ type: 'NETWORK_STATUS', offline: isOffline });
   } else if (data.type === 'OPEN_APP') {
-    event.waitUntil((async () => {
-      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-      // Try to focus an existing client within scope
-      for (const client of clients) {
-        try {
-          // Limit to this SW scope
-          const clientUrl = new URL(client.url);
-          const scopeUrl = new URL(self.registration.scope);
-          if (clientUrl.origin === scopeUrl.origin && clientUrl.pathname.startsWith(scopeUrl.pathname)) {
-            await client.focus();
-            try { event.source?.postMessage({ type: 'OPEN_APP_DONE' }); } catch (_) {}
-            return;
-          }
-        } catch (_) { /* ignore */ }
+    // Handle OPEN_APP request without using waitUntil for response messages
+    (async () => {
+      try {
+        const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+        // Try to focus an existing client within scope
+        for (const client of clients) {
+          try {
+            // Limit to this SW scope
+            const clientUrl = new URL(client.url);
+            const scopeUrl = new URL(self.registration.scope);
+            if (clientUrl.origin === scopeUrl.origin && clientUrl.pathname.startsWith(scopeUrl.pathname)) {
+              await client.focus();
+              // Send response immediately without waitUntil
+              if (event.source && !event.source.closed) {
+                event.source.postMessage({ type: 'OPEN_APP_DONE' });
+              }
+              return;
+            }
+          } catch (_) { /* ignore */ }
+        }
+        // Otherwise open a new window at start_url
+        const startUrl = new URL('.', self.registration.scope).toString();
+        await self.clients.openWindow(startUrl);
+        // Send response immediately without waitUntil
+        if (event.source && !event.source.closed) {
+          event.source.postMessage({ type: 'OPEN_APP_DONE' });
+        }
+      } catch (_) {
+        // Send error response if something goes wrong
+        if (event.source && !event.source.closed) {
+          event.source.postMessage({ type: 'OPEN_APP_ERROR' });
+        }
       }
-      // Otherwise open a new window at start_url
-      const startUrl = new URL('.', self.registration.scope).toString();
-      await self.clients.openWindow(startUrl);
-      try { event.source?.postMessage({ type: 'OPEN_APP_DONE' }); } catch (_) {}
-    })());
+    })();
   }
 });
 
