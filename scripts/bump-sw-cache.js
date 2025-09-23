@@ -40,10 +40,10 @@ if (!explicitVersion) {
   if (maybe) explicitVersion = maybe;
 }
 const rootDir = path.join(__dirname, '..');
-const swPath = path.join(rootDir, 'sw.js');
+const swPath = path.join(rootDir, 'src', 'sw.js');
 const htmlFiles = [
-  path.join(rootDir, 'index.html'),
-  path.join(rootDir, 'offline.html'),
+  path.join(rootDir, 'src', 'index.html'),
+  path.join(rootDir, 'src', 'offline.html'),
 ];
 const pkgJsonPath = path.join(rootDir, 'package.json');
 const pkgLockPath = path.join(rootDir, 'package-lock.json');
@@ -124,7 +124,7 @@ function run() {
     for (const file of htmlFiles) {
       try {
         const html = fs.readFileSync(file, 'utf8');
-        const tagRe = /(src=\"\.\/src\/main\.js\?v=)(\d+\.\d+\.\d+)(\")/g;
+        const tagRe = /(src=\"\.\/main\.js\?v=)(\d+\.\d+\.\d+)(\")/g;
         if (!tagRe.test(html)) {
           console.log(`[dry] No main.js version tag found in ${path.basename(file)}`);
           continue;
@@ -149,7 +149,7 @@ function run() {
 
   // Also bump cache-busting query param for main.js in HTML files
   const nextNumeric = next.replace(/^v/, '');
-  const tagRe = /(src=\"\.\/src\/main\.js\?v=)(\d+\.\d+\.\d+)(\")/g;
+  const tagRe = /(src=\"\.\/main\.js\?v=)(\d+\.\d+\.\d+)(\")/g;
   for (const file of htmlFiles) {
     try {
       const html = fs.readFileSync(file, 'utf8');
