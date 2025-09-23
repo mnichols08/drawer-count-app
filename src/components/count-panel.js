@@ -121,7 +121,6 @@ class CountPanel extends HTMLElement {
   }
 
   _bind() {
-    console.log('Binding events, start button element:', this._els.start);
     this._els.start.addEventListener('click', this._onStart);
     this._els.toggle.addEventListener('click', this._onToggle);
     this._els.lock.addEventListener('click', this._onToggleLock.bind(this));
