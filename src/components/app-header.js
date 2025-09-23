@@ -136,10 +136,11 @@ class AppHeader extends HTMLElement {
     try {
       const today = getTodayKey();
       try { setActiveViewDateKey(today); } catch(_) {}
-      try { restoreDay(today); } catch(_) {}
+      
       const panel = document.querySelector('count-panel');
       let started = false, completed = false;
       try { const pid = getActiveProfileId?.(); const key = `${pid || 'default'}::${today}`; const raw = localStorage.getItem('drawer-panel-v1'); const all = raw ? JSON.parse(raw) : {}; const st = all[key]; if (st && typeof st === 'object') { started = !!st.started; completed = !!st.completed; } } catch(_) {}
+      
       if (panel) {
         if (completed && typeof panel.showCompletedSummary === 'function') {
           panel.showCompletedSummary();
@@ -148,7 +149,16 @@ class AppHeader extends HTMLElement {
           try { panel.querySelector('.start-btn')?.click?.(); } catch(_) {}
         }
         else {
-          // If counting already started for today, toggle collapse/expand instead of forcing re-expand
+          // If counting already started for today, disable auto-save FIRST, then restore data
+          try {
+            const dc = document.querySelector('drawer-count');
+            if (dc && typeof dc.disableAutoSave === 'function') {
+              dc.disableAutoSave();
+            }
+          } catch(_) {}
+          
+          try { restoreDay(today); } catch(_) {}
+          
           try {
             if (typeof panel.isCollapsed === 'function' && typeof panel.expand === 'function' && typeof panel.collapse === 'function') {
               panel.isCollapsed() ? panel.expand() : panel.collapse();

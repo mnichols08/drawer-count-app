@@ -164,10 +164,47 @@ export function setDayLabel(key, label) { try { const { data, pid, entry } = _ge
 
 export function getActiveViewDateKey() { try { const { entry } = _getActiveDaysEntry(false); return entry?._activeViewDateKey || getTodayKey(); } catch(_) { return getTodayKey(); } }
 export function setActiveViewDateKey(key) { try { const { data, pid, entry } = _getActiveDaysEntry(true); entry._activeViewDateKey = key || getTodayKey(); data[pid] = entry; saveDaysData(data); } catch(_) {} }
-export function isDayEditUnlocked() { try { const { entry } = _getActiveDaysEntry(false); return !!entry?._editUnlocked; } catch(_) { return false; } }
-export function setDayEditUnlocked(flag) { try { const { data, pid, entry } = _getActiveDaysEntry(true); entry._editUnlocked = !!flag; data[pid] = entry; saveDaysData(data); } catch(_) {} }
+export function isDayEditUnlocked() { 
+  try { 
+    const { entry } = _getActiveDaysEntry(false); 
+    return !!entry?._editUnlocked;
+  } catch(_) { 
+    return false; 
+  } 
+}
+export function setDayEditUnlocked(flag) { 
+  try { 
+    const { data, pid, entry } = _getActiveDaysEntry(true); 
+    entry._editUnlocked = !!flag; 
+    data[pid] = entry; 
+    saveDaysData(data); 
+  } catch(_) {} 
+}
 export function applyReadOnlyByActiveDate(headerEl) { try { const comp = getDrawerComponent(); if (!comp) return; const key = getActiveViewDateKey(); const today = getTodayKey(); const readOnly = key !== today && !isDayEditUnlocked(); comp.setReadOnly?.(readOnly); updateLockButtonUI(headerEl); } catch(_) {} }
-export function updateLockButtonUI(scopeEl) { try { const key = getActiveViewDateKey(); const today = getTodayKey(); const isToday = key === today; const unlocked = isDayEditUnlocked(); const title = isToday ? 'Today is always editable' : (unlocked ? 'Editing unlocked (tap to lock)' : 'Editing locked (tap to unlock)'); const nodes = new Set(); const addAll = (nodeList) => { nodeList && nodeList.forEach?.((n)=>nodes.add(n)); }; if (scopeEl) addAll(scopeEl.querySelectorAll?.('.lock-btn') || []); addAll(document.querySelectorAll('count-panel .lock-btn')); addAll(document.querySelectorAll('app-header .lock-btn')); nodes.forEach((b) => { try { b.title = title; b.setAttribute('aria-label', title); b.textContent = isToday ? '🔓' : (unlocked ? '🔓' : '🔒'); } catch(_) {} }); } catch(_) {} }
+export function updateLockButtonUI(scopeEl) { 
+  try { 
+    const key = getActiveViewDateKey(); 
+    const today = getTodayKey(); 
+    const isToday = key === today; 
+    const unlocked = isDayEditUnlocked(); 
+    const title = isToday ? 'Today is always editable' : (unlocked ? 'Editing unlocked (tap to lock)' : 'Editing locked (tap to unlock)'); 
+    const expectedIcon = isToday ? '🔓' : (unlocked ? '🔓' : '🔒');
+    
+    const nodes = new Set(); 
+    const addAll = (nodeList) => { nodeList && nodeList.forEach?.((n)=>nodes.add(n)); }; 
+    if (scopeEl) addAll(scopeEl.querySelectorAll?.('.lock-btn') || []); 
+    addAll(document.querySelectorAll('count-panel .lock-btn')); 
+    addAll(document.querySelectorAll('app-header .lock-btn')); 
+    
+    nodes.forEach((b) => { 
+      try { 
+        b.title = title; 
+        b.setAttribute('aria-label', title); 
+        b.textContent = expectedIcon; 
+      } catch(_) {} 
+    }); 
+  } catch(_) {} 
+}
 export function ensureDayResetIfNeeded(_headerEl) { /* no-op */ }
 
 // Expose for other modules that expect these names on window (optional)

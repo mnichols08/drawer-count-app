@@ -5,6 +5,11 @@ class DrawerCount extends HTMLElement {
     super();
     this._root = this.attachShadow({ mode: 'open' });
     this._readOnly = false;
+    this._firstInputOfDay = false; // Track if this is the first input of the day
+    this._autoSaveEnabled = false; // Control auto-save behavior
+    this._isRestoring = false; // Track if we're currently restoring state
+    this._lockedTimestamp = null; // When set, this timestamp is used instead of Date.now()
+    this._hasUserInput = false; // Track if user has made any input since restore
     const bind = (name) => { try { if (typeof this[name] === 'function') this[name] = this[name].bind(this); } catch(_) {} };
     bind('_onInputEvent');
     bind('_newInput');
@@ -74,7 +79,10 @@ class DrawerCount extends HTMLElement {
     const dRolls = getNum('#dimerolls span.cash');
     const nRolls = getNum('#nickelrolls span.cash');
     const pRolls = getNum('#pennyrolls span.cash');
-    const timestamp = Date.now();
+    
+    // Use locked timestamp if set, otherwise use current time
+    const timestamp = this._lockedTimestamp || Date.now();
+    
     return { count, remove, balance, roa, slips, checks, hundreds, fifties, twenties, tens, fives, ones, quarters, dimes, nickels, pennies, qRolls, dRolls, nRolls, pRolls, timestamp };
   }
 
@@ -86,7 +94,8 @@ class DrawerCount extends HTMLElement {
     // Base inputs
     const state = {
       version: 2,
-      timestamp: Date.now(),
+      // Use locked timestamp if set, otherwise use current time
+      timestamp: this._lockedTimestamp || Date.now(),
       base: {
         drawer: getInputVal('#drawer'),
         roa: getInputVal('#roa'),
@@ -135,6 +144,11 @@ class DrawerCount extends HTMLElement {
   setState(state) {
     try {
       if (!state || typeof state !== 'object') return;
+      
+      // Set restore mode and lock the timestamp to the original value
+      this._isRestoring = true;
+      this._lockedTimestamp = state.timestamp || Date.now();
+      
       const b = state.base || {};
       const setVal = (sel, v) => {
         const el = this._root.querySelector(sel + ' input');
@@ -206,8 +220,13 @@ class DrawerCount extends HTMLElement {
       this._slipCheckCount();
       this._renumberDynamicLabels();
       this._announce('Drawer restored');
+      
+      // Clear restore mode but keep the locked timestamp
+      this._isRestoring = false;
+      
     } catch (_) {
-      // ignore
+      // Always clear restore mode if there's an error
+      this._isRestoring = false;
     }
   }
 
@@ -248,6 +267,40 @@ class DrawerCount extends HTMLElement {
       const clearBtn = this._root.querySelector('.clear-btn');
       if (clearBtn) clearBtn.disabled = this._readOnly;
     } catch (_) { /* ignore */ }
+  }
+
+  // Enable auto-save for the first input of a new day
+  enableFirstDayAutoSave() {
+    this._firstInputOfDay = true;
+    this._autoSaveEnabled = true;
+    // Unlock timestamp for new counts
+    this._lockedTimestamp = null;
+  }
+
+  // Disable auto-save (used when restoring existing data)
+  disableAutoSave() {
+    this._autoSaveEnabled = false;
+    this._firstInputOfDay = false;
+    // Keep timestamp locked when disabling auto-save for restored data
+  }
+
+  // Check if the current state represents a "blank" count (no user input)
+  _isBlankCount() {
+    const state = this.getState();
+    if (!state || !state.base) return true;
+    
+    // Check if all base values are 0 or empty
+    const baseValues = Object.values(state.base);
+    const hasBaseInput = baseValues.some(val => Number(val || 0) !== 0);
+    
+    // Check if there are any extra slips/checks
+    const hasExtraInput = (state.extra?.slips?.length > 0) || (state.extra?.checks?.length > 0);
+    
+    // Check if any optional fields are filled
+    const optionalValues = Object.values(state.optional || {});
+    const hasOptionalInput = optionalValues.some(val => Number(val || 0) !== 0);
+    
+    return !hasBaseInput && !hasExtraInput && !hasOptionalInput;
   }
 
   _render() {
@@ -580,7 +633,25 @@ class DrawerCount extends HTMLElement {
     optIds.forEach((sel) => {
       const el = this._root.querySelector(sel);
       el?.addEventListener('input', () => {
-        this.dispatchEvent(new CustomEvent('change', { detail: this.getCount(), bubbles: true, composed: true }));
+        // Unlock timestamp when user makes actual input (not during restore)
+        if (!this._isRestoring) {
+          this._lockedTimestamp = null;
+        }
+        
+        // Determine if this should trigger an auto-save for optional fields
+        let shouldAutoSave = false;
+        if (this._autoSaveEnabled && this._firstInputOfDay) {
+          // This is the very first input of a new day - auto-save it
+          shouldAutoSave = true;
+          this._firstInputOfDay = false; // Disable further auto-saves until explicitly re-enabled
+        }
+
+        this.dispatchEvent(new CustomEvent('change', { 
+          detail: this.getCount(), 
+          bubbles: true, 
+          composed: true,
+          autoSave: shouldAutoSave
+        }));
       });
     });
 
@@ -720,6 +791,12 @@ class DrawerCount extends HTMLElement {
 
   _onInputEvent(e) {
     if (this._readOnly) return;
+    
+    // Unlock timestamp when user makes actual input (not during restore)
+    if (!this._isRestoring) {
+      this._lockedTimestamp = null;
+    }
+    
     // e.currentTarget is the .input container
     const container = e.currentTarget;
     const id = container.id;
@@ -738,8 +815,21 @@ class DrawerCount extends HTMLElement {
     this._getBalance();
     this._slipCheckCount();
 
-    // Dispatch a composed change event so hosts can listen
-    this.dispatchEvent(new CustomEvent('change', { detail: this.getCount(), bubbles: true, composed: true }));
+    // Determine if this should trigger an auto-save
+    let shouldAutoSave = false;
+    if (this._autoSaveEnabled && this._firstInputOfDay) {
+      // This is the very first input of a new day - auto-save it
+      shouldAutoSave = true;
+      this._firstInputOfDay = false; // Disable further auto-saves until explicitly re-enabled
+    }
+
+    // Always dispatch change event for UI updates, but include auto-save flag
+    this.dispatchEvent(new CustomEvent('change', { 
+      detail: this.getCount(), 
+      bubbles: true, 
+      composed: true,
+      autoSave: shouldAutoSave
+    }));
   }
 
   _getMultiplier(id) {

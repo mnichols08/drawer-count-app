@@ -1,6 +1,6 @@
 import { toast } from '../lib/toast.js';
 import './drawer-count.js';
-import { getActiveViewDateKey, getTodayKey, isDayEditUnlocked, setDayEditUnlocked, saveSpecificDay, restoreDay, updateStatusPill, applyReadOnlyByActiveDate, getActiveProfileId } from '../lib/persistence.js';
+import { getActiveViewDateKey, getTodayKey, isDayEditUnlocked, setDayEditUnlocked, saveSpecificDay, restoreDay, updateStatusPill, applyReadOnlyByActiveDate, updateLockButtonUI, getActiveProfileId } from '../lib/persistence.js';
 import { _getActiveDaysEntry } from '../lib/persistence.js';
 import { getUnlockConfirmModal } from './unlock-confirm-modal.js';
 import { getRevertConfirmModal } from './revert-confirm-modal.js';
@@ -141,6 +141,14 @@ class CountPanel extends HTMLElement {
     const collapsed = this._state.collapsed;
     const readOnly = this._computeReadOnly();
 
+    // Update drawer-count component's read-only state
+    try {
+      const drawerCount = this.querySelector('drawer-count');
+      if (drawerCount && typeof drawerCount.setReadOnly === 'function') {
+        drawerCount.setReadOnly(readOnly);
+      }
+    } catch(_) {}
+
     this.classList.toggle('collapsed', !!collapsed);
     this.classList.toggle('empty', !!isEmpty);
     this.classList.toggle('completed', !!completed);
@@ -239,18 +247,41 @@ class CountPanel extends HTMLElement {
   }
 
   async _onCancel() {
-    if (this._isProcessing) return; if (!this._state.started) return;
+    if (this._isProcessing) return; 
+    if (!this._state.started) return;
+    
     try {
       const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
+      
       if (key && this._hasSavedDay(key) && this._hasUnsavedChangesComparedToSaved()) {
         const modal = (typeof getRevertConfirmModal === 'function') ? getRevertConfirmModal() : null;
-        let proceed = true; if (modal && typeof modal.open === 'function') { proceed = await modal.open(key); }
+        let proceed = true; 
+        if (modal && typeof modal.open === 'function') { 
+          proceed = await modal.open(key); 
+        }
+        
         if (!proceed) return;
-        try { restoreDay(key); } catch(_) {}
-        this._state.started = true; this._state.completed = true; this._state.collapsed = false; this._savePersisted({ started: true, completed: true, collapsed: false });
-        try { setDayEditUnlocked(false); } catch(_) {}
-        try { const header = document.querySelector('app-header'); updateStatusPill(header); applyReadOnlyByActiveDate(header); } catch(_) {}
-        try { toast('Reverted changes. Showing summary.', { type: 'info', duration: 1800 }); } catch(_) {}
+        
+        // Begin processing with visual feedback (same as save)
+        this._beginProcessing('revert');
+        
+        try { 
+          restoreDay(key); 
+          
+          // Lock editing (same as save)
+          try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch(_) {}
+          try { const header = document.querySelector('app-header'); updateStatusPill(header); applyReadOnlyByActiveDate(header); } catch(_) {}
+          
+          // Set completed state to show summary (same as save)
+          this._state.completed = true; 
+          this._state.collapsed = false;
+          this._savePersisted({ completed: true, started: true, collapsed: false });
+          
+          toast('Reverted changes. Showing summary.', { type: 'info', duration: 1800 }); 
+        } catch(_) {}
+        
+        // End processing with same timing as save
+        setTimeout(() => this._endProcessing(), 200);
         this._refresh();
         return;
       }
@@ -263,17 +294,72 @@ class CountPanel extends HTMLElement {
   }
 
   async _onToggleLock() {
+    let btn = null;
+    let prevHtml = '';
+    let prevDisabled = false;
+    
     try {
-      const today = getTodayKey(); const key = getActiveViewDateKey(); if (key === today) { toast('Today is always editable', { type: 'info', duration: 1400 }); return; }
-      const btn = this._els?.lock; const prevHtml = btn ? btn.innerHTML : ''; const prevDisabled = btn ? btn.disabled : false;
-      if (btn) { btn.classList.add('processing'); btn.innerHTML = `${btn.textContent} <span class="dots" aria-hidden="true"></span>`; btn.disabled = true; }
+      const today = getTodayKey(); 
+      const key = getActiveViewDateKey(); 
+      if (key === today) { 
+        toast('Today is always editable', { type: 'info', duration: 1400 }); 
+        return; 
+      }
+      
+      btn = this._els?.lock; 
+      prevHtml = btn ? btn.innerHTML : ''; 
+      prevDisabled = btn ? btn.disabled : false;
+      
+      if (btn) { 
+        btn.classList.add('processing'); 
+        btn.innerHTML = `${btn.textContent} <span class="dots" aria-hidden="true"></span>`; 
+        btn.disabled = true; 
+      }
+      
       const unlocked = isDayEditUnlocked();
-      if (!unlocked) { const modal = getUnlockConfirmModal(); const ok = await modal.open(key); if (!ok) return; setDayEditUnlocked(true); toast('Editing unlocked for this day', { type: 'info', duration: 1600 }); }
-      else { setDayEditUnlocked(false); toast('Editing locked for this day', { type: 'info', duration: 1600 }); }
-      try { const header = document.querySelector('app-header'); applyReadOnlyByActiveDate(header); } catch(_) {}
-      try { this._refresh(); } catch(_) {}
-      setTimeout(() => { try { if (btn) { btn.classList.remove('processing'); btn.innerHTML = prevHtml; btn.disabled = prevDisabled; } } catch(_) {} }, 200);
-    } catch(_) {}
+      
+      if (!unlocked) { 
+        const modal = getUnlockConfirmModal(); 
+        const ok = await modal.open(key); 
+        
+        if (!ok) {
+          return; 
+        }
+        
+        setDayEditUnlocked(true); 
+        
+        // When unlocking past days, don't enable auto-save but allow editing
+        // The timestamp should remain locked to preserve the original count time
+        
+        toast('Editing unlocked for this day', { type: 'info', duration: 1600 }); 
+      }
+      else { 
+        setDayEditUnlocked(false); 
+        
+        toast('Editing locked for this day', { type: 'info', duration: 1600 }); 
+      }
+      
+      try { const header = document.querySelector('app-header'); applyReadOnlyByActiveDate(header); } catch(e) { console.error('Error applying readonly to header:', e); }
+      try { updateLockButtonUI(this); } catch(e) { console.error('Error updating lock button UI:', e); }
+      try { this._refresh(); } catch(e) { console.error('Error refreshing:', e); }
+    } catch(error) {
+      console.error('Error in _onToggleLock:', error);
+      toast('Error toggling lock state', { type: 'error', duration: 2000 });
+    } finally {
+      // Always restore button state, but preserve the updated icon
+      setTimeout(() => { 
+        try { 
+          if (btn) { 
+            btn.classList.remove('processing'); 
+            // Don't restore innerHTML - let the updateLockButtonUI handle the icon
+            // btn.innerHTML = prevHtml; 
+            btn.disabled = prevDisabled; 
+          } 
+        } catch(e) { 
+          console.error('Error restoring button state:', e); 
+        } 
+      }, 200);
+    }
   }
 
   _visibleContainer() { return this._state.completed ? this._els.summary : this._els.body; }
@@ -418,6 +504,25 @@ class CountPanel extends HTMLElement {
     try { const today = (typeof getTodayKey === 'function') ? getTodayKey() : null; const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; if (today && key && key !== today) { try { setActiveViewDateKey(today); } catch(_) {} try { restoreDay(today); } catch(_) {} try { setDayEditUnlocked(true); } catch(_) {} try { const header = document.querySelector('app-header'); applyReadOnlyByActiveDate(header); } catch(_) {} } } catch(_) {}
     this._state.started = true; this._state.collapsed = false; this._state.completed = false; this._state.reopened = false; this._savePersisted(this._state);
     try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(true); } catch (_) {}
+    
+    // Enable auto-save for first input if this is a new count
+    try {
+      const dc = this.querySelector('drawer-count');
+      if (dc && typeof dc.enableFirstDayAutoSave === 'function') {
+        const today = getTodayKey();
+        const key = getActiveViewDateKey();
+        const hasSavedData = key ? this._hasSavedDay(key) : false;
+        
+        if (key === today && !hasSavedData) {
+          // This is today and no saved data exists - enable first-day auto-save
+          dc.enableFirstDayAutoSave();
+        } else {
+          // Either not today or saved data exists - disable auto-save
+          dc.disableAutoSave();
+        }
+      }
+    } catch(_) {}
+    
     this._refresh();
     queueMicrotask(() => this._focusFirstInput());
   }
@@ -432,8 +537,24 @@ class CountPanel extends HTMLElement {
     const saveMode = this._isSaveMode();
     this._beginProcessing(saveMode ? 'save' : 'complete');
     if (saveMode) {
-      try { if (typeof getActiveViewDateKey === 'function' && typeof saveSpecificDay === 'function') { const key = getActiveViewDateKey(); if (key) saveSpecificDay(key); } try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch(_) {} try { const header = document.querySelector('app-header'); updateStatusPill(header); applyReadOnlyByActiveDate(header); } catch(_) {} toast('Saved. Editing locked.', { type: 'success', duration: 3000 }); } catch (_) { }
-      setTimeout(() => this._endProcessing(), 200); this._refresh(); return;
+      try { 
+        if (typeof getActiveViewDateKey === 'function' && typeof saveSpecificDay === 'function') { 
+          const key = getActiveViewDateKey(); 
+          if (key) saveSpecificDay(key); 
+        } 
+        try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch(_) {} 
+        try { const header = document.querySelector('app-header'); updateStatusPill(header); applyReadOnlyByActiveDate(header); } catch(_) {} 
+        
+        // Set completed state to show summary after saving
+        this._state.completed = true; 
+        this._state.collapsed = false;
+        this._savePersisted({ completed: true, started: true, collapsed: false });
+        
+        toast('Saved. Editing locked.', { type: 'success', duration: 3000 }); 
+      } catch (_) { }
+      setTimeout(() => this._endProcessing(), 200); 
+      this._refresh(); 
+      return;
     }
     this._state.completed = true; this._state.reopened = false; this._savePersisted({ completed: true, started: true, reopened: false });
     try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch (_) {}
@@ -448,13 +569,37 @@ class CountPanel extends HTMLElement {
     this._state.completed = false; this._state.collapsed = false; this._state.started = true; this._state.reopened = true; this._savePersisted(this._state);
     try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch(_) {}
     try { const header = document.querySelector('app-header'); applyReadOnlyByActiveDate(header); } catch(_) {}
+    
+    // When reopening, disable auto-save since this is existing data being edited
+    try {
+      const dc = this.querySelector('drawer-count');
+      if (dc && typeof dc.disableAutoSave === 'function') {
+        dc.disableAutoSave();
+      }
+    } catch(_) {}
+    
     try { toast('Reopened. Editing locked for past days.', { type: 'info', duration: 1800 }); } catch(_) {}
     this._refresh();
     queueMicrotask(() => this._focusFirstInput());
   }
 
   _onVisibilityRefresh() { this._refresh(); }
-  _onDrawerChange(_e) { this._refresh(true); }
+  _onDrawerChange(e) { 
+    // Check if this change should trigger an auto-save
+    const shouldAutoSave = e?.autoSave || false;
+    
+    if (shouldAutoSave) {
+      try {
+        const today = getTodayKey();
+        const key = getActiveViewDateKey();
+        if (key === today) {
+          // Auto-save to today's slot
+          saveSpecificDay(key);
+        }
+      } catch(_) {}
+    }
+    this._refresh(true); 
+  }
   
   _onStepperComplete(e) {
     // Only auto-complete if the drawer count is started and not already completed
