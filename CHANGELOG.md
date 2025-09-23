@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.2.26 - 2025-09-22
+### Mobile Experience Enhancements
+- **Improved mobile scrolling**: Enhanced drawer-count component with proper scrolling behavior on mobile devices to prevent content from being cut off on smaller screens.
+- **Better viewport handling**: Added mobile-specific CSS optimizations including landscape mode support, proper touch targets, and improved container sizing.
+- **Responsive animations**: All animations now respect mobile viewport constraints and reduced motion preferences for better accessibility.
+
+### UI/UX Improvements
+- **Hidden empty card state**: The card container now completely disappears when empty, eliminating the unpleasant blank card with blurred background. A helpful hint message guides users to start counting via the header menu.
+- **Smooth expand/collapse animations**: Completely redesigned panel animations with Material Design-inspired easing curves, opacity transitions, and subtle transform effects for a more polished experience.
+- **Intuitive toggle button**: Replaced confusing rotating + symbol with clear directional arrows (▼ for expand, ▲ for collapse) that indicate the action direction.
+
+### Animation System Overhaul
+- **Enhanced timing and easing**: Upgraded from simple linear transitions to sophisticated cubic-bezier curves (320ms) with coordinated height, opacity, and transform animations.
+- **Fixed animation conflicts**: Resolved issues where panels would open then immediately close by properly managing animation states and preventing race conditions.
+- **Better performance**: Added `will-change` optimizations and proper cleanup of animation event listeners for smoother performance.
+
+### Accessibility Improvements
+- **Reduced motion support**: All animations respect `prefers-reduced-motion` settings, providing simpler transitions for users with vestibular disorders.
+- **Enhanced touch targets**: Improved button sizing and spacing for better mobile accessibility with 44px minimum touch targets.
+- **Screen reader compatibility**: Maintained proper ARIA states and labels throughout all animation and visibility changes.
+
+### Technical Implementation
+- Refactored count-panel animation logic from compressed single-line functions to readable, maintainable methods with proper error handling.
+- Added mobile-first responsive design with breakpoints at 640px, 480px, and 360px for comprehensive device coverage.
+- Implemented CSS `:has()` selector with JavaScript fallback for broad browser compatibility in empty state management.
+- Enhanced mobile stepper integration to work seamlessly with new scrolling and animation systems.
+- Added smooth card appearance animations when transitioning from empty to active states.
+
 ## v0.2.25 - 2025-09-22
 ### Bugfixes
 - **Fixed service worker OPEN_APP message handling**: Resolved issue where service worker would fail to send proper response messages when handling app open requests from web app manifests or external triggers. Improved message handling by removing problematic `waitUntil` usage for response messages and adding proper error handling with immediate response delivery.
