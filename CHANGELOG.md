@@ -1,5 +1,50 @@
 # Changelog
 
+## v0.3.0 - 2025-09-23
+### Major Features
+- **Always-enabled Enter key functionality**: Removed mobile-only preference setting for Enter key behavior. The Enter key now always automatically adds new slips/checks and focuses the new input field across all devices, providing consistent keyboard navigation without requiring users to toggle settings.
+- **Enhanced profile management system**: Completely overhauled profile creation and deletion with robust modal handling, proper Promise resolution, and conflict-free event management for reliable multi-profile workflows.
+
+### User Experience Improvements  
+- **Centered initial welcome message**: The app's initial guidance message now appears vertically centered on screen instead of at the top, creating a more balanced and welcoming first impression for new users.
+- **Streamlined settings interface**: Removed the mobile preference section from settings modal, simplifying the user interface and eliminating confusion about platform-specific behaviors.
+- **Improved count panel state management**: Enhanced the logic for displaying save/cancel buttons, completed summaries, and panel collapse states with better handling of past dates, unsaved changes, and read-only modes.
+
+### Technical Enhancements
+- **Robust modal event handling**: Fixed critical modal close event conflicts that prevented proper Promise resolution in profile creation/deletion workflows. Modals now properly distinguish between user-initiated closes (escape/X button) and programmatic closes (form submission).
+- **Enhanced auto-save and restore functionality**: Improved persistence across components with better state synchronization, automatic data recovery, and more reliable profile switching.
+- **Better read-only state handling**: Refined logic for completed and reopened items across all dates with improved edit mode detection and appropriate UI feedback.
+
+### UI/UX Polish
+- **Enhanced theme contrast and readability**: Improved color schemes in both light and dark themes with better contrast ratios, more prominent start buttons, and refined empty state messaging for better accessibility.
+- **Improved button functionality**: Added clear and optional field buttons with proper functionality, better disabled states, and enhanced visual feedback during user interactions.
+- **Better modal backdrop effects**: Enhanced backdrop blur effects and improved light theme contrast for more polished modal presentations.
+
+### Component Architecture Improvements
+- **Count panel state refactoring**: Completely rewrote state management logic to handle complex scenarios including past date editing, completion states, unsaved changes, and panel visibility with proper error handling and edge case coverage.
+- **Modal system standardization**: Standardized all profile-related modals to use consistent event handling patterns, Promise resolution strategies, and accessibility features.
+- **Enhanced drawer count component**: Improved keyboard navigation, input validation, and state persistence with better integration into the overall count panel workflow.
+
+### Bugfixes
+- **Fixed profile creation conflicts**: Resolved issues where multiple event handlers would conflict during profile creation, causing Promise resolution failures and inconsistent UI states.
+- **Fixed profile deletion reliability**: Eliminated race conditions in profile deletion modal that prevented proper confirmation handling and could leave the UI in inconsistent states.
+- **Fixed unlock functionality after saving**: Resolved critical bug where the unlock button would not work on today's count after marking it complete. The unlock modal now properly appears and allows editing of completed counts on any date, including today.
+- **Improved panel visibility logic**: Fixed edge cases where count panels would show incorrect states when switching between dates, profiles, or completion modes.
+- **Enhanced lock button behavior**: Corrected lock button visibility and icon states based on edit modes for past days with proper read-only state enforcement.
+- **Better empty state handling**: Fixed scenarios where empty count panels would display incorrectly or fail to show appropriate guidance messages to users.
+
+### Development Experience
+- **Cleaner debugging workflow**: Implemented comprehensive console logging during development and proper cleanup for production builds without debug noise.
+- **Better event binding**: Improved event listener management with proper cleanup, prevention of memory leaks, and more reliable component lifecycle handling.
+- **Enhanced error handling**: Added robust error boundaries and graceful degradation for edge cases in profile management and count panel operations.
+
+### Performance Optimizations
+- **Reduced DOM manipulation**: Optimized count panel rendering to minimize unnecessary updates and improve responsiveness during state changes.
+- **Better event listener management**: Implemented more efficient event binding patterns with proper cleanup to prevent memory leaks during component lifecycle operations.
+- **Improved state synchronization**: Enhanced data flow between components to reduce redundant operations and improve overall application responsiveness.
+
+This release represents a significant maturation of the drawer counting application with major improvements to reliability, user experience, and technical architecture. The removal of mobile-specific preferences and enhancement of profile management make the app more intuitive and dependable for daily use across all devices.
+
 ## v0.2.26 - 2025-09-22
 ### Mobile Experience Enhancements
 - **Improved mobile scrolling**: Enhanced drawer-count component with proper scrolling behavior on mobile devices to prevent content from being cut off on smaller screens.
