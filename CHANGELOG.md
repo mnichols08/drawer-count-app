@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.2.25 - 2025-09-22
+### Bugfixes
+- **Fixed service worker OPEN_APP message handling**: Resolved issue where service worker would fail to send proper response messages when handling app open requests from web app manifests or external triggers. Improved message handling by removing problematic `waitUntil` usage for response messages and adding proper error handling with immediate response delivery.
+- **Updated sitemap domain**: Changed sitemap URL from placeholder `your-domain.example.com` to the actual production domain `drawercounter.journeytocode.io` for proper SEO indexing.
+
+### Technical Implementation
+- Modified service worker OPEN_APP message handler to send responses immediately without using `event.waitUntil()` which was causing message delivery issues.
+- Added proper error handling and response states (`OPEN_APP_DONE`, `OPEN_APP_ERROR`) for better debugging and user feedback.
+- Enhanced client focus logic to check for closed message ports before attempting to send responses.
+- Updated sitemap.xml to reference the correct production domain for search engine optimization.
+
 ## v0.2.24 - 2025-09-22
 ### UX Improvements
 - **Enhanced date picker behavior**: Day picker modal now intelligently defaults to today's date when it has saved data, providing more intuitive navigation and selection.
