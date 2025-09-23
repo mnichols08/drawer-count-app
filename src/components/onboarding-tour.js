@@ -106,16 +106,22 @@ class OnboardingTour extends HTMLElement {
   .backdrop { position: fixed; inset: 0; background: var(--backdrop-bg, rgba(0,0,0,.5)); z-index: 1000; }
   .spotlight { position: fixed; z-index: 1001; pointer-events: none; border-radius: 10px; box-shadow: 0 0 0 9999px var(--backdrop-bg, rgba(0,0,0,.55)), 0 0 0 2px var(--accent, #5aa0ff) inset; transition: all 120ms ease; }
         .tour { position: fixed; inset: 6% auto auto 50%; transform: translateX(-50%);
-          max-width: min(720px, 95vw); background: var(--card); color: var(--fg);
+          max-width: min(720px, 95vw); max-height: min(800px, 88vh); background: var(--card); color: var(--fg);
           border: 1px solid var(--border); border-radius: 14px; padding: 16px; z-index: 1001;
           backdrop-filter: saturate(120%) blur(6px); -webkit-backdrop-filter: saturate(120%) blur(6px);
           box-shadow: var(--shadow, 0 18px 48px rgba(0,0,0,.35)); display: grid; grid-template-rows: auto 1fr auto; gap: 10px; }
+        @media (max-height: 600px) {
+          .tour { inset: 2% auto auto 50%; max-height: 96vh; }
+        }
+        @media (max-width: 600px) {
+          .tour { max-width: 98vw; inset: 4% auto auto 50%; }
+        }
         .hd { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
         .hd h2 { margin: 0; font-size: 1.1rem; letter-spacing: .2px; }
   .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; cursor: pointer; }
         .close:hover { filter: brightness(1.08); }
         .close:focus { outline: 2px solid var(--accent, #5aa0ff); outline-offset: 2px; }
-  .content { font-size: .98rem; line-height: 1.6; color: var(--fg); }
+  .content { font-size: .98rem; line-height: 1.6; color: var(--fg); overflow-y: auto; min-height: 0; }
         .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--kbd-bg, #0f1730); color: var(--kbd-fg, #e7ecff); border:1px solid var(--kbd-border, #2a345a); border-radius:6px; padding:2px 6px; font-weight: 600; }
         .ft { display:flex; align-items:center; justify-content: space-between; gap: 8px; }
         .dots { display:flex; gap: 6px; align-items:center; }
