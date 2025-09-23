@@ -141,15 +141,34 @@ class AppHeader extends HTMLElement {
       let started = false, completed = false;
       try { const pid = getActiveProfileId?.(); const key = `${pid || 'default'}::${today}`; const raw = localStorage.getItem('drawer-panel-v1'); const all = raw ? JSON.parse(raw) : {}; const st = all[key]; if (st && typeof st === 'object') { started = !!st.started; completed = !!st.completed; } } catch(_) {}
       
+      // Check if there's actual saved data
+      const hasSavedData = panel && typeof panel._hasSavedDay === 'function' ? panel._hasSavedDay(today) : false;
+      
       if (panel) {
-        if (completed && typeof panel.showCompletedSummary === 'function') {
+        if (completed && hasSavedData) {
+          // Completed with saved data → Show summary
           panel.showCompletedSummary();
         }
         else if (!started) {
+          // Not started → Start counting
           try { panel.querySelector('.start-btn')?.click?.(); } catch(_) {}
         }
+        else if (started && !hasSavedData) {
+          // Started but no saved data → Reset to initial state
+          try {
+            // Reset the panel state to empty
+            const state = { started: false, collapsed: true, completed: false, reopened: false };
+            if (typeof panel._savePersisted === 'function') {
+              panel._savePersisted(state);
+            }
+            if (typeof panel._refresh === 'function') {
+              panel._refresh();
+            }
+            toast('Returned to start screen', { type: 'info', duration: 1200 });
+          } catch(_) {}
+        }
         else {
-          // If counting already started for today, disable auto-save FIRST, then restore data
+          // Started with saved data → Toggle expand/collapse
           try {
             const dc = document.querySelector('drawer-count');
             if (dc && typeof dc.disableAutoSave === 'function') {
