@@ -741,26 +741,29 @@ class CountPanel extends HTMLElement {
       const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
       const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; 
       if (!key) return false; 
-      const past = key !== today; 
       const unlocked = (typeof isDayEditUnlocked === 'function') ? isDayEditUnlocked() : false; 
       
-      // For today's date, check if it's completed
-      if (key === today) {
-        // If today is completed and reopened, it should be read-only until unlocked (like past dates)
-        if (this._state?.completed && this._state?.reopened) {
-          return !unlocked;
-        }
-        // Otherwise today is always editable
-        return false;
-      }
-      
       // If item is reopened (completed item being edited), it should be read-only until unlocked
+      // This applies to ANY date, including today
       if (this._state?.reopened) {
         return !unlocked;
       }
       
-      // Otherwise, only past dates require unlocking
-      return past && !unlocked; 
+      // If item is completed, it should be read-only until unlocked
+      // This applies to ANY date, including today
+      if (this._state?.completed) {
+        return !unlocked;
+      }
+      
+      // Past dates (not today) require unlocking if they have saved data
+      const isPast = key !== today;
+      if (isPast) {
+        const hasSavedData = this._hasSavedDay(key);
+        return hasSavedData && !unlocked;
+      }
+      
+      // Today without completion is always editable
+      return false; 
     } catch (_) { return false; }
   }
 
