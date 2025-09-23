@@ -18,6 +18,22 @@ class CountPanel extends HTMLElement {
     this._onDrawerChange = this._onDrawerChange.bind(this);
   }
 
+  _forceSummaryFirstVisibility() {
+    try {
+      if (!this._els || !this._els.summary || !this._els.body) return;
+      // Show summary
+      this._els.summary.hidden = false;
+      try { this._els.summary.removeAttribute('hidden'); } catch(_) {}
+      this._els.summary.setAttribute('aria-hidden', 'false');
+      this._els.summary.style.height = 'auto';
+      // Hide body
+      this._els.body.hidden = true;
+      try { this._els.body.setAttribute('hidden', ''); } catch(_) {}
+      this._els.body.setAttribute('aria-hidden', 'true');
+      this._els.body.style.height = '0px';
+    } catch(_) {}
+  }
+
   connectedCallback() {
     this._render();
     this._cacheEls();
@@ -32,18 +48,23 @@ class CountPanel extends HTMLElement {
       const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
       const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; 
       const isPastDate = key && today && (key !== today);
-      const isCompletedToday = key && today && (key === today) && this._hasSavedDay(key);
-      
+      const hasSavedData = key ? this._hasSavedDay(key) : false;
+      const isCompletedToday = key && today && (key === today) && hasSavedData;
+
       if (isPastDate || isCompletedToday) {
         // Initialize state if needed
         if (!this._state) this._state = {};
         // Force collapsed for past dates and completed today
         this._state.collapsed = true;
       }
-      
-      // Reset started flag if there's no saved data (show welcome screen)
-      const hasSavedData = key ? this._hasSavedDay(key) : false;
-      if (!hasSavedData) {
+
+      // If there is saved data, consider the panel started for this date
+      if (hasSavedData) {
+        if (!this._state) this._state = {};
+        this._state.started = true;
+        this._savePersisted(this._state);
+      } else {
+        // No saved data: show welcome screen
         if (!this._state) this._state = {};
         this._state.started = false;
         this._savePersisted(this._state);
@@ -169,22 +190,58 @@ class CountPanel extends HTMLElement {
       return;
     }
     
-    this._state.started = true; this._state.completed = true; this._state.collapsed = true; this._savePersisted({ started: true, completed: true, collapsed: true }); try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch (_) {} this._refresh(); 
+    this._state.started = true; this._state.completed = true; this._state.collapsed = true; this._savePersisted({ started: true, completed: true, collapsed: true }); try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch (_) {} this._forceSummaryFirstVisibility(); this._refresh(); 
   }
 
   _refresh(noAnim = false) {
     this._state = { ...{ started: false, collapsed: true, completed: false, reopened: false }, ...this._loadPersisted() };
-    const { started, completed } = this._state;
-    if (!started) this._state.collapsed = true;
+    if (!this._state.started) this._state.collapsed = true;
     
     // Check if there's actually saved data for this date
     const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
     const hasSavedData = key ? this._hasSavedDay(key) : false;
+    let savedCompleted = false;
+    try {
+      const { entry } = _getActiveDaysEntry(false);
+      savedCompleted = !!entry?.days?.[key]?.state?.completed;
+    } catch(_) { savedCompleted = false; }
+    
+    // Determine if viewing a past date
+    let isPast = false;
+    try {
+      const today = (typeof getTodayKey === 'function') ? getTodayKey() : '';
+      isPast = !!(key && today && key !== today);
+    } catch(_) { isPast = false; }
+    
+    // If this date has saved data, ensure the panel is marked started for this date
+    if (hasSavedData && !this._state.started) {
+      this._state.started = true;
+      this._savePersisted({ started: true });
+    }
+    
+    // For past dates with data, ensure summary is prepared but allow user-controlled expansion
+    if (isPast && hasSavedData && !this._state.reopened) {
+      // Ensure summary content is ready so collapsing shows it immediately
+      try { this._renderSummary(); } catch(_) {}
+      if (this._state.collapsed) {
+        this._forceSummaryFirstVisibility();
+        try { this._syncContainersVisibility(); } catch(_) {}
+      }
+    }
+    
+    // Reflect saved completion in UI (completed class) for past or saved complete today
+    const shouldShowCompletedUi = (isPast && hasSavedData) || (!!savedCompleted);
+    if (shouldShowCompletedUi && !this._state.completed && !this._state.reopened) {
+      this._state.completed = true;
+      this._savePersisted({ completed: true, started: true });
+    }
     
     // Empty state: show when no saved data exists AND user hasn't started the UI session
     // This shows the initial welcome state, but once started shows the form even without data
+    const started = !!this._state.started;
+    const collapsed = !!this._state.collapsed;
+    const completed = !!this._state.completed;
     const isEmpty = !hasSavedData && !started;
-    const collapsed = this._state.collapsed;
     const readOnly = this._computeReadOnly();
 
     // Update drawer-count component's read-only state
@@ -195,9 +252,9 @@ class CountPanel extends HTMLElement {
       }
     } catch(_) {}
 
-    this.classList.toggle('collapsed', !!collapsed);
-    this.classList.toggle('empty', !!isEmpty);
-    this.classList.toggle('completed', !!completed);
+    this.classList.toggle('collapsed', collapsed);
+    this.classList.toggle('empty', isEmpty);
+    this.classList.toggle('completed', completed);
     this.setAttribute('aria-busy', this._isProcessing ? 'true' : 'false');
 
     // Manage card visibility for empty state
@@ -206,17 +263,14 @@ class CountPanel extends HTMLElement {
     // Show start button when in empty state (no saved data), hide when there's actual data
     this._els.start.hidden = !isEmpty;
     this._els.toggle.hidden = isEmpty;
-    let isPast = false;
     let isCompletedToday = false;
     try { 
       const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
       const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; 
       if (key && today) {
-        isPast = (key !== today);
         isCompletedToday = (key === today) && this._hasSavedDay(key);
       }
     } catch(_) { 
-      isPast = false; 
       isCompletedToday = false;
     }
     
@@ -234,7 +288,7 @@ class CountPanel extends HTMLElement {
       // - Past days with saved data (always need unlock to edit)
       // - Today's completed/reopened items (need unlock to edit after completion)
       // - Currently expanded (in edit mode)
-      showLockButton = !!(started && (isPast || isCompletedToday || this._state.completed || this._state.reopened) && !this._state.collapsed);
+  showLockButton = !!(started && (isPast || isCompletedToday || completed || this._state.reopened) && !collapsed);
     } catch(_) { 
       showLockButton = false;
     }
@@ -244,7 +298,7 @@ class CountPanel extends HTMLElement {
     let showComplete = false;
     
     try {
-      if (started && !this._state.collapsed && !readOnly) {
+      if (started && !collapsed && !readOnly) {
         const saveMode = this._isSaveMode();
         const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
         const hasSaved = key ? this._hasSavedDay(key) : false;
@@ -268,7 +322,7 @@ class CountPanel extends HTMLElement {
     this._els.complete.hidden = !showComplete;
 
     // Show clear and optional buttons only when unlocked and expanded
-    const showActionButtons = started && !readOnly && !this._state.collapsed;
+  const showActionButtons = started && !readOnly && !collapsed;
     this._els.clear.hidden = !showActionButtons;
     this._els.optional.hidden = !showActionButtons;
 
@@ -323,30 +377,43 @@ class CountPanel extends HTMLElement {
     }
 
     const container = this._visibleContainer();
+    // If we are completed and collapsed, ensure summary-first visibility immediately
+    if (this._state.completed && this._state.collapsed) {
+      this._forceSummaryFirstVisibility();
+    }
+
+    // Determine if this is a past date with saved data
+    let isPastWithDataFlag = false;
+    try {
+      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
+      const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; 
+      const hasSavedData = key ? this._hasSavedDay(key) : false;
+      isPastWithDataFlag = key && today && (key !== today) && hasSavedData;
+    } catch(_) {}
     
-    // Render summary data when completed, reopened, or past dates with data
+    // Render summary data when completed, reopened, or past dates with data (regardless of started)
     let shouldRenderSummary = completed || this._state.reopened;
     if (!shouldRenderSummary) {
-      // Also render summary for past dates with data
       try {
         const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
         const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; 
-        const isPastWithData = key && today && (key !== today) && this._state.started;
+        const hasSavedData = key ? this._hasSavedDay(key) : false;
+        const isPastWithData = key && today && (key !== today) && hasSavedData;
         shouldRenderSummary = isPastWithData;
       } catch(_) {}
     }
     if (shouldRenderSummary) this._renderSummary();
     
-    const collapsedChanged = this._lastCollapsed !== collapsed;
-    const completedChanged = this._lastCompleted !== completed;
+  const collapsedChanged = this._lastCollapsed !== collapsed;
+  const completedChanged = this._lastCompleted !== this._state.completed;
     
     // Handle animations for state changes
     if (!isEmpty && (collapsedChanged || completedChanged)) {
       // First sync containers to ensure proper visibility state
       this._syncContainersVisibility();
       
-      // For completed OR reopened states with toggle behavior, we need to handle both containers
-      if ((completed || this._state.reopened) && collapsedChanged) {
+      // For completed, reopened, or past-with-data states with toggle behavior, handle both containers
+      if ((this._state.completed || this._state.reopened || isPastWithDataFlag) && collapsedChanged) {
         if (collapsed) {
           // Switching to summary view - ensure body is hidden first, then animate summary
           this._els.body.hidden = true;
@@ -382,15 +449,41 @@ class CountPanel extends HTMLElement {
       // Always sync visibility when no state changes occurred
       this._syncContainersVisibility();
     }
+    // Ensure final visibility state is applied after any of the above branches
+    try { this._syncContainersVisibility(); } catch(_) {}
+    try {
+      const isCompletedClass = this.classList.contains('completed');
+      // Recompute past-with-data quickly
+      let finalPastWithData = false;
+      try {
+        const k = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
+        const t = (typeof getTodayKey === 'function') ? getTodayKey() : '';
+        finalPastWithData = !!(k && t && k !== t && this._hasSavedDay(k));
+      } catch(_) {}
+      if (collapsed && (isCompletedClass || this._state.reopened || finalPastWithData)) {
+        this._forceSummaryFirstVisibility();
+      } else if (!collapsed) {
+        // Force body visible state when expanded
+        this._els.summary.hidden = true;
+        try { this._els.summary.setAttribute('hidden', ''); } catch(_) {}
+        this._els.summary.setAttribute('aria-hidden', 'true');
+        this._els.body.hidden = false;
+        try { this._els.body.removeAttribute('hidden'); } catch(_) {}
+        this._els.body.setAttribute('aria-hidden', 'false');
+        this._els.body.style.height = 'auto';
+      }
+    } catch(_) {}
     
     this._lastCollapsed = collapsed; 
-    this._lastCompleted = completed;
+  this._lastCompleted = this._state.completed;
 
-    this._els.doneHint.hidden = !completed;
+  this._els.doneHint.hidden = !this._state.completed;
     if (this._els.lockHint) this._els.lockHint.hidden = !(started && !completed && readOnly);
     try { updateStatusPill(this); } catch(_) {}
 
     try { const emptyEl = this.querySelector('.panel-empty'); if (emptyEl) { if (isEmpty) { emptyEl.hidden = false; emptyEl.setAttribute('aria-hidden', 'false'); } else { emptyEl.hidden = true; emptyEl.setAttribute('aria-hidden', 'true'); } } } catch(_) {}
+    // Yield to next microtask to ensure attributes/hidden states are flushed
+    try { Promise.resolve().then(() => this._syncContainersVisibility()); } catch(_) {}
   }
 
   async _onCancel() {
@@ -594,14 +687,15 @@ class CountPanel extends HTMLElement {
   }
 
   _visibleContainer() { 
-    const { completed, collapsed, reopened, started } = this._state;
+    const { completed, collapsed, reopened } = this._state;
     
     // Check if this is a past date with data
     let isPastWithData = false;
     try {
       const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
       const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; 
-      isPastWithData = key && today && (key !== today) && started;
+      const hasSavedData = key ? this._hasSavedDay(key) : false;
+      isPastWithData = key && today && (key !== today) && hasSavedData;
     } catch(_) {}
     
     // Force summary view for past dates (override any stored collapsed state)
@@ -619,39 +713,38 @@ class CountPanel extends HTMLElement {
   }
 
   _syncContainersVisibility() {
-    const { completed, collapsed, reopened, started } = this._state;
+    const { completed, collapsed, reopened } = this._state;
     
     // Check if this is a past date with data
     let isPastWithData = false;
     try {
       const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
       const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; 
-      isPastWithData = key && today && (key !== today) && started;
+      const hasSavedData = key ? this._hasSavedDay(key) : false;
+      isPastWithData = key && today && (key !== today) && hasSavedData;
     } catch(_) {}
-    
-    // Skip if visibility state hasn't changed (include isPastWithData in state check)
-    const currentVisState = `${completed}_${collapsed}_${reopened}_${isPastWithData}`;
-    if (this._lastVisState === currentVisState) {
-      return;
-    }
-    this._lastVisState = currentVisState;
     
     // Simplified logic: if collapsed and we have data, show summary; otherwise show body
     if (collapsed && (isPastWithData || completed || reopened)) {
       // Show summary, hide body
       this._els.body.hidden = true;
       this._els.body.setAttribute('aria-hidden', 'true');
+      try { this._els.body.setAttribute('hidden', ''); } catch(_) {}
       this._els.summary.hidden = false;
+      this._els.summary.removeAttribute('hidden');
       this._els.summary.setAttribute('aria-hidden', 'false');
     } else {
       // Show body, hide summary
       this._els.summary.hidden = true;
       this._els.summary.setAttribute('aria-hidden', 'true');
+      try { this._els.summary.setAttribute('hidden', ''); } catch(_) {}
       if (collapsed) {
         this._els.body.hidden = true;
         this._els.body.setAttribute('aria-hidden', 'true');
+        try { this._els.body.setAttribute('hidden', ''); } catch(_) {}
       } else {
         this._els.body.hidden = false;
+        this._els.body.removeAttribute('hidden');
         this._els.body.setAttribute('aria-hidden', 'false');
       }
     }
@@ -664,8 +757,9 @@ class CountPanel extends HTMLElement {
     el.classList.remove('collapsing', 'expanding');
     
     // Set initial visibility and aria state
-    el.setAttribute('aria-hidden', 'false');
-    el.hidden = false;
+  el.setAttribute('aria-hidden', 'false');
+  el.hidden = false;
+  try { el.removeAttribute('hidden'); } catch(_) {}
     
     if (!animate) {
       el.style.height = 'auto';
@@ -706,6 +800,7 @@ class CountPanel extends HTMLElement {
       el.style.height = '0px';
       el.hidden = true;
       el.setAttribute('aria-hidden', 'true');
+      try { el.setAttribute('hidden', ''); } catch(_) {}
       return;
     }
 
@@ -724,6 +819,7 @@ class CountPanel extends HTMLElement {
       const onEnd = () => {
         el.hidden = true;
         el.setAttribute('aria-hidden', 'true');
+        try { el.setAttribute('hidden', ''); } catch(_) {}
         el.removeEventListener('transitionend', onEnd);
       };
       
@@ -860,6 +956,8 @@ class CountPanel extends HTMLElement {
         this._state.completed = true; 
         this._state.collapsed = true;
         this._savePersisted({ completed: true, started: true, collapsed: true, reopened: this._state.reopened });
+  // Immediately reflect visibility in DOM to avoid flakiness
+  try { this._syncContainersVisibility(); } catch(_) {}
         
         // Protect against interference from other code
         this._protectStateTemporarily();
@@ -880,6 +978,7 @@ class CountPanel extends HTMLElement {
     try { if (typeof getActiveViewDateKey === 'function' && typeof saveSpecificDay === 'function') { const key = getActiveViewDateKey(); if (key) saveSpecificDay(key); } } catch (_) {}
     try { toast('Marked complete for this day.'); } catch(_) {}
     this._state.collapsed = true;
+    try { this._syncContainersVisibility(); } catch(_) {}
     
     // Explicitly show completed summary
     setTimeout(() => {

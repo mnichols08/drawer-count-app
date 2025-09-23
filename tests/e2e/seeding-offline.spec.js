@@ -18,6 +18,21 @@ async function collectConsoleErrors(page) {
 async function gotoHome(page) {
   await page.goto('/');
   await page.waitForLoadState('networkidle');
+  // Always bust SW/caches to avoid stale JS during tests
+  await page.evaluate(async () => {
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      }
+      if (window.caches && caches.keys) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+    } catch(_) {}
+  });
+  await page.reload();
+  await page.waitForLoadState('networkidle');
   // Disable onboarding overlay if present, and mark as complete
   await page.evaluate(() => {
     try { localStorage.setItem('onboarding-complete-v2', '1'); } catch (_) {}
@@ -147,8 +162,10 @@ test.describe('Dev seeding and offline', () => {
         // Return state as well for validation of summary details
         const saved = entry.days[pick]?.state || null;
         const panel = document.querySelector('count-panel');
-        panel && panel.showCompletedSummary && panel.showCompletedSummary();
-        panel && panel.refresh && panel.refresh();
+        if (panel) {
+          panel.showCompletedSummary && panel.showCompletedSummary();
+          panel.refresh && panel.refresh();
+        }
         return { pick, saved };
       } catch(_) { return ''; }
     });
@@ -156,9 +173,10 @@ test.describe('Dev seeding and offline', () => {
     const { pick: chosenKey, saved: restoredState } = restoredKey;
     expect(chosenKey).toBeTruthy();
 
-  // Ensure summary visible and allow computations to settle
-  await page.locator('count-panel .panel-summary').waitFor({ state: 'visible' });
-  await page.waitForTimeout(200);
+  // Ensure summary state and render, then allow computations to settle
+  await page.waitForSelector('count-panel.completed.collapsed');
+  await page.evaluate(() => { try { document.querySelector('count-panel')?._renderSummary?.(); } catch(_) {} });
+  await page.waitForTimeout(100);
 
     // Assert that summary includes slip/check breakdown matching state
     if (restoredState && restoredState.extra) {

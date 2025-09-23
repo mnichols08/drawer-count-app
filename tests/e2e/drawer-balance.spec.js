@@ -53,8 +53,16 @@ async function gotoHome(page) {
     } catch (_) {}
   });
 
-  // Wait for the panel body to be visible and the primary input to be ready
-  await page.locator('count-panel .panel-body[aria-hidden="false"]').waitFor({ state: 'visible' });
+  // Wait for either summary or body, then ensure body is visible for editing
+  const bodyLoc = page.locator('count-panel .panel-body');
+  const sumLoc = page.locator('count-panel .panel-summary');
+  await Promise.race([
+    bodyLoc.waitFor({ state: 'visible' }).catch(() => {}),
+    sumLoc.waitFor({ state: 'visible' }).catch(() => {})
+  ]);
+  // If summary is showing, expand to show body
+  await page.evaluate(() => { try { const p = document.querySelector('count-panel'); if (p && p.classList.contains('collapsed')) { p.expand?.(); } } catch(_) {} });
+  await bodyLoc.waitFor({ state: 'visible' });
   // Wait for either new-style or legacy input IDs inside shadow DOM
     await page.waitForFunction(() => {
       const dc = document.querySelector('drawer-count');
