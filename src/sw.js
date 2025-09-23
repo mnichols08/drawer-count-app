@@ -1,5 +1,5 @@
 /* Drawer Count Service Worker */
-const CACHE_VERSION = 'v0.3.0';
+const CACHE_VERSION = 'v0.3.4';
 const PRECACHE = `precache-${CACHE_VERSION}`;
 const RUNTIME = `runtime-${CACHE_VERSION}`;
 
@@ -10,25 +10,25 @@ const RAW_PRECACHE_URLS = [
   'index.html',
   'offline.html',
   'manifest.webmanifest',
-  'src/style.css',
-  'src/main.js',
-  'src/components/drawer-count.js',
-  'src/sw-register.js',
-  'src/icons/favicon.svg',
-  'src/icons/icon-192.png',
-  'src/icons/icon-512.png',
-  'src/icons/apple-touch-icon-180x180.png',
-  'src/icons/favicon-32x32.png',
-  'src/icons/favicon-16x16.png',
+  'style.css',
+  'main.js',
+  'components/drawer-count.js',
+  'sw-register.js',
+  'icons/favicon.svg',
+  'icons/icon-192.png',
+  'icons/icon-512.png',
+  'icons/apple-touch-icon-180x180.png',
+  'icons/favicon-32x32.png',
+  'icons/favicon-16x16.png',
   // Background images used for random body background
-  'src/images/1g-eclipse-bg.png',
-  'src/images/crownvic-bg.png',
-  'src/images/eclipse-challenge-bg.png',
-  'src/images/vw-bg.png',
-  'src/images/1g-eclipse-bg.webp',
-  'src/images/crownvic-bg.webp',
-  'src/images/eclipse-challenge-bg.webp',
-  'src/images/vw-bg.webp',
+  'images/1g-eclipse-bg.png',
+  'images/crownvic-bg.png',
+  'images/eclipse-challenge-bg.png',
+  'images/vw-bg.png',
+  'images/1g-eclipse-bg.webp',
+  'images/crownvic-bg.webp',
+  'images/eclipse-challenge-bg.webp',
+  'images/vw-bg.webp',
   'favicon.ico',
   'browserconfig.xml'
 ];

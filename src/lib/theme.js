@@ -1,6 +1,6 @@
 // Theme utilities shared by components (now per-profile)
 export const THEME_KEY = 'theme'; // legacy global key; kept for one-time migration
-import { loadProfilesData, saveProfilesData, getActiveProfileId } from './persistence.js';
+import { loadProfilesData, saveProfilesData } from './persistence.js';
 
 // Read the active profile's theme mode: 'system' | 'light' | 'dark'
 export function getProfileThemeMode() {

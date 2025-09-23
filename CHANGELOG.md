@@ -1,5 +1,67 @@
 # Changelog
 
+## v0.3.4 - 2025-09-23
+### CI/CD & Deployment
+- Prevent PR-triggered deploys to GitHub Pages.
+	- Removed `pull_request` trigger from `deploy.yml` so PRs never enter the Pages pipeline.
+	- Added job-level branch guards so `build` and `deploy` only run when `github.ref` is `refs/heads/main` (also guards manual `workflow_dispatch` on non-main refs).
+	- Kept artifact upload and `deploy-pages` steps gated to `push` on `main` for defense in depth.
+- Outcome: PRs run build/test only; production deploys occur only on pushes to `main`, avoiding environment protection rejections on `development`.
+
+No application code changes in this patch.
+
+## v0.3.3 - 2025-09-23
+### CI/CD & Deployment
+- Adjusted GitHub Pages workflow to deploy only on pushes to `main`.
+	- PRs targeting `main` and `development` still build, but skip the deploy step to avoid PR failures.
+	- Upload of the Pages artifact is also gated to `push` on `main`.
+	- Keeps production build aligned with local/Render: `npm run build:prod` producing `dist/`.
+
+### Tests
+- Simplified the Tests workflow to a single `npm test` job across Node 18/20/22.
+	- Removed fragile per-category ESM invocations that were failing in CI.
+	- CI now mirrors the local test runner behavior that passes consistently.
+
+### Package Scripts
+- Added missing script aliases referenced by CI and docs:
+	- `test:build`, `test:bump`, `test:icons`, `test:images`, `test:server`, `test:scripts`.
+	- These complement the consolidated `npm test` flow used by CI.
+
+Developer note: If you want preview deployments for PRs in the future, we can add a separate preview job or environment without affecting `main`.
+
+## v0.3.2 - 2025-09-23
+### Developer Tooling & Code Quality
+- Introduced ESLint v9 with a flat config (`eslint.config.cjs`) tailored per area:
+	- `src/**`: Browser + ESM
+	- `scripts/**` and `server.js`: Node + CommonJS
+	- `tests/**`: ESM-friendly defaults
+- Standardized an underscore convention for intentionally unused identifiers (variables, parameters, caught errors, and destructured placeholders) to keep the code expressive while avoiding noise.
+- Added lint scripts:
+	- `npm run lint:js` (ESLint)
+	- `npm run lint:md` (markdownlint)
+	- `npm run lint` (runs both)
+- Reduced linter warnings from hundreds to zero via small, safe code cleanups (removing unused imports/vars, prefixing intentional unused values, and minor destructuring tweaks). No behavioral changes were introduced.
+- Added a dedicated documentation page: `docs/testing/linting.md`, covering how linting works in this repo, how to run it, and our underscore naming convention.
+
+### Build & Release
+- Aligned `src/offline.html` script paths and version query with `index.html` (`./main.js?v=X.Y.Z` and `./sw-register.js`) so the release script can update cache-busting consistently across both pages.
+- `scripts/bump-sw-cache.js` dry runs now correctly preview updates for both `index.html` and `offline.html` in this configuration.
+
+### Miscellaneous Refinements
+- Server list response now discards `clientId` via safe destructuring before returning items.
+- Minor render/destructuring cleanups in components (e.g., `network-status`, `help-modal`, `count-panel`, confirmation modals) to satisfy lint rules without changing behavior.
+
+Docs: See the new linting guide at `docs/testing/linting.md` and updated links in `docs/README.md`.
+
+## v0.3.1 - 2025-09-23
+### Documentation & Infrastructure
+- **Enhanced README documentation**: Added comprehensive feature descriptions, detailed usage instructions, and improved project documentation for better user onboarding.
+- **Added ISC License**: Included proper open source licensing to clarify usage terms and permissions.
+- **GitHub Actions deployment**: Implemented automated deployment workflow for GitHub Pages to streamline release process and ensure consistent deployments.
+
+### Bugfixes
+- **Fixed service worker cache bump script**: Corrected file paths for service worker and HTML files in the version bump script, ensuring proper cache invalidation during releases.
+
 ## v0.3.0 - 2025-09-23
 ### Major Features
 - **Always-enabled Enter key functionality**: Removed mobile-only preference setting for Enter key behavior. The Enter key now always automatically adds new slips/checks and focuses the new input field across all devices, providing consistent keyboard navigation without requiring users to toggle settings.

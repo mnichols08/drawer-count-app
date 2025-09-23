@@ -19,7 +19,7 @@
   <meta property="og:title" content="Drawer Count" />
   <meta property="og:description" content="A minimal, installable PWA to help count drawers at the end of the day." />
   <meta property="og:url" content="https://drawercounter.journeytocode.io/" />
-  <meta property="og:image" content="https://drawercounter.journeytocode.io/src/icons/icon-512.png" />
+  <meta property="og:image" content="https://drawercounter.journeytocode.io/icons/icon-512.png" />
   <meta property="og:image:type" content="image/png" />
   <meta property="og:image:width" content="512" />
   <meta property="og:image:height" content="512" />
@@ -30,19 +30,19 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Drawer Count" />
   <meta name="twitter:description" content="A minimal, installable PWA to help count drawers at the end of the day." />
-  <meta name="twitter:image" content="https://drawercounter.journeytocode.io/src/icons/icon-512.png" />
+  <meta name="twitter:image" content="https://drawercounter.journeytocode.io/icons/icon-512.png" />
   <meta name="twitter:image:alt" content="Drawer Count app icon" />
 
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="icon" href="./src/icons/favicon.svg" type="image/svg+xml" />
-  <link rel="icon" type="image/png" sizes="32x32" href="./src/icons/favicon-32x32.png" />
-  <link rel="icon" type="image/png" sizes="16x16" href="./src/icons/favicon-16x16.png" />
+  <link rel="icon" href="./icons/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16x16.png" />
   <link rel="shortcut icon" href="./favicon.ico" />
   <!-- iOS / iPadOS -->
-  <link rel="apple-touch-icon" sizes="180x180" href="./src/icons/apple-touch-icon-180x180.png" />
-  <link rel="apple-touch-icon" href="./src/icons/apple-touch-icon.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon-180x180.png" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
   <!-- Safari pinned tab (uses monochrome SVG if available); fall back to app icon SVG -->
-  <link rel="mask-icon" href="./src/icons/favicon.svg" color="#0b132b" />
+  <link rel="mask-icon" href="./icons/favicon.svg" color="#0b132b" />
   <!-- Windows tiles -->
   <meta name="msapplication-TileColor" content="#0b132b" />
   <meta name="msapplication-config" content="./browserconfig.xml" />
@@ -50,7 +50,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
 
-  <link rel="stylesheet" href="./src/style.css" />
+  <link rel="stylesheet" href="./style.css" />
   
   <!-- JSON-LD structured data -->
   <script type="application/ld+json">
@@ -63,7 +63,7 @@
     "url": "https://drawercounter.journeytocode.io",
     "inLanguage": "en-US",
     "description": "A minimal, installable PWA to help count drawers at the end of the day.",
-    "image": "https://drawercounter.journeytocode.io/src/icons/icon-512.png",
+    "image": "https://drawercounter.journeytocode.io/icons/icon-512.png",
     "offers": {
       "@type": "Offer",
       "price": "0",
@@ -99,8 +99,8 @@
     </noscript>
 
   <script src="./config.js"></script>
-  <script type="module" src="./src/main.js?v=0.3.0"></script>
-  <script type="module" src="./src/sw-register.js"></script>
+  <script type="module" src="./main.js?v=0.3.4"></script>
+  <script type="module" src="./sw-register.js"></script>
   <!-- drawer-count component is imported via main.js/count-panel.js -->
   </body>
   </html>

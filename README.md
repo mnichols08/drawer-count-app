@@ -1,24 +1,86 @@
 # Drawer Count App
 
-A minimal, installable PWA to help count drawers at the end of the day. Works offline, supports profiles, daily history, and import/export.
+A modern, installable Progressive Web App (PWA) for counting cash drawers at the end of business day. Built with vanilla JavaScript and Web Components, featuring offline-first architecture, multi-profile support, and optional cloud sync.
 
-Status: Vanilla JS + Web Components (no framework)
+**Status**: Production-ready vanilla JS + Web Components (framework-free)
+
+## Quick Start
+
+### Installation & Development
+```bash
+# Clone and install dependencies
+git clone https://github.com/mnichols08/drawer-count-app.git
+cd drawer-count-app
+npm install
+
+# Start development server with auto-reload
+npm run dev
+
+# Or start production server
+npm start
+```
+
+The app runs at `http://localhost:8080` by default. Change the port with `PORT=3000 npm start`.
+
+### Basic Usage
+1. **Cash Counting**: Enter bills and coins in the calculator
+2. **Credit Cards**: Add slip amounts using the + button for multiple entries
+3. **Checks**: Add check amounts with dedicated rows
+4. **Balance**: Watch the real-time balance calculation with color indicators
+5. **Profiles**: Save your drawer setup for reuse via Settings → Profiles  
+6. **History**: Access daily records via Settings → Daily History
+
+### Optional Features
+- **Cloud Sync**: Set up MongoDB connection for multi-device sync
+- **Install as App**: Use the install banner for native app experience
+- **Keyboard Shortcuts**: `Ctrl+Shift+S` (add slip), `Ctrl+Shift+C` (add check)
+- **Themes**: Switch between Light/Dark/Auto in Settings
 
 ## Features
 
-- Offline-first PWA (service worker with precache, runtime cache, offline fallback)
-- Installable (manifest + in-app install banner); focuses an existing app window when possible
-- Drawer calculator with dynamic rows for credit card slips and checks
-- Optional daily fields captured for later reporting (do not affect totals): Charges, Total Received, Net Sales, Gross Profit $/%, Number of Invoices, Number of Voids
-- Profiles: Save, Restore, and Clear the active profile
-- Daily History: Save by day, Load, Delete, and Rename entries; auto reset on a new day
-- Import/Export: Backup or restore your data as JSON
-- Theme: Light/Dark/System with live `theme-color` updates
-- Network status pill with server health badge, plus toast notifications
-- Keyboard shortcuts for faster entry
- - Visual polish: random background image with smooth fade-in; light/dark overlays for readability
+### Core Functionality
+- **Cash Drawer Calculator**: Dynamic counting interface with bills, coins, credit card slips, and checks
+- **Real-time Balance Calculation**: Live total updates with color-coded balance indicators
+- **Smart Row Management**: Add/remove credit card and check rows with keyboard shortcuts
 
-## SEO
+### Data Management
+- **Multiple Profiles**: Save, restore, and manage different drawer configurations
+- **Daily History**: Automatic day-based storage with save/load/delete/rename functionality
+- **Import/Export**: Full data backup and restore via JSON files
+- **Auto-reset**: Fresh start each new business day
+
+### PWA Features
+- **Offline-first**: Full functionality without internet connection using service worker
+- **Installable**: Native app-like experience on desktop and mobile
+- **Background Sync**: Optional cloud synchronization when online
+- **Smart Window Management**: Focus existing windows instead of opening duplicates
+
+### User Experience
+- **Responsive Design**: Works seamlessly on desktop, tablet, and mobile
+- **Theme Support**: Light/Dark/System themes with live updates
+- **Keyboard Shortcuts**: Fast data entry with customizable hotkeys
+- **Visual Polish**: Random background images with smooth transitions
+- **Network Status**: Real-time connectivity and server health indicators
+- **Toast Notifications**: User-friendly feedback for all actions
+
+### Developer Features
+- **Modern Web Standards**: ES6 modules, Web Components, Service Workers
+- **Progressive Enhancement**: Works without JavaScript for basic functionality
+- **SEO Optimized**: Complete meta tags, structured data, and sitemap
+- **Cross-platform Icons**: Generated icon sets for all platforms
+- **Image Optimization**: WebP support with PNG fallbacks
+
+### Optional Reporting Fields
+The app includes optional daily tracking fields for business reporting (these don't affect drawer totals):
+- **Charges**: Total charge transactions
+- **Total Received**: Complete payment received
+- **Net Sales**: Sales after returns/adjustments  
+- **Gross Profit**: Both dollar amount and percentage
+- **Transaction Counts**: Number of invoices and voids
+
+These fields are saved with your daily history and can be exported for reporting purposes.
+
+## SEO & Production Setup
 
 This app includes sensible defaults for search and sharing:
 
@@ -27,7 +89,7 @@ This app includes sensible defaults for search and sharing:
 - `offline.html` is marked `noindex` and excluded from the sitemap.
 - Root `robots.txt` and `sitemap.xml` are served with proper content types.
 
-Before deploying to production, replace `https://your-domain.example.com` in:
+Before deploying to production, replace `https://drawercounter.journeytocode.io` in:
 
 - `index.html`: `link rel="canonical"`, `og:*`, `twitter:*`, and JSON-LD `url`/`image`.
 - `offline.html`: canonical link.
@@ -36,33 +98,101 @@ Before deploying to production, replace `https://your-domain.example.com` in:
 
 The Express server sets security headers and cache policies. Static assets get long-term caching, while HTML and configuration endpoints avoid caching to ensure fresh content.
 
-## Quick start (Windows PowerShell)
-
-```powershell
-npm install
-# Optional: create a local .env from the example
-Copy-Item .env.example .env -ErrorAction SilentlyContinue
-# Start with backend API + static hosting (recommended)
-npm start
-
-# Or run with auto-reload during development
-npm run dev
-```
-
-By default `npm start` runs an Express server at `http://127.0.0.1:8080/` that serves the app and exposes a small API used for sync.
-The service worker only works when served via HTTP(S) or `localhost`.
-
-Port already in use? Pick a different port:
-
-```powershell
-$env:PORT=8081; npm start
-# or during development with auto-reload
-$env:PORT=8081; npm run dev
-```
-
 Local API base note (avoiding CORS): when the app is served to `localhost` (or `127.0.0.1`), the server responds from `/config.js` with `window.DCA_API_BASE = '/api'` regardless of any `API_BASE` environment variable. This ensures the frontend talks to the same-origin Express API during local development and avoids browser CORS errors. In production (non-localhost), `API_BASE` will be respected if set; otherwise it defaults to the built-in Render URL.
 
 Alternative: if you only need to serve static files, any simple HTTP server on port 8080 works. Ensure the service worker is reachable at the root scope.
+
+### Environment Configuration
+- **Development**: Uses `NODE_ENV=development` (or unset) to serve from `/src`
+- **Production**: Uses `NODE_ENV=production` to serve from `/dist` 
+- **Port**: Set `PORT` environment variable (default: 8080)
+- **API Configuration**: See Backend Sync section for MongoDB setup
+
+Local API note: When served on `localhost`, the API base defaults to same-origin `/api` to avoid CORS issues during development.
+
+## Build & Deployment
+
+The app supports both development and production builds:
+
+### Development
+```bash
+npm run dev          # Development with auto-reload (serves from /src)
+npm run start:dev    # Development without auto-reload (serves from /src)
+```
+
+### Production Build
+```bash
+npm run build        # Build /dist folder from /src
+npm run build:prod   # Build with image optimization
+npm start            # Production mode (serves from /dist)
+```
+
+The build process:
+1. Cleans the `/dist` directory
+2. Copies all files from `/src` to `/dist`
+3. Validates that critical files exist
+4. Creates a production-ready distribution
+
+### Available Scripts
+```bash
+# Development
+npm run dev          # Development server with auto-reload (nodemon)
+npm run start:dev    # Development server without auto-reload
+
+# Production  
+npm start            # Production server (NODE_ENV=production)
+npm run build        # Build /dist folder from /src
+npm run build:prod   # Build with image optimization
+
+# Assets
+npm run icons        # Generate icon set from favicon.svg
+npm run optimize-images  # Optimize PNGs and generate WebP variants
+
+# Release Management
+npm run bump-sw      # Bump service worker cache version
+npm run release:patch    # Patch version bump + SW cache + push
+npm run release:minor    # Minor version bump + SW cache + push
+npm run release:major    # Major version bump + SW cache + push
+
+# Deployment
+npm run predeploy    # Full production build with optimizations
+npm run clean        # Remove /dist folder
+
+# Linting
+npm run lint         # Run JS + Markdown linters
+npm run lint:js      # ESLint (flat config)
+npm run lint:md      # markdownlint (relaxed rules)
+```
+
+The server automatically serves:
+- `/src` folder in development mode
+- `/dist` folder in production mode (NODE_ENV=production)
+
+Deploy the `/dist` folder to your hosting provider after running `npm run build:prod`.
+
+### GitHub Pages Deployment
+
+This repository includes a GitHub Actions workflow that automatically builds and deploys to GitHub Pages:
+
+1. **Automatic Deployment**: Pushes to `main` branch trigger automatic build and deploy
+2. **Manual Deployment**: Use the "Actions" tab to manually trigger deployment
+3. **Custom Domain**: Configured to use `drawercounter.journeytocode.io`
+
+**Recommended Workflow**:
+- Develop on `development` branch
+- Create Pull Request to merge `development` → `main`
+- Merge PR triggers automatic deployment to production
+
+The GitHub Actions workflow:
+- Installs dependencies
+- Runs `npm run build:prod` (includes image optimization)
+- Deploys the `/dist` folder to GitHub Pages
+- Handles path updates automatically for GitHub Pages environment
+
+To enable GitHub Pages for your repository:
+1. Go to Repository Settings → Pages
+2. Set Source to "GitHub Actions"
+3. The workflow will handle the rest automatically
 
 ## Using the app
 
@@ -107,23 +237,52 @@ Network and Server status:
 - Badge codes: `OK` (connected), `NODB` (configured but DB not connected), `ERR` (health check failed), `OFF` (browser offline), `N/A` (not configured).
 - Updates every ~20 seconds and also responds immediately to online/offline events; tooltip shows the API base.
 
-## Project structure
+## Project Structure
 
-- `index.html` – app HTML shell and UI composition
-- `src/style.css` – base styles and theming (light/dark)
-- `src/main.js` – lean app shell; imports libs/components and manages onboarding overlay
-- `src/components/` – all Web Components split by responsibility
-	- `app-header.js`, `count-panel.js`, `app-install-banner.js`, `network-status.js`
-	- Modals: `help-modal.js`, `settings-modal.js`, `new-profile-modal.js`, `delete-profile-modal.js`, `unlock-confirm-modal.js`, `revert-confirm-modal.js`, `optional-fields-modal.js`, `day-picker-modal.js`
-- `src/lib/` – shared utilities used across components
-	- `theme.js`, `toast.js`, `persistence.js`, `sync.js`, `days.js` (dev seeding)
-- `src/components/drawer-count.js` – `DrawerCount` web component (calculator UI + logic)
-- `src/images/` – background images (optimized `.png` plus generated `.webp`)
-- `sw.js` – service worker (precache + runtime caching + offline fallback; scope-aware)
-- `offline.html` – offline fallback page for navigations
-- `manifest.webmanifest` – PWA manifest (standalone display, focus-existing)
-- `src/icons/` – generated icon set; `favicon.svg` is the vector source
-- `scripts/optimize-images.js` – recompress PNGs and generate WebP with alpha
+### Core Application
+- **`src/index.html`** – Main application shell and UI layout
+- **`src/main.js`** – Application entry point and component initialization  
+- **`src/style.css`** – Global styles, themes, and responsive design
+- **`server.js`** – Express server for development and production
+
+### Components (`src/components/`)
+**Main Components:**
+- **`drawer-count.js`** – Core calculator with all counting logic
+- **`count-panel.js`** – Display panel for totals and balance
+- **`app-header.js`** – Navigation and branding
+- **`app-install-banner.js`** – PWA installation prompts
+- **`network-status.js`** – Connection and server health display
+
+**Modal Components:**
+- **`settings-modal.js`** – Main settings interface
+- **`help-modal.js`** – User documentation and shortcuts
+- **`new-profile-modal.js`** – Profile creation interface
+- **`delete-profile-modal.js`** – Profile deletion confirmation
+- **`day-picker-modal.js`** – Daily history navigation
+- **`optional-fields-modal.js`** – Business reporting fields
+- **`onboarding-tour.js`** – First-time user guidance
+- **`unlock-confirm-modal.js`** – Security confirmations
+- **`revert-confirm-modal.js`** – Data reversion warnings
+
+### Utilities (`src/lib/`)
+- **`persistence.js`** – Local storage and data management
+- **`sync.js`** – Cloud synchronization logic
+- **`theme.js`** – Theme switching and background management
+- **`toast.js`** – User notification system
+- **`days.js`** – Date utilities and development seeding
+
+### Assets
+- **`src/icons/`** – Complete icon set for all platforms (generated from `favicon.svg`)
+- **`src/images/`** – Background images (optimized PNG + WebP variants)
+- **`src/sw.js`** – Service worker for offline functionality
+- **`src/manifest.webmanifest`** – PWA configuration
+- **`src/offline.html`** – Fallback page for offline navigation
+
+### Build System (`scripts/`)
+- **`build.js`** – Production build process
+- **`generate-icons.js`** – Icon generation from SVG source
+- **`optimize-images.js`** – Image compression and WebP conversion
+- **`bump-sw-cache.js`** – Service worker cache versioning
 
 ## PWA & service worker notes
 
@@ -140,7 +299,7 @@ Network and Server status:
 
 This project uses a single source icon at `src/icons/favicon.svg` and generates a full cross‑platform set (Android, iOS, Windows tiles, favicons):
 
-```powershell
+```bash
 npm run icons
 ```
 
@@ -154,14 +313,14 @@ Any static host will work. Recommended:
 
 Before deploying, optionally bump the service worker cache to ensure clients pick up new assets:
 
-```powershell
+```bash
 npm run predeploy
 ```
 
 Image optimization (optional but recommended):
 - Optimize background PNGs and generate `.webp` variants with alpha using the provided script:
 
-```powershell
+```bash
 npm run optimize-images
 ```
 
@@ -183,6 +342,61 @@ Adding new background images:
 3) Start command: `npm start` (default in `package.json`).
 4) In Atlas → Network Access: allow Render’s egress IP or temporarily `0.0.0.0/0` to validate.
 5) After deploy, verify `https://<your-service>.onrender.com/api/health` shows DB connected.
+
+## 📚 Documentation
+
+This project includes comprehensive documentation in the `/docs` folder for developers, deployment, and testing.
+
+### 📖 Quick Navigation
+
+- **[📁 Documentation Hub](/docs/README.md)** - Main documentation index with complete overview
+- **[🧪 Testing Guide](/docs/testing/README.md)** - Complete testing documentation and guides
+- **[⚙️ Scripts Reference](/docs/scripts/README.md)** - Detailed script documentation and usage
+- **[🚀 Deployment Guide](/docs/deployment/README.md)** - Comprehensive deployment instructions
+
+### 📋 What's Documented
+
+#### Testing & Quality Assurance
+- Comprehensive test suite (19 tests covering all build scripts)
+- Testing framework details and best practices
+- CI/CD integration with GitHub Actions
+- Test coverage reports and debugging guides
+
+#### Build Scripts & Automation
+- All package.json scripts with detailed explanations
+- Build system architecture and customization
+- Asset optimization (images, icons, SW cache)
+- Version management and deployment automation
+
+#### Deployment & Production
+- Multiple deployment options (GitHub Pages, Render, self-hosted)
+- Environment configuration and security
+- Performance optimization techniques
+- Multi-environment setup (dev/staging/production)
+
+### 🎯 For New Contributors
+
+1. **Start Here**: Read the [Documentation Hub](/docs/README.md) for overview
+2. **Development**: Check [Scripts Reference](/docs/scripts/README.md) for build commands
+3. **Testing**: Follow [Testing Guide](/docs/testing/README.md) to run and understand tests
+4. **Deployment**: Use [Deployment Guide](/docs/deployment/README.md) for production setup
+
+## 🤝 Community & Support
+
+- Code of Conduct: see `.github/CODE_OF_CONDUCT.md`
+- Contributing Guide: see `.github/CONTRIBUTING.md`
+- Security Policy: see `.github/SECURITY.md`
+- Support: see `.github/SUPPORT.md`
+- Issue Templates: see `.github/ISSUE_TEMPLATE/*`
+- Pull Request Template: see `.github/pull_request_template.md`
+
+### 🔧 Documentation Standards
+
+All documentation follows consistent formatting and includes:
+- Clear navigation and cross-references
+- Code examples with explanations
+- Troubleshooting sections
+- Best practices and conventions
 
 ## License
 
@@ -220,9 +434,9 @@ This app remains fully functional offline using `localStorage`. If you provide a
 	API base (different origin/backend):
 	- If you host the backend separately (e.g., Render at `https://drawer-count-app.onrender.com`), set the API base via environment variable:
 		- Server reads `API_BASE` and serves it at `/config.js`, which is loaded before the app.
-		- Example (PowerShell):
-			```powershell
-			$env:API_BASE = 'https://drawer-count-app.onrender.com/api'; npm start
+		- Example:
+			```bash
+			API_BASE='https://drawer-count-app.onrender.com/api' npm start
 			```
 		- On Render, set `API_BASE` in the service’s environment variables.
 		- You can still override locally at runtime if needed:
@@ -232,10 +446,13 @@ This app remains fully functional offline using `localStorage`. If you provide a
 		- Default is same-origin `'/api'` when no env or override is provided.
 			- Additionally, the app has a built-in production fallback: when not on `localhost`, it defaults to `https://drawer-count-app.onrender.com/api` unless overridden by `API_BASE` or the localStorage override.
 
-Run locally with a Mongo connection (PowerShell):
+Run locally with a Mongo connection:
 
-```powershell
-$env:MONGODB_URI = "mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/"; $env:MONGODB_DB = "drawer-count-app"; $env:MONGODB_TLS = "true"; npm start
+```bash
+MONGODB_URI="mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/" \
+MONGODB_DB="drawer-count-app" \
+MONGODB_TLS="true" \
+npm start
 ```
 
 If `MONGODB_URI` is not set, the API returns `503` and the app continues to operate offline against `localStorage`.

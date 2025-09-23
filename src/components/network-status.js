@@ -93,7 +93,7 @@ class NetworkStatus extends HTMLElement {
 
   _render() {
     const offline = !!this._offline;
-    const { cls, short, title } = this._server || { cls: 'warn', short: 'N/A', title: 'Server: n/a' };
+    const { cls } = this._server || { cls: 'warn', short: 'N/A', title: 'Server: n/a' };
     const mixed = (!offline && cls !== 'ok');
     const label = offline ? 'Offline' : (mixed ? 'Limited' : 'Online');
 

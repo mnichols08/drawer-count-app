@@ -6,7 +6,6 @@ const path = require('path');
 const iconsDir = path.join(__dirname, '..', 'src', 'icons');
 if (!fs.existsSync(iconsDir)) process.exit(0);
 
-const files = fs.readdirSync(iconsDir);
 const map = {
   'android-chrome-192x192.png': 'icon-192.png',
   'android-chrome-512x512.png': 'icon-512.png'

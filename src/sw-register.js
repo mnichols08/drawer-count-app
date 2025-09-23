@@ -3,8 +3,8 @@
 (function registerSW() {
   try {
     if (!('serviceWorker' in navigator)) return;
-    // Resolve ../sw.js relative to this module file (src/ -> ../sw.js)
-    const swUrl = new URL('../sw.js', import.meta.url);
+    // Service worker is now in the same directory
+    const swUrl = new URL('./sw.js', import.meta.url);
     navigator.serviceWorker.register(swUrl).then((reg) => {
       try { console.info('[sw] registered with scope', reg.scope); } catch (_) {}
       // Optionally, listen for updates and notify the user (no hard reload here)
