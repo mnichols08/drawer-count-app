@@ -130,6 +130,26 @@ body {
   place-items: center;
   /* Mobile-first padding; scales up via media queries */
   padding: calc(1rem + var(--header-h) + var(--banner-h)) 1rem 2rem; /* add top space equal to header + banner height */
+  min-height: 100vh; /* Ensure full viewport height */
+}
+
+/* Mobile: Better viewport handling */
+@media (max-width: 640px) {
+  .container {
+    padding: calc(0.5rem + var(--header-h) + var(--banner-h)) 0.5rem 1rem;
+    min-height: 100vh;
+    align-items: start; /* Align to top instead of center on mobile */
+  }
+}
+
+/* Mobile landscape optimization */
+@media (max-width: 640px) and (orientation: landscape) {
+  .container {
+    padding: calc(0.25rem + var(--header-h) + var(--banner-h)) 0.5rem 0.5rem;
+  }
+  .card {
+    max-height: calc(100vh - 80px);
+  }
 }
 
 .card {
@@ -146,6 +166,21 @@ body {
   width: 100%;
   max-width: 640px;
   margin: auto;
+  /* Mobile: ensure card doesn't exceed viewport */
+  max-height: calc(100vh - 2rem);
+  overflow: hidden;
+}
+
+/* Mobile card improvements */
+@media (max-width: 640px) {
+  .card {
+    border-radius: 12px;
+    padding: 0.8rem;
+    margin: 0.5rem;
+    max-height: calc(100vh - 120px); /* Account for header and safe areas */
+    display: flex;
+    flex-direction: column;
+  }
 }
 
 /* Light theme translucency is controlled via --card */
@@ -388,6 +423,14 @@ main.container > .card {
   transition: height 220ms ease;
 }
 
+/* Mobile: Allow scrolling when panel is expanded */
+@media (max-width: 640px) {
+  .count-panel .panel-body {
+    overflow-y: auto;
+    max-height: calc(100vh - 160px); /* Constrain to available viewport */
+  }
+}
+
 .count-panel .panel-summary {
   overflow: hidden;
   height: 0;
@@ -432,6 +475,29 @@ main.container > .card {
 @media (max-width: 480px) {
   .count-panel .panel-actions button { padding: 0.34rem 0.55rem; }
   .count-panel .panel-title { font-size: 0.95rem; }
+}
+
+/* Additional mobile improvements for very small screens */
+@media (max-width: 360px) {
+  .card {
+    margin: 0.25rem;
+    padding: 0.6rem;
+    border-radius: 8px;
+  }
+  .count-panel .panel-header {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: stretch;
+  }
+  .count-panel .panel-actions {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .count-panel .panel-actions button {
+    min-width: 0;
+    flex: 1;
+    min-width: 80px;
+  }
 }
 
 /* Empty state: keep the card minimal/invisible until counting or reviewing */

@@ -291,7 +291,18 @@ class DrawerCount extends HTMLElement {
 
         /* Mobile-focused tweaks */
         @media (max-width: 640px) {
-          .wrap { gap: .5rem; }
+          :host { 
+            max-height: calc(100vh - 200px); /* Account for header, controls, and safe areas */
+            display: flex; 
+            flex-direction: column; 
+          }
+          .wrap { 
+            gap: .5rem; 
+            overflow-y: auto; 
+            flex: 1; 
+            padding-bottom: 80px; /* Space for mobile controls */
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+          }
           /* Only hide/show one input when stepper is enabled */
           :host([data-stepper="on"]) .input { display: none; }
           :host([data-stepper="on"]) .input.active { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .4rem; }
@@ -301,11 +312,52 @@ class DrawerCount extends HTMLElement {
           :host(:not([data-stepper="on"])) .input:first-of-type { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .4rem; }
           :host(:not([data-stepper="on"])) .input:focus-within { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .4rem; }
           .input label { font-size: 1rem; }
-          .input input { width: 100%; font-size: 16px; min-height: 40px; padding: 0.2rem 0.4rem; }
-          .input button { align-self: stretch; min-height: 40px; padding: 0 .6rem; border-radius: .25rem; }
-          .mobile-controls { display: flex; position: sticky; bottom: 0; gap: .5rem; padding: .5rem; background: var(--panel-bg, rgba(11,16,34,0.9)); backdrop-filter: blur(6px) saturate(120%); z-index: 2; align-items: center; justify-content: space-between; border-top: 1px solid var(--border-color, #2a345a); }
-          .mobile-controls .prev, .mobile-controls .next { min-height: 40px; padding: 0 .9rem; border-radius: .35rem; background: var(--button-bg-color, #222222f0); color: var(--button-color, #0b132b); border: 1px solid var(--border-color, #2a345a); }
-          .mobile-controls .step-indicator { flex: 1; text-align: center; color: var(--muted, #9aa3b2); }
+          .input input { width: 100%; font-size: 16px; min-height: 44px; padding: 0.4rem 0.6rem; }
+          .input button { align-self: stretch; min-height: 44px; padding: 0 .8rem; border-radius: .25rem; }
+          .mobile-controls { 
+            display: flex; 
+            position: sticky; 
+            bottom: 0; 
+            gap: .5rem; 
+            padding: .5rem; 
+            background: var(--panel-bg, rgba(11,16,34,0.9)); 
+            backdrop-filter: blur(6px) saturate(120%); 
+            z-index: 2; 
+            align-items: center; 
+            justify-content: space-between; 
+            border-top: 1px solid var(--border-color, #2a345a);
+            margin-top: auto; /* Push to bottom of flex container */
+            flex-shrink: 0; /* Prevent shrinking */
+            min-height: 60px; /* Ensure adequate touch target area */
+          }
+          .mobile-controls .prev, .mobile-controls .next { 
+            min-height: 44px; 
+            min-width: 44px;
+            padding: 0 1rem; 
+            border-radius: .35rem; 
+            background: var(--button-bg-color, #222222f0); 
+            color: var(--button-color, #0b132b); 
+            border: 1px solid var(--border-color, #2a345a);
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+          }
+          .mobile-controls .step-indicator { flex: 1; text-align: center; color: var(--muted, #9aa3b2); font-size: 0.9rem; }
+        }
+        
+        /* Very small screens optimization */
+        @media (max-width: 360px) {
+          .wrap { gap: .4rem; padding-bottom: 70px; }
+          .input label { font-size: 0.9rem; }
+          .input input { min-height: 40px; padding: 0.3rem 0.5rem; }
+          .input button { min-height: 40px; padding: 0 .6rem; }
+          .mobile-controls { padding: .4rem; min-height: 56px; }
+          .mobile-controls .prev, .mobile-controls .next { 
+            min-height: 40px; 
+            min-width: 40px;
+            padding: 0 .8rem; 
+          }
+          .mobile-controls .step-indicator { font-size: 0.85rem; }
+          .output { font-size: 0.9rem; }
         }
       </style>
 
