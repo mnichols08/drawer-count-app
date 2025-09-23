@@ -38,6 +38,7 @@ docs/
 ### For Testing
 - [Test Suite Overview](testing/README.md) - Complete testing documentation
 - [Test Coverage](testing/test-coverage.md) - What's tested and why
+- [Linting Guide](testing/linting.md) - ESLint & markdownlint setup, commands, and conventions
 
 ## 🎯 Documentation Standards
 

@@ -157,6 +157,11 @@ npm run release:major    # Major version bump + SW cache + push
 # Deployment
 npm run predeploy    # Full production build with optimizations
 npm run clean        # Remove /dist folder
+
+# Linting
+npm run lint         # Run JS + Markdown linters
+npm run lint:js      # ESLint (flat config)
+npm run lint:md      # markdownlint (relaxed rules)
 ```
 
 The server automatically serves:

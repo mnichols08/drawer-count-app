@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.3.2 - 2025-09-23
+### Developer Tooling & Code Quality
+- Introduced ESLint v9 with a flat config (`eslint.config.cjs`) tailored per area:
+	- `src/**`: Browser + ESM
+	- `scripts/**` and `server.js`: Node + CommonJS
+	- `tests/**`: ESM-friendly defaults
+- Standardized an underscore convention for intentionally unused identifiers (variables, parameters, caught errors, and destructured placeholders) to keep the code expressive while avoiding noise.
+- Added lint scripts:
+	- `npm run lint:js` (ESLint)
+	- `npm run lint:md` (markdownlint)
+	- `npm run lint` (runs both)
+- Reduced linter warnings from hundreds to zero via small, safe code cleanups (removing unused imports/vars, prefixing intentional unused values, and minor destructuring tweaks). No behavioral changes were introduced.
+- Added a dedicated documentation page: `docs/testing/linting.md`, covering how linting works in this repo, how to run it, and our underscore naming convention.
+
+### Build & Release
+- Aligned `src/offline.html` script paths and version query with `index.html` (`./main.js?v=X.Y.Z` and `./sw-register.js`) so the release script can update cache-busting consistently across both pages.
+- `scripts/bump-sw-cache.js` dry runs now correctly preview updates for both `index.html` and `offline.html` in this configuration.
+
+### Miscellaneous Refinements
+- Server list response now discards `clientId` via safe destructuring before returning items.
+- Minor render/destructuring cleanups in components (e.g., `network-status`, `help-modal`, `count-panel`, confirmation modals) to satisfy lint rules without changing behavior.
+
+Docs: See the new linting guide at `docs/testing/linting.md` and updated links in `docs/README.md`.
+
 ## v0.3.1 - 2025-09-23
 ### Documentation & Infrastructure
 - **Enhanced README documentation**: Added comprehensive feature descriptions, detailed usage instructions, and improved project documentation for better user onboarding.
