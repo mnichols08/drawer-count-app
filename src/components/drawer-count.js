@@ -263,9 +263,6 @@ class DrawerCount extends HTMLElement {
         const isMutator = b.classList.contains('add-slip') || b.classList.contains('add-check') || b.classList.contains('rem');
         if (isMutator) b.disabled = this._readOnly;
       });
-      // Explicitly disable panel "clear" action when read-only/locked
-      const clearBtn = this._root.querySelector('.clear-btn');
-      if (clearBtn) clearBtn.disabled = this._readOnly;
     } catch (_) { /* ignore */ }
   }
 
@@ -282,6 +279,40 @@ class DrawerCount extends HTMLElement {
     this._autoSaveEnabled = false;
     this._firstInputOfDay = false;
     // Keep timestamp locked when disabling auto-save for restored data
+  }
+
+  // Public API: clear all inputs (called by count-panel clear button)
+  clearInputs() {
+    if (this._readOnly) {
+      try { toast('Editing is locked for this day', { type: 'warning', duration: 2000 }); } catch(_) {}
+      return false;
+    }
+    this.reset();
+    try { toast('Cleared', { type: 'info', duration: 1500 }); } catch(_) {}
+    // focus first input for convenience
+    setTimeout(() => { try { this._root.querySelector('input')?.focus(); } catch(_) {} }, 0);
+    return true;
+  }
+
+  // Public API: open optional fields modal (called by count-panel optional button)
+  async openOptionalFields() {
+    try {
+      // Prefer module export if present
+      if (typeof getOptionalFieldsModal === 'function') { 
+        getOptionalFieldsModal().open(); 
+        return true; 
+      }
+      if (window.getOptionalFieldsModal) { 
+        window.getOptionalFieldsModal().open(); 
+        return true; 
+      }
+      try { 
+        const mod = await import('../components/optional-fields-modal.js'); 
+        (mod?.getOptionalFieldsModal || window.getOptionalFieldsModal)?.().open(); 
+        return true;
+      } catch(_) {}
+    } catch(_) {}
+    return false;
   }
 
   // Check if the current state represents a "blank" count (no user input)
@@ -310,44 +341,7 @@ class DrawerCount extends HTMLElement {
         .wrap { display: grid; gap: .35rem; }
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,1px,1px); white-space: nowrap; border: 0; }
 
-        /* Panel actions for clear/optional buttons - styled to match count-panel */
-        .panel-actions { 
-          display: flex; 
-          gap: 0.5rem; 
-          margin-bottom: 0.75rem; 
-          justify-content: flex-start;
-        }
-        .panel-actions .icon-btn {
-          padding: 0.4rem 0.65rem;
-          border-radius: 8px;
-          border: 1px solid var(--border-color, var(--border));
-          background: var(--btn-muted-bg, rgba(255,255,255,0.08));
-          color: var(--btn-muted-fg, var(--fg));
-          transition: transform 200ms ease, background-color 200ms ease, box-shadow 200ms ease;
-          cursor: pointer;
-          min-height: 44px;
-          touch-action: manipulation;
-          -webkit-tap-highlight-color: transparent;
-          font-size: 1rem;
-          min-width: 44px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .panel-actions .icon-btn:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-          background: var(--button-bg-color, var(--btn));
-          color: var(--button-color, var(--fg));
-        }
-        .panel-actions .icon-btn:active {
-          transform: translateY(0);
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .panel-actions .icon-btn:focus {
-          outline: 2px solid var(--accent);
-          outline-offset: 2px;
-        }
+
 
         /* Original component-local styles */
         .output { text-align: right; }
@@ -454,10 +448,6 @@ class DrawerCount extends HTMLElement {
       </style>
 
       <div class="wrap">
-        <div class="panel-actions">
-          <button class="icon-btn clear-btn" aria-label="Clear inputs" title="Clear inputs">🧹</button>
-          <button class="icon-btn optional-btn" aria-label="Optional fields" title="Optional fields">🧾</button>
-        </div>
         <div class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
         <div class="output" id="total">Count: $<total>0.00</total></div>
         <div class="output" id="cash">Remove: $<cash>0.00</cash></div>
@@ -611,25 +601,7 @@ class DrawerCount extends HTMLElement {
     $('#slips .add-slip')?.addEventListener('click', () => this._newInput('#checks'));
     $('#checks .add-check')?.addEventListener('click', () => this._newInput('#hundreds'));
 
-    // Panel action buttons
-    this._root.querySelector('.clear-btn')?.addEventListener('click', () => {
-      if (this._readOnly) {
-        try { toast('Editing is locked for this day', { type: 'warning', duration: 2000 }); } catch(_) {}
-        return;
-      }
-      this.reset();
-      try { toast('Cleared', { type: 'info', duration: 1500 }); } catch(_) {}
-      // focus first input for convenience
-      setTimeout(() => { try { this._root.querySelector('input')?.focus(); } catch(_) {} }, 0);
-    });
-    this._root.querySelector('.optional-btn')?.addEventListener('click', async () => {
-      try {
-        // Prefer module export if present
-        if (typeof getOptionalFieldsModal === 'function') { getOptionalFieldsModal().open(); return; }
-        if (window.getOptionalFieldsModal) { window.getOptionalFieldsModal().open(); return; }
-        try { const mod = await import('../components/optional-fields-modal.js'); (mod?.getOptionalFieldsModal || window.getOptionalFieldsModal)?.().open(); } catch(_) {}
-      } catch(_) {}
-    });
+    // Panel action buttons - now handled by count-panel, but methods exposed via public API
 
     // Delegated input handler on each .input block
     $$('.input').forEach((block) => block.addEventListener('input', this._onInputEvent));

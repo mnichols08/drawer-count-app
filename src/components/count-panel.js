@@ -87,6 +87,8 @@ class CountPanel extends HTMLElement {
     this._els.start = this.querySelector('.start-btn');
     this._els.toggle = this.querySelector('.toggle-btn');
     this._els.lock = this.querySelector('.lock-btn');
+    this._els.clear = this.querySelector('.clear-btn');
+    this._els.optional = this.querySelector('.optional-btn');
     this._els.complete = this.querySelector('.complete-btn');
     this._els.reopen = this.querySelector('.reopen-btn');
     this._els.cancel = this.querySelector('.cancel-btn');
@@ -100,6 +102,8 @@ class CountPanel extends HTMLElement {
     this._els.start.addEventListener('click', this._onStart);
     this._els.toggle.addEventListener('click', this._onToggle);
     this._els.lock.addEventListener('click', this._onToggleLock.bind(this));
+    this._els.clear.addEventListener('click', this._onClear.bind(this));
+    this._els.optional.addEventListener('click', this._onOptional.bind(this));
     this._els.complete.addEventListener('click', this._onComplete);
     this._els.reopen.addEventListener('click', this._onReopen);
     this._els.cancel.addEventListener('click', this._onCancel.bind(this));
@@ -182,6 +186,11 @@ class CountPanel extends HTMLElement {
       }
     } catch(_) { showCancel = false; }
     this._els.cancel.hidden = !showCancel;
+
+    // Show clear and optional buttons only when unlocked and expanded
+    const showActionButtons = started && !readOnly && !this._state.collapsed;
+    this._els.clear.hidden = !showActionButtons;
+    this._els.optional.hidden = !showActionButtons;
 
     if (this._els.complete) this._els.complete.disabled = !!this._isProcessing || readOnly;
     if (this._els.cancel) this._els.cancel.disabled = !!this._isProcessing;
@@ -361,6 +370,30 @@ class CountPanel extends HTMLElement {
           console.error('Error restoring button state:', e); 
         } 
       }, 200);
+    }
+  }
+
+  _onClear() {
+    try {
+      const drawerCount = this.querySelector('drawer-count');
+      if (drawerCount && typeof drawerCount.clearInputs === 'function') {
+        drawerCount.clearInputs();
+      }
+    } catch(error) {
+      console.error('Error clearing inputs:', error);
+      try { toast('Error clearing inputs', { type: 'error', duration: 2000 }); } catch(_) {}
+    }
+  }
+
+  async _onOptional() {
+    try {
+      const drawerCount = this.querySelector('drawer-count');
+      if (drawerCount && typeof drawerCount.openOptionalFields === 'function') {
+        await drawerCount.openOptionalFields();
+      }
+    } catch(error) {
+      console.error('Error opening optional fields:', error);
+      try { toast('Error opening optional fields', { type: 'error', duration: 2000 }); } catch(_) {}
     }
   }
 
