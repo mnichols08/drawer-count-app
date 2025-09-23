@@ -1,10 +1,10 @@
 :root {
   --bg: #0b132b;
   --fg: #e7ecff;
-  --muted: #9aa3b2;
+  --muted: #b4bccf;     /* lighter for better contrast in dark theme */
   --accent: #5aa0ff;
   /* Translucent card surface for frosted effect */
-  --card: rgba(21, 28, 53, 0.72);
+  --card: rgba(21, 28, 53, 0.75);
   --border: #263056;
   --btn: #3a506b;
   /* Backdrop overlays (used by modals/menus) */
@@ -70,22 +70,22 @@ body {
 :root[data-theme="light"] {
   --bg: #f7f9ff;
   --fg: #0b132b;        /* darker text for stronger contrast */
-  --muted: #334155;     /* slate-700 for better readability */
+  --muted: #475569;     /* slate-600 for even better readability */
   --accent: #1c64f2;
   /* Light theme translucent card (more opaque for better contrast) */
-  --card: rgba(255, 255, 255, 0.85);
-  --border: #b8c1e1;    /* darker border for clearer separation */
+  --card: rgba(255, 255, 255, 0.90);
+  --border: #a8b5d8;    /* slightly darker border for clearer separation */
   --btn: #dbe4ff;       /* slightly darker button bg */
   /* Backdrops in light mode with stronger opacity for better contrast */
-  --backdrop-bg: rgba(0,0,0,0.55);
-  --backdrop-weak-bg: rgba(0,0,0,0.25);
+  --backdrop-bg: rgba(0,0,0,0.60);
+  --backdrop-weak-bg: rgba(0,0,0,0.30);
   /* App-wide input vars (light) */
   --input-bg-color: #f3f6ff;
   --input-fg-color: #0b132b;
   /* Header/primary buttons map to theme vars in light mode */
   --button-bg-color: var(--btn);
   --button-color: var(--fg);
-  --shadow: 0 8px 28px rgba(10, 14, 35, 0.12);
+  --shadow: 0 8px 28px rgba(10, 14, 35, 0.15);
   /* Light variants */
   --banner-bg: #e8f0ff;
   --banner-fg: #0b132b;
@@ -447,6 +447,31 @@ main.container > .card {
   color: var(--btn-fg);
   border-color: transparent;
 }
+
+/* Enhanced styling for start button - make it more prominent on initial page load */
+.count-panel .panel-actions .start-btn {
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 1.05rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(90, 160, 255, 0.25);
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+}
+
+.count-panel .panel-actions .start-btn:hover {
+  background: var(--accent);
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(90, 160, 255, 0.35);
+}
+
+.count-panel .panel-actions .start-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(90, 160, 255, 0.3);
+}
 .count-panel .panel-actions .complete-btn { filter: saturate(115%); }
 .count-panel .panel-actions .reopen-btn { filter: saturate(115%); }
 
@@ -618,35 +643,43 @@ main.container > .card {
   animation: cardSlideIn 300ms ease;
 }
 
-/* Show a subtle placeholder message when no card is visible */
+/* Show a clear, readable placeholder message when no card is visible */
 .container:has(.count-panel.empty)::after,
 .container.show-empty-hint::after {
-  content: "Click the drawer icon in the header to start today's count";
+  content: "Click the ⬒ drawer icon in the header to start today's count";
   display: block;
   text-align: center;
-  color: var(--muted);
-  font-size: 0.9rem;
+  color: var(--fg);
+  font-size: 1rem;
+  font-weight: 500;
   padding: 2rem 1rem;
-  opacity: 0.7;
+  opacity: 0.85;
   animation: fadeInHint 1s ease 0.5s both;
-  max-width: 300px;
+  max-width: 320px;
   margin: 0 auto;
-  line-height: 1.4;
+  line-height: 1.5;
+  /* Add subtle background for better readability over background images */
+  background: var(--card);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
 }
 
 /* Mobile: Adjust hint message */
 @media (max-width: 640px) {
   .container:has(.count-panel.empty)::after,
   .container.show-empty-hint::after {
-    content: "Tap the menu (≡) to start counting";
-    font-size: 0.85rem;
-    padding: 1.5rem 1rem;
+    content: "Tap the ☰ menu button, then ⬒ to start counting";
+    font-size: 0.95rem;
+    padding: 1.75rem 1rem;
+    max-width: 280px;
   }
 }
 
 @keyframes fadeInHint {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 0.7; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to { opacity: 0.85; transform: translateY(0) scale(1); }
 }
 
 @keyframes cardSlideIn {
