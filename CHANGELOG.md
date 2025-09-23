@@ -1,4 +1,7 @@
 # Changelog
+## v0.3.7 - 2025-09-24
+### Assets & UI
+- Updated the base background image URI to point to the new optimized asset location for improved load performance and reliability.
 
 ## v0.3.6 - 2025-09-23
 #### CI/CD & Deployment
