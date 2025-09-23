@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.3.1 - 2025-09-23
+### Documentation & Infrastructure
+- **Enhanced README documentation**: Added comprehensive feature descriptions, detailed usage instructions, and improved project documentation for better user onboarding.
+- **Added ISC License**: Included proper open source licensing to clarify usage terms and permissions.
+- **GitHub Actions deployment**: Implemented automated deployment workflow for GitHub Pages to streamline release process and ensure consistent deployments.
+
+### Bugfixes
+- **Fixed service worker cache bump script**: Corrected file paths for service worker and HTML files in the version bump script, ensuring proper cache invalidation during releases.
+
 ## v0.3.0 - 2025-09-23
 ### Major Features
 - **Always-enabled Enter key functionality**: Removed mobile-only preference setting for Enter key behavior. The Enter key now always automatically adds new slips/checks and focuses the new input field across all devices, providing consistent keyboard navigation without requiring users to toggle settings.
