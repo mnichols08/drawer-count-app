@@ -10,17 +10,12 @@ const distDir = path.resolve(__dirname, '../dist');
 // Environment variables for GitHub Pages deployment
 const isGitHubPages = process.env.GITHUB_ACTIONS === 'true';
 const repoName = process.env.GITHUB_REPOSITORY ? process.env.GITHUB_REPOSITORY.split('/')[1] : '';
-// If a custom domain is present (CNAME file), serve from root
-const hasCustomDomain = fs.existsSync(path.join(srcDir, 'CNAME'));
-const baseUrl = process.env.BASE_URL || (isGitHubPages && !hasCustomDomain && repoName ? `/${repoName}/` : '/');
+const baseUrl = process.env.BASE_URL || (isGitHubPages && repoName ? `/${repoName}/` : '/');
 
 console.log('[build] Build environment:', isGitHubPages ? 'GitHub Actions' : 'Local');
 if (isGitHubPages) {
   console.log('[build] Repository:', process.env.GITHUB_REPOSITORY);
   console.log('[build] Base URL:', baseUrl);
-}
-if (hasCustomDomain) {
-  console.log('[build] Detected custom domain via CNAME file. Using root (/) as base URL.');
 }
 
 // Helper to recursively copy directories
@@ -81,7 +76,7 @@ function updateManifest(filePath, baseUrl) {
   const content = fs.readFileSync(filePath, 'utf8');
   const manifest = JSON.parse(content);
   
-  // Update start_url and scope for GitHub Pages (only when not using custom domain/root)
+  // Update start_url and scope for GitHub Pages
   if (!manifest.start_url.startsWith('http')) {
     manifest.start_url = baseUrl;
     manifest.scope = baseUrl;

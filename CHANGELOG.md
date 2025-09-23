@@ -17,8 +17,7 @@
 - Improve GitHub Pages base path handling when using a custom domain.
 	- `scripts/build.js` now detects a `CNAME` file and forces `baseUrl` to `/`, avoiding unnecessary path rewrites for assets/manifest.
 	- Prevents incorrect `/repo-name/` prefixes when deploying to a custom domain, ensuring icons, manifest, and service worker paths resolve correctly.
-
-Outcome: Visiting the production URL now serves the built PWA from `dist/` (not the docs), with correct paths for assets and installability.
+- Outcome: Visiting the production URL now serves the built PWA from `dist/` (not the docs), with correct paths for assets and installability.
 
 ## v0.3.4 - 2025-09-23
 ### CI/CD & Deployment
