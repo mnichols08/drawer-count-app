@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.3.6 - 2025-09.23
+#### CI/CD & Deployment
+- Fix: There was a duplicate workflow content starting at line 53. This change replaces the old one entirely, not appends to it.
 ## v0.3.5 - 2025-09-23
 ### CI/CD & Deployment
 - Fix: GitHub Pages was serving the repository docs instead of the built site.
