@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.3.4 - 2025-09-23
+### CI/CD & Deployment
+- Prevent PR-triggered deploys to GitHub Pages.
+	- Removed `pull_request` trigger from `deploy.yml` so PRs never enter the Pages pipeline.
+	- Added job-level branch guards so `build` and `deploy` only run when `github.ref` is `refs/heads/main` (also guards manual `workflow_dispatch` on non-main refs).
+	- Kept artifact upload and `deploy-pages` steps gated to `push` on `main` for defense in depth.
+- Outcome: PRs run build/test only; production deploys occur only on pushes to `main`, avoiding environment protection rejections on `development`.
+
+No application code changes in this patch.
+
 ## v0.3.3 - 2025-09-23
 ### CI/CD & Deployment
 - Adjusted GitHub Pages workflow to deploy only on pushes to `main`.
