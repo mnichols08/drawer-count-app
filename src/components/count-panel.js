@@ -494,7 +494,6 @@ class CountPanel extends HTMLElement {
 
   async _onToggleLock() {
     let btn = null;
-    let prevHtml = '';
     let prevDisabled = false;
     
     try {
@@ -511,8 +510,7 @@ class CountPanel extends HTMLElement {
         // If it's today and completed/reopened, allow unlock/lock toggle
       }
       
-      btn = this._els?.lock; 
-      prevHtml = btn ? btn.innerHTML : ''; 
+  btn = this._els?.lock; 
       prevDisabled = btn ? btn.disabled : false;
       
       if (btn) { 
@@ -916,7 +914,7 @@ class CountPanel extends HTMLElement {
     this._refresh(true); 
   }
   
-  _onStepperComplete(e) {
+  _onStepperComplete(_e) {
     // Only auto-complete if the drawer count is started and not already completed
     if (!this._state.started || this._state.completed) return;
     

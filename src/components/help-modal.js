@@ -8,7 +8,7 @@ class HelpModal extends HTMLElement {
     this._onKeyDown = this._onKeyDown.bind(this);
   }
   connectedCallback() {
-    const content = this.getAttribute("content") || "";
+    const _content = this.getAttribute("content") || "";
     this._shadow.innerHTML = `
       <style>
         :host { display: none; }
@@ -40,8 +40,8 @@ class HelpModal extends HTMLElement {
       walkthrough: this._shadow.querySelector('.walkthrough')
     };
     this._els.modal?.addEventListener('modal-close', () => this.close());
-    this._els.walkthrough?.addEventListener('click', (e) => {
-      try { e?.preventDefault?.(); } catch (_) {}
+    this._els.walkthrough?.addEventListener('click', (_e) => {
+      try { _e?.preventDefault?.(); } catch (_) {}
       try { this.close(); } catch (_) {}
       try {
         setTimeout(() => { try { getOnboardingTour().open(0); } catch (_) {} }, 120);

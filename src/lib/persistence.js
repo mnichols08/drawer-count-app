@@ -117,7 +117,7 @@ export function openImportDialog(headerEl) {
         populateProfilesSelect(headerEl);
         updateStatusPill(headerEl);
         try { const { toast } = await import('./toast.js'); toast?.('Imported profiles', { type: 'success' }); } catch (_) {}
-      } catch(e) { try { const { toast } = await import('./toast.js'); toast?.('Import failed', { type: 'error' }); } catch(__) {} }
+  } catch(_e) { try { const { toast } = await import('./toast.js'); toast?.('Import failed', { type: 'error' }); } catch(__) {} }
     });
     inp.click();
   } catch(_) { /* ignore */ }

@@ -98,8 +98,8 @@ function run() {
       const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
       const willChange = pkg.version !== nextNumeric;
       console.log(`[dry] package.json: ${willChange ? `would update ${pkg.version} -> ${nextNumeric}` : 'already up-to-date'}`);
-    } catch (e) {
-      console.log(`[dry] package.json: skipped (${e.message || String(e)})`);
+    } catch (_e) {
+      console.log(`[dry] package.json: skipped (${_e.message || String(_e)})`);
     }
     // package-lock.json preview
     try {
@@ -118,8 +118,8 @@ function run() {
           console.log(`[dry] package-lock.json (packages["\"]): ${pkgChange ? `would update ${pkgOld} -> ${nextNumeric}` : 'already up-to-date'}`);
         }
       }
-    } catch (e) {
-      console.log(`[dry] package-lock.json: skipped (${e.message || String(e)})`);
+    } catch (_e) {
+      console.log(`[dry] package-lock.json: skipped (${_e.message || String(_e)})`);
     }
     for (const file of htmlFiles) {
       try {
@@ -132,8 +132,8 @@ function run() {
         const preview = html.replace(tagRe, `$1${nextNumeric}$3`);
         const changed = html !== preview;
         console.log(`[dry] ${path.basename(file)}: ${changed ? 'would update' : 'already up-to-date'} -> ?v=${nextNumeric}`);
-      } catch (e) {
-        console.log(`[dry] Skipped ${file}: ${e.message || String(e)}`);
+      } catch (_e) {
+        console.log(`[dry] Skipped ${file}: ${_e.message || String(_e)}`);
       }
     }
     if (doGit) {
@@ -160,8 +160,8 @@ function run() {
       const updatedHtml = html.replace(tagRe, `$1${nextNumeric}$3`);
       fs.writeFileSync(file, updatedHtml);
       console.log(`Updated ${path.basename(file)} main.js ?v= -> ${nextNumeric}`);
-    } catch (e) {
-      console.error(`Failed to update ${file}: ${e.message || String(e)}`);
+    } catch (_e) {
+      console.error(`Failed to update ${file}: ${_e.message || String(_e)}`);
     }
   }
 
@@ -176,8 +176,8 @@ function run() {
     } else {
       console.log('package.json version already up-to-date');
     }
-  } catch (e) {
-    console.error(`Failed to update package.json: ${e.message || String(e)}`);
+  } catch (_e) {
+    console.error(`Failed to update package.json: ${_e.message || String(_e)}`);
   }
 
   // Update package-lock.json version(s)
@@ -200,8 +200,8 @@ function run() {
     } else {
       console.log('package-lock.json versions already up-to-date');
     }
-  } catch (e) {
-    console.error(`Failed to update package-lock.json: ${e.message || String(e)}`);
+  } catch (_e) {
+    console.error(`Failed to update package-lock.json: ${_e.message || String(_e)}`);
   }
 
   // Optionally create git commit and tag
@@ -212,7 +212,7 @@ function run() {
     const filesToStage = [swPath, ...htmlFiles, pkgJsonPath, pkgLockPath].map(rel);
     const exec = (cmd) => cp.execSync(cmd, { cwd: rootDir, stdio: 'pipe' }).toString().trim();
     const safeExec = (cmd) => {
-      try { return exec(cmd); } catch (e) { throw new Error((e.stderr?.toString() || e.message || String(e)).trim()); }
+      try { return exec(cmd); } catch (_e) { throw new Error((_e.stderr?.toString() || _e.message || String(_e)).trim()); }
     };
     try {
       // ensure git repo
@@ -222,13 +222,13 @@ function run() {
       if (commitChanges) {
         // Stage only the files we know we changed
         for (const f of filesToStage) {
-          try { safeExec(`git add -- "${f}"`); } catch (e) { console.warn(`git add failed for ${f}: ${e.message}`); }
+          try { safeExec(`git add -- "${f}"`); } catch (_e) { console.warn(`git add failed for ${f}: ${_e.message}`); }
         }
         // Commit; if nothing to commit, this will throw — catch and continue
         try {
           safeExec(`git commit -m "chore(release): bump to ${tagName}"`);
           console.log('Created release commit.');
-        } catch (e) {
+        } catch (_e) {
           console.log('No changes to commit or commit failed; proceeding to tag.');
         }
       } else {
@@ -256,15 +256,15 @@ function run() {
         }
         try { safeExec(`git push ${forceTag ? '--force ' : ''}--tags`); console.log('Pushed tags.'); } catch (e) { console.warn(`git push --tags failed: ${e.message}`); }
       }
-    } catch (e) {
-      console.error(`Git operations failed: ${e.message}`);
+      } catch (_e) {
+      console.error(`Git operations failed: ${_e.message}`);
     }
   }
 }
 
 try {
   run();
-} catch (e) {
-  console.error(e.message || String(e));
+} catch (_e) {
+  console.error(_e.message || String(_e));
   process.exit(1);
 }

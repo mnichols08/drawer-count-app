@@ -1,4 +1,3 @@
-import { toast } from '../lib/toast.js';
 import './app-modal.js';
 
 class RevertConfirmModal extends HTMLElement {

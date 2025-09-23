@@ -6,7 +6,6 @@
 // - MONGODB_URI: full MongoDB connection string (required for API)
 // - MONGODB_DB: database name (default 'drawer-count-app')
 
-/* eslint-disable no-console */
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -280,7 +279,7 @@ app.get('/api/kv', async (req, res) => {
 			if ((d.updatedAt || 0) > (cur.updatedAt || 0)) { map.set(k, d); }
 		}
 		// Remove clientId from each item before sending the response to avoid exposing internal identifiers.
-		const items = Array.from(map.values()).map(({ clientId, ...rest }) => rest);
+		const items = Array.from(map.values()).map(({ clientId: _clientId, ...rest }) => rest);
 		res.json({ ok: true, items });
 	} catch (err) {
 		console.error('GET /api/kv list error', err);

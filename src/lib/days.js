@@ -110,7 +110,7 @@ export function seedPreviousDays(count, options = {}) {
       seededKeys.push(key);
     }
     return seededKeys;
-  } catch (e) { 
+  } catch (_e) { 
     return seededKeys; 
   }
 }

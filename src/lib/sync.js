@@ -81,7 +81,7 @@ export async function fetchServerHealth() {
       } catch (e) { lastErr = e; }
     }
     return { ok: false, error: lastErr ? String(lastErr) : 'unknown' };
-  } catch(err) { return { ok: false }; }
+  } catch(_err) { return { ok: false }; }
 }
 
 const META_SUFFIX = '__meta';
