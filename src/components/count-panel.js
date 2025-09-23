@@ -146,6 +146,9 @@ class CountPanel extends HTMLElement {
     this.classList.toggle('completed', !!completed);
     this.setAttribute('aria-busy', this._isProcessing ? 'true' : 'false');
 
+    // Manage card visibility for empty state
+    this._manageCardVisibility(isEmpty);
+
     this._els.start.hidden = !!started;
     this._els.toggle.hidden = !started;
     let isPast = false;
@@ -370,6 +373,32 @@ class CountPanel extends HTMLElement {
       // Trigger the same completion logic as the "Mark complete" button
       this._onComplete();
     }, 100);
+  }
+
+  _manageCardVisibility(isEmpty) {
+    try {
+      // Find the parent card element
+      const card = this.closest('.card');
+      const container = document.querySelector('.container');
+      
+      if (!card) return;
+      
+      // Toggle card visibility classes for browsers without :has() support
+      card.classList.toggle('card-empty', isEmpty);
+      
+      // Toggle container hint visibility
+      if (container) {
+        container.classList.toggle('show-empty-hint', isEmpty);
+      }
+      
+      // Add smooth transition when card becomes visible
+      if (!isEmpty && card.classList.contains('card-empty')) {
+        // Small delay to ensure smooth transition
+        setTimeout(() => {
+          card.classList.remove('card-empty');
+        }, 50);
+      }
+    } catch(_) {}
   }
 }
 
