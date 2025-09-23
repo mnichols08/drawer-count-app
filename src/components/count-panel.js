@@ -27,16 +27,17 @@ class CountPanel extends HTMLElement {
       this._els.body.appendChild(dc);
     }
     
-    // Force past dates to start collapsed (summary first)
+    // Force past dates and completed today to start collapsed (summary first)
     try {
       const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
       const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; 
       const isPastDate = key && today && (key !== today);
+      const isCompletedToday = key && today && (key === today) && this._hasSavedDay(key);
       
-      if (isPastDate) {
+      if (isPastDate || isCompletedToday) {
         // Initialize state if needed
         if (!this._state) this._state = {};
-        // Force collapsed for past dates
+        // Force collapsed for past dates and completed today
         this._state.collapsed = true;
       }
     } catch(_) {}
@@ -189,10 +190,21 @@ class CountPanel extends HTMLElement {
     this._els.start.hidden = !!started;
     this._els.toggle.hidden = !started;
     let isPast = false;
-    try { const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; if (key && today) isPast = (key !== today); } catch(_) { isPast = false; }
+    let isCompletedToday = false;
+    try { 
+      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
+      const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; 
+      if (key && today) {
+        isPast = (key !== today);
+        isCompletedToday = (key === today) && this._hasSavedDay(key);
+      }
+    } catch(_) { 
+      isPast = false; 
+      isCompletedToday = false;
+    }
     
-    // Show lock button only for past days that are expanded (in edit mode)
-    const showLockButton = !!(started && isPast && !this._state.collapsed);
+    // Show lock button for past days or completed today that are expanded (in edit mode)
+    const showLockButton = !!(started && (isPast || isCompletedToday) && !this._state.collapsed);
     this._els.lock.hidden = !showLockButton;
 
     let showCancel = false;
@@ -713,6 +725,16 @@ class CountPanel extends HTMLElement {
       if (!key) return false; 
       const past = key !== today; 
       const unlocked = (typeof isDayEditUnlocked === 'function') ? isDayEditUnlocked() : false; 
+      
+      // For today's date, check if it's completed
+      if (key === today) {
+        // If today is completed and reopened, it should be read-only until unlocked (like past dates)
+        if (this._state?.completed && this._state?.reopened) {
+          return !unlocked;
+        }
+        // Otherwise today is always editable
+        return false;
+      }
       
       // If item is reopened (completed item being edited), it should be read-only until unlocked
       if (this._state?.reopened) {
