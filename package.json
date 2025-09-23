@@ -26,7 +26,10 @@
     "optimize-images": "node ./scripts/optimize-images.js",
     "predeploy": "npm run build:prod",
     "deploy": "echo \"Deploy the /dist folder to your hosting provider\"",
-    "clean": "node -e \"const fs=require('fs'); if(fs.existsSync('./dist')) fs.rmSync('./dist', {recursive:true, force:true}); console.log('Cleaned dist/ folder');\""
+    "clean": "node -e \"const fs=require('fs'); if(fs.existsSync('./dist')) fs.rmSync('./dist', {recursive:true, force:true}); console.log('Cleaned dist/ folder');\"",
+    "lint": "npm run lint:js && npm run lint:md",
+    "lint:js": "eslint . --ext .js || exit 0",
+    "lint:md": "markdownlint **/*.md --ignore node_modules --ignore dist || exit 0"
   },
   "repository": {
     "type": "git",
@@ -52,7 +55,9 @@
   },
   "devDependencies": {
     "cross-env": "^10.0.0",
+    "eslint": "^9.36.0",
     "favicons": "^7.2.0",
+    "markdownlint-cli": "^0.45.0",
     "nodemon": "^3.1.10",
     "sharp": "^0.33.5"
   }
