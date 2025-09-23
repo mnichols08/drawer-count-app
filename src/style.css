@@ -396,8 +396,23 @@ main.container > .card {
 /* Enhanced toggle button animation */
 .count-panel .panel-actions .toggle-btn {
   transition: background-color 200ms ease,
-              box-shadow 200ms ease;
+              box-shadow 200ms ease,
+              color 200ms ease;
   position: relative;
+  font-weight: 500;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.count-panel .panel-actions .toggle-btn:hover {
+  background-color: var(--btn);
+  color: var(--fg);
+}
+
+.count-panel .panel-actions .toggle-btn:active {
+  transform: scale(0.95);
 }
 .count-panel .panel-actions .start-btn,
 .count-panel .panel-actions .complete-btn,
@@ -467,7 +482,7 @@ main.container > .card {
   }
   
   .count-panel .panel-actions .toggle-btn {
-    transition: transform 150ms ease;
+    transition: background-color 150ms ease;
   }
 }
 
