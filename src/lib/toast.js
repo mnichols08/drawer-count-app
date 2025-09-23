@@ -10,15 +10,16 @@ class AppToaster extends HTMLElement {
         .toast {
           pointer-events: auto;
           min-width: 220px; max-width: min(92vw, 420px);
-          padding: 10px 12px; border-radius: 10px; border: 1px solid #2a345a;
-          background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
+          padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border);
+          background: var(--card); color: var(--fg);
+          backdrop-filter: saturate(120%) blur(6px); -webkit-backdrop-filter: saturate(120%) blur(6px);
           box-shadow: 0 10px 30px rgba(0,0,0,0.35);
           display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px;
           transform: translateY(8px); opacity: 0; transition: transform .15s ease, opacity .15s ease;
         }
         .toast.show { transform: translateY(0); opacity: 1; }
         .msg { font-size: 0.95rem; }
-        .btnx, .act { background: transparent; color: inherit; border: 1px solid var(--border, #2a345a); cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+  .btnx, .act { background: transparent; color: inherit; border: 1px solid var(--border); cursor: pointer; padding: 4px 8px; border-radius: 6px; }
         .btnx { border: none; padding: 4px 6px; }
         .act:hover { filter: brightness(1.08); }
         .btnx:focus, .act:focus { outline: 2px solid var(--accent, #3a86ff); outline-offset: 2px; }

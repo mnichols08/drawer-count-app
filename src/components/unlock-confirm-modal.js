@@ -1,4 +1,5 @@
 import { toast } from '../lib/toast.js';
+import './app-modal.js';
 
 class UnlockConfirmModal extends HTMLElement {
   constructor() {
@@ -7,6 +8,7 @@ class UnlockConfirmModal extends HTMLElement {
     this._onKeyDown = this._onKeyDown.bind(this);
     this._resolver = null;
     this._dayKey = '';
+    this._resolved = false; // Prevent double resolution
   }
   connectedCallback() { this._render(); window.addEventListener('keydown', this._onKeyDown); }
   disconnectedCallback() { window.removeEventListener('keydown', this._onKeyDown); }
@@ -15,14 +17,6 @@ class UnlockConfirmModal extends HTMLElement {
       <style>
         :host { display: none; }
         :host([open]) { display: block; }
-        .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(2px); z-index: 1000; }
-        .dialog { position: fixed; inset: 12% auto auto 50%; transform: translateX(-50%);
-         max-width: min(520px, 92vw); max-height: min(85vh, 92vh); overflow-y: auto; overflow-x: hidden;
-          background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
-          border: 1px solid var(--border, #2a345a); border-radius: 14px; padding: 1.1rem 1.1rem 1.25rem; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
-        .hd { display:flex; justify-content: space-between; align-items:center; gap: 8px; margin-bottom: 10px; }
-        .hd h2 { margin: 0; font-size: 1.1rem; }
-        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; cursor: pointer; }
         .content { display: grid; gap: 10px; }
         .warn { color: #ffd6a6; }
         .actions { display:flex; gap: 8px; justify-content: flex-end; }
@@ -31,41 +25,60 @@ class UnlockConfirmModal extends HTMLElement {
         .btn:active { transform: translateY(1px); }
         .btn:focus { outline: 2px solid var(--accent, #5aa0ff); outline-offset: 2px; }
         .btn-danger { background: #5a4a2a; color: #ffe9c6; border-color: #7a5a3a; }
-        @media (max-width: 480px) { .dialog { inset: 6% auto auto 50%; padding: 12px; } }
       </style>
-      <div class="backdrop" part="backdrop"></div>
-      <div class="dialog" role="dialog" aria-modal="true" aria-label="Unlock edits">
-        <div class="hd">
-          <h2>Unlock Edits?</h2>
-          <button class="close" aria-label="Close">Close</button>
-        </div>
-        <div class="content">
+      <app-modal title="Unlock Edits" closable>
+        <div class="content" slot="body">
           <p>Are you sure you want to unlock editing for <strong class="key"></strong>? Changes will modify the saved record for that day.</p>
           <p class="warn">Tip: You can view the summary without unlocking. Only unlock if you need to correct data.</p>
-          <div class="actions">
-            <button type="button" class="btn btn-cancel">Cancel</button>
-            <button type="button" class="btn btn-danger btn-unlock">Unlock</button>
-          </div>
         </div>
-      </div>
+        <div class="actions modal-actions" slot="footer">
+          <button type="button" class="btn btn-cancel">Cancel</button>
+          <button type="button" class="btn btn-danger btn-unlock">Unlock</button>
+        </div>
+      </app-modal>
     `;
     this._els = {
-      backdrop: this._shadow.querySelector('.backdrop'),
-      close: this._shadow.querySelector('.close'),
+      modal: this._shadow.querySelector('app-modal'),
       cancel: this._shadow.querySelector('.btn-cancel'),
       unlock: this._shadow.querySelector('.btn-unlock'),
       key: this._shadow.querySelector('.key'),
     };
-    this._els.backdrop?.addEventListener('click', () => this.close());
-    this._els.close?.addEventListener('click', () => this.close());
-    this._els.cancel?.addEventListener('click', () => this.close());
+    
+    this._els.modal?.addEventListener('modal-close', () => {
+      // Only call _cancel if we haven't already resolved
+      if (!this._resolved) {
+        this._cancel();
+      }
+    });
+    this._els.cancel?.addEventListener('click', () => this._cancel());
     this._els.unlock?.addEventListener('click', () => this._confirm());
   }
-  open(dayKey = '') { if (!this._els) this._render(); this._dayKey = dayKey || ''; if (this._els.key) this._els.key.textContent = this._dayKey || 'this day'; this.setAttribute('open', ''); return new Promise((resolve) => { this._resolver = resolve; }); }
-  close() { this.removeAttribute('open'); }
-  _cancel() { this.close(); this._resolve(false); }
-  _confirm() { this.close(); this._resolve(true); }
-  _resolve(v) { const r = this._resolver; this._resolver = null; if (r) r(v); }
+  open(dayKey = '') { 
+    if (!this._els) this._render(); 
+    this._dayKey = dayKey || ''; 
+    this._resolved = false; // Reset the resolution flag
+    if (this._els.key) this._els.key.textContent = this._dayKey || 'this day'; 
+    this.setAttribute('open', ''); 
+    this._els.modal?.show(); 
+    return new Promise((resolve) => { this._resolver = resolve; }); 
+  }
+  close() { this._els?.modal?.hide('programmatic'); this.removeAttribute('open'); }
+  _cancel() { 
+    this._resolveWith(false);
+  }
+  _confirm() { 
+    this._resolveWith(true);
+  }
+  _resolveWith(value) {
+    if (this._resolved) {
+      return; // Prevent double resolution
+    }
+    this._resolved = true;
+    this.close();
+    const r = this._resolver; 
+    this._resolver = null; 
+    if (r) r(value); 
+  }
   _onKeyDown(e) { if (e.key === 'Escape' && this.hasAttribute('open')) this._cancel(); }
 }
 

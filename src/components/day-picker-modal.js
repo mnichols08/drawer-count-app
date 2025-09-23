@@ -1,4 +1,5 @@
 import { toast } from '../lib/toast.js';
+import './app-modal.js';
 
 class DayPickerModal extends HTMLElement {
   constructor() {
@@ -11,6 +12,7 @@ class DayPickerModal extends HTMLElement {
     this._today = this._fmt(new Date());
     this._ym = { y: new Date().getFullYear(), m: new Date().getMonth() }; // m: 0-11
     this._minYM = null; this._maxYM = null;
+    this._isConfirming = false; // Flag to prevent cancel during confirm
   }
 
   connectedCallback() { this._render(); window.addEventListener('keydown', this._onKeyDown); }
@@ -26,43 +28,30 @@ class DayPickerModal extends HTMLElement {
       <style>
         :host { display: none; }
         :host([open]) { display: block; }
-        .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(2px); z-index: 1000; }
-        .dialog { position: fixed; inset: 12% auto auto 50%; transform: translateX(-50%);
-         max-width: min(520px, 92vw); max-height: min(85vh, 92vh); overflow: hidden;
-          background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
-          border: 1px solid var(--border, #2a345a); border-radius: 14px; padding: 0; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
-        .hd { display:flex; justify-content: space-between; align-items:center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--border, #2a345a); }
-        .hd h2 { margin: 0; font-size: 1.1rem; }
-        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; cursor: pointer; }
         .content { display: grid; gap: 10px; padding: 12px 14px 14px; }
-  .cal-hd { display:flex; align-items:center; justify-content: space-between; gap: 8px; }
-  .nav { display:flex; gap: 6px; align-items: center; }
+        .cal-hd { display:flex; align-items:center; justify-content: space-between; gap: 8px; }
+        .nav { display:flex; gap: 6px; align-items: center; }
         .nav .btn { min-height: 36px; padding: 6px 10px; }
         .month-label { font-weight: 700; letter-spacing: .2px; }
         .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
-  .dow { opacity: .8; font-size: .85rem; text-align:center; padding: 4px 0; }
-  .day { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 38px; border-radius: 10px; border: 1px solid var(--border, #2a345a); background: var(--input, #1b2138); color: var(--fg, #e0e6ff); cursor: pointer; }
-  .day[disabled] { opacity: .35; cursor: not-allowed; filter: grayscale(0.2); }
-  .day.saved::after { content: ''; position: absolute; bottom: 5px; width: 6px; height: 6px; border-radius: 999px; background: #2ecc71; }
-  .day.today { outline: 2px solid var(--accent, #5aa0ff); outline-offset: 1px; }
-  .legend { display:flex; align-items:center; gap: 14px; font-size: .85rem; opacity: .85; }
-  .legend .key { display:inline-flex; align-items:center; gap: 6px; }
-  .dot { width: 8px; height: 8px; border-radius: 999px; display:inline-block; }
-  .dot.today { background: var(--accent, #5aa0ff); }
-  .dot.saved { background: #2ecc71; }
-  .actions { display:flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+        .dow { opacity: .8; font-size: .85rem; text-align:center; padding: 4px 0; }
+        .day { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 38px; border-radius: 10px; border: 1px solid var(--border, #2a345a); background: var(--input-bg-color, #1b2138); color: var(--input-fg-color, var(--fg, #e0e6ff)); cursor: pointer; }
+        .day[disabled] { opacity: .35; cursor: not-allowed; filter: grayscale(0.2); }
+        .day.saved::after { content: ''; position: absolute; bottom: 5px; width: 6px; height: 6px; border-radius: 999px; background: #2ecc71; }
+        .day.today { outline: 2px solid var(--accent, #5aa0ff); outline-offset: 1px; }
+        .legend { display:flex; align-items:center; gap: 14px; font-size: .85rem; opacity: .85; }
+        .legend .key { display:inline-flex; align-items:center; gap: 6px; }
+        .dot { width: 8px; height: 8px; border-radius: 999px; display:inline-block; }
+        .dot.today { background: var(--accent, #5aa0ff); }
+        .dot.saved { background: #2ecc71; }
+        .actions { display:flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
         .btn { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); border: 1px solid var(--border, #2a345a); border-radius: 10px; padding: 0.6rem 0.8rem; cursor: pointer; min-height: 40px; font-weight: 600; }
         .btn:hover { filter: brightness(1.08); }
         .btn:active { transform: translateY(1px); }
         .btn:focus { outline: 2px solid var(--accent, #5aa0ff); outline-offset: 2px; }
       </style>
-      <div class="backdrop" part="backdrop"></div>
-      <div class="dialog" role="dialog" aria-modal="true" aria-label="Pick a day">
-        <div class="hd">
-          <h2>Pick a Day</h2>
-          <button class="close" aria-label="Close">Close</button>
-        </div>
-        <div class="content">
+      <app-modal title="Pick a Day" closable>
+        <div class="content" slot="body">
           <div class="cal-hd">
             <div class="nav">
               <button type="button" class="btn btn-prev" aria-label="Previous month">‹</button>
@@ -81,12 +70,11 @@ class DayPickerModal extends HTMLElement {
             <button type="button" class="btn btn-cancel">Cancel</button>
           </div>
         </div>
-      </div>
+      </app-modal>
     `;
 
     this._els = {
-      backdrop: this._shadow.querySelector('.backdrop'),
-      close: this._shadow.querySelector('.close'),
+      modal: this._shadow.querySelector('app-modal'),
       cancel: this._shadow.querySelector('.btn-cancel'),
   ok: this._shadow.querySelector('.btn-ok'),
       prev: this._shadow.querySelector('.btn-prev'),
@@ -96,9 +84,12 @@ class DayPickerModal extends HTMLElement {
       gridDOW: this._shadow.querySelector('.grid-dow'),
       gridDays: this._shadow.querySelector('.grid-days'),
     };
-
-    this._els.backdrop?.addEventListener('click', () => this._cancel());
-    this._els.close?.addEventListener('click', () => this._cancel());
+    this._els.modal?.addEventListener('modal-close', () => {
+      // Don't cancel if we're in the middle of confirming
+      if (!this._isConfirming) {
+        this._cancel();
+      }
+    });
     this._els.cancel?.addEventListener('click', () => this._cancel());
   // no explicit OK button; clicking a saved day loads immediately
     this._els.prev?.addEventListener('click', () => this._nav(-1));
@@ -185,12 +176,24 @@ class DayPickerModal extends HTMLElement {
     this._computeBounds();
     const savedList = Array.from(this._allowed).sort();
     const lastSaved = savedList.length ? savedList[savedList.length - 1] : '';
-    const sel = (selected && this._allowed.has(selected)) ? selected : (lastSaved || '');
+    // Prefer today's date if it's saved, otherwise prefer lastSaved, otherwise default to today
+    const todayIsSaved = this._allowed.has(this._today);
+    let sel = '';
+    if (selected && this._allowed.has(selected)) {
+      sel = selected; // Use provided selection if it's valid
+    } else if (todayIsSaved) {
+      sel = this._today; // Prefer today if it's saved
+    } else if (lastSaved) {
+      sel = lastSaved; // Fall back to last saved day
+    } else {
+      sel = this._today; // Default to today even if not saved (for navigation purposes)
+    }
     this._selected = sel;
     const sdt = sel ? (this._parse(sel) || new Date()) : new Date();
     this._ym = this._clampYM({ y: sdt.getFullYear(), m: sdt.getMonth() });
     this._renderMonth();
-    this.setAttribute('open', '');
+  this.setAttribute('open', '');
+  this._els.modal?.show();
     // focus selected if possible
     setTimeout(()=>{ 
       try { 
@@ -201,12 +204,25 @@ class DayPickerModal extends HTMLElement {
     return new Promise((resolve) => { this._resolver = resolve; });
   }
 
-  close() { this.removeAttribute('open'); }
-  _cancel() { this.close(); this._resolve(null); }
+  close() { 
+    this._els?.modal?.hide('programmatic'); 
+    this.removeAttribute('open'); 
+  }
+  _cancel() { 
+    this._isConfirming = false; // Reset flag
+    this.close(); 
+    this._resolve(null); 
+  }
   _confirm() {
     const sel = this._selected || '';
-    if (!this._allowed.has(sel)) { toast('No save for this day', { type: 'warning', duration: 1500 }); return; }
-    this.close(); this._resolve(sel);
+    if (!this._allowed.has(sel)) { 
+      toast('No save for this day', { type: 'warning', duration: 1500 }); 
+      return; 
+    }
+    this._isConfirming = true; // Set flag to prevent cancel
+    this.close(); 
+    this._resolve(sel);
+    this._isConfirming = false; // Reset flag after resolve
   }
   _resolve(v) { const r = this._resolver; this._resolver = null; if (r) r(v); }
   _onKeyDown(e) { if (!this.hasAttribute('open')) return; if (e.key === 'Escape') this._cancel(); }

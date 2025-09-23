@@ -6,6 +6,9 @@ import './lib/toast.js';
 import './lib/persistence.js';
 import './lib/sync.js';
 
+// Import persistence functions for initialization
+import { getTodayKey, setActiveViewDateKey, getActiveViewDateKey } from './lib/persistence.js';
+
 // Import Web Components (each module registers its custom element)
 import './components/help-modal.js';
 import './components/settings-modal.js';
@@ -28,6 +31,16 @@ import { getOnboardingTour } from './components/onboarding-tour.js';
 
 // Bootstrap
 document.addEventListener('DOMContentLoaded', () => {
+  // Reset active view date to today on fresh app loads to prevent random day selection
+  try {
+    const today = getTodayKey();
+    const activeDate = getActiveViewDateKey();
+    // If the active date is not today, reset it to today to prevent pre-selecting old dates
+    if (activeDate !== today) {
+      setActiveViewDateKey(today);
+    }
+  } catch (_) {}
+  
   try {
     const seenKey = 'onboarding-complete-v2';
     const seen = localStorage.getItem(seenKey) === '1';

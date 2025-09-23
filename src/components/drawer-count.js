@@ -5,13 +5,19 @@ class DrawerCount extends HTMLElement {
     super();
     this._root = this.attachShadow({ mode: 'open' });
     this._readOnly = false;
-    this._onInputEvent = this._onInputEvent.bind(this);
-    this._newInput = this._newInput.bind(this);
-    this.remInput = this.remInput.bind(this);
-    this._getTotal = this._getTotal.bind(this);
-    this._countCash = this._countCash.bind(this);
-    this._getBalance = this._getBalance.bind(this);
-    this._slipCheckCount = this._slipCheckCount.bind(this);
+    this._firstInputOfDay = false; // Track if this is the first input of the day
+    this._autoSaveEnabled = false; // Control auto-save behavior
+    this._isRestoring = false; // Track if we're currently restoring state
+    this._lockedTimestamp = null; // When set, this timestamp is used instead of Date.now()
+    this._hasUserInput = false; // Track if user has made any input since restore
+    const bind = (name) => { try { if (typeof this[name] === 'function') this[name] = this[name].bind(this); } catch(_) {} };
+    bind('_onInputEvent');
+    bind('_newInput');
+    bind('remInput');
+    bind('_getTotal');
+    bind('_countCash');
+    bind('_getBalance');
+    bind('_slipCheckCount');
   }
 
   connectedCallback() {
@@ -19,6 +25,11 @@ class DrawerCount extends HTMLElement {
     this._wire();
     this._bindShortcuts();
     try { this.setReadOnly(false); } catch(_) {}
+  }
+
+  disconnectedCallback() {
+    try { if (this._onKeyDownGlobal) window.removeEventListener('keydown', this._onKeyDownGlobal); } catch(_) {}
+    try { if (this._resizeHandler) window.removeEventListener('resize', this._resizeHandler); } catch(_) {}
   }
 
   // Public API: get current drawer data
@@ -45,7 +56,10 @@ class DrawerCount extends HTMLElement {
     const dRolls = getNum('#dimerolls span.cash');
     const nRolls = getNum('#nickelrolls span.cash');
     const pRolls = getNum('#pennyrolls span.cash');
-    const timestamp = Date.now();
+    
+    // Use locked timestamp if set, otherwise use current time
+    const timestamp = this._lockedTimestamp || Date.now();
+    
     return { count, remove, balance, roa, slips, checks, hundreds, fifties, twenties, tens, fives, ones, quarters, dimes, nickels, pennies, qRolls, dRolls, nRolls, pRolls, timestamp };
   }
 
@@ -57,7 +71,8 @@ class DrawerCount extends HTMLElement {
     // Base inputs
     const state = {
       version: 2,
-      timestamp: Date.now(),
+      // Use locked timestamp if set, otherwise use current time
+      timestamp: this._lockedTimestamp || Date.now(),
       base: {
         drawer: getInputVal('#drawer'),
         roa: getInputVal('#roa'),
@@ -106,6 +121,11 @@ class DrawerCount extends HTMLElement {
   setState(state) {
     try {
       if (!state || typeof state !== 'object') return;
+      
+      // Set restore mode and lock the timestamp to the original value
+      this._isRestoring = true;
+      this._lockedTimestamp = state.timestamp || Date.now();
+      
       const b = state.base || {};
       const setVal = (sel, v) => {
         const el = this._root.querySelector(sel + ' input');
@@ -177,8 +197,13 @@ class DrawerCount extends HTMLElement {
       this._slipCheckCount();
       this._renumberDynamicLabels();
       this._announce('Drawer restored');
+      
+      // Clear restore mode but keep the locked timestamp
+      this._isRestoring = false;
+      
     } catch (_) {
-      // ignore
+      // Always clear restore mode if there's an error
+      this._isRestoring = false;
     }
   }
 
@@ -218,12 +243,82 @@ class DrawerCount extends HTMLElement {
     } catch (_) { /* ignore */ }
   }
 
+  // Enable auto-save for the first input of a new day
+  enableFirstDayAutoSave() {
+    this._firstInputOfDay = true;
+    this._autoSaveEnabled = true;
+    // Unlock timestamp for new counts
+    this._lockedTimestamp = null;
+  }
+
+  // Disable auto-save (used when restoring existing data)
+  disableAutoSave() {
+    this._autoSaveEnabled = false;
+    this._firstInputOfDay = false;
+    // Keep timestamp locked when disabling auto-save for restored data
+  }
+
+  // Public API: clear all inputs (called by count-panel clear button)
+  clearInputs() {
+    if (this._readOnly) {
+      try { toast('Editing is locked for this day', { type: 'warning', duration: 2000 }); } catch(_) {}
+      return false;
+    }
+    this.reset();
+    try { toast('Cleared', { type: 'info', duration: 1500 }); } catch(_) {}
+    // focus first input for convenience
+    setTimeout(() => { try { this._root.querySelector('input')?.focus(); } catch(_) {} }, 0);
+    return true;
+  }
+
+  // Public API: open optional fields modal (called by count-panel optional button)
+  async openOptionalFields() {
+    try {
+      // Prefer module export if present
+      if (typeof getOptionalFieldsModal === 'function') { 
+        getOptionalFieldsModal().open(); 
+        return true; 
+      }
+      if (window.getOptionalFieldsModal) { 
+        window.getOptionalFieldsModal().open(); 
+        return true; 
+      }
+      try { 
+        const mod = await import('../components/optional-fields-modal.js'); 
+        (mod?.getOptionalFieldsModal || window.getOptionalFieldsModal)?.().open(); 
+        return true;
+      } catch(_) {}
+    } catch(_) {}
+    return false;
+  }
+
+  // Check if the current state represents a "blank" count (no user input)
+  _isBlankCount() {
+    const state = this.getState();
+    if (!state || !state.base) return true;
+    
+    // Check if all base values are 0 or empty
+    const baseValues = Object.values(state.base);
+    const hasBaseInput = baseValues.some(val => Number(val || 0) !== 0);
+    
+    // Check if there are any extra slips/checks
+    const hasExtraInput = (state.extra?.slips?.length > 0) || (state.extra?.checks?.length > 0);
+    
+    // Check if any optional fields are filled
+    const optionalValues = Object.values(state.optional || {});
+    const hasOptionalInput = optionalValues.some(val => Number(val || 0) !== 0);
+    
+    return !hasBaseInput && !hasExtraInput && !hasOptionalInput;
+  }
+
   _render() {
     this._root.innerHTML = `
       <style>
         :host { display: block; color: var(--main-color, #eee); }
         .wrap { display: grid; gap: .35rem; }
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,1px,1px); white-space: nowrap; border: 0; }
+
+
 
         /* Original component-local styles */
         .output { text-align: right; }
@@ -238,9 +333,10 @@ class DrawerCount extends HTMLElement {
         }
   /* Subtle style for dynamic row labels (Slip/Check) shown to the left of input */
   .dyn-label { color: var(--muted, #9aa3b2); margin-right: .35rem; font-size: .9rem; }
-        button { background: var(--button-bg-color, #222222f0); color: var(--button-color, green); }
+  button { background: var(--button-bg-color, #222222f0); color: var(--button-color, #e0e6ff); }
         button.rem { color: var(--button-rem-color, red); margin-left: .35rem; }
-        span:before { content: '$'; }
+  /* Prefix currency only for value spans inside main content */
+  .wrap span:before { content: '$'; }
 
         @media only print {
           #drawer input, #roa input, #drawer label, #roa label,
@@ -255,13 +351,80 @@ class DrawerCount extends HTMLElement {
         .opt-row label { color: var(--fg, #e0e6ff); font-size: .95rem; }
         .opt-row input { min-width: 120px; justify-self: end; }
         .optional-section span:before { content: none; }
+
+        /* Mobile-focused tweaks */
+        @media (max-width: 640px) {
+          :host { 
+            max-height: calc(100vh - 200px); /* Account for header, controls, and safe areas */
+            display: flex; 
+            flex-direction: column; 
+          }
+          .wrap { 
+            gap: .5rem; 
+            overflow-y: auto; 
+            flex: 1; 
+            padding-bottom: 80px; /* Space for mobile controls */
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+          }
+          /* Only hide/show one input when stepper is enabled */
+          :host([data-stepper="on"]) .input { display: none; }
+          :host([data-stepper="on"]) .input.active { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .4rem; }
+          /* Fallback: if stepper hasn't initialized yet, still show a single input at a time */
+          :host(:not([data-stepper="on"])) .input { display: none; }
+          :host(:not([data-stepper="on"])) .input.initial { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .4rem; }
+          :host(:not([data-stepper="on"])) .input:first-of-type { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .4rem; }
+          :host(:not([data-stepper="on"])) .input:focus-within { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .4rem; }
+          .input label { font-size: 1rem; }
+          .input input { width: 100%; font-size: 16px; min-height: 44px; padding: 0.4rem 0.6rem; }
+          .input button { align-self: stretch; min-height: 44px; padding: 0 .8rem; border-radius: .25rem; }
+          .mobile-controls { 
+            display: flex; 
+            position: sticky; 
+            bottom: 0; 
+            gap: .5rem; 
+            padding: .5rem; 
+            background: var(--panel-bg, rgba(11,16,34,0.9)); 
+            backdrop-filter: blur(6px) saturate(120%); 
+            z-index: 2; 
+            align-items: center; 
+            justify-content: space-between; 
+            border-top: 1px solid var(--border-color, #2a345a);
+            margin-top: auto; /* Push to bottom of flex container */
+            flex-shrink: 0; /* Prevent shrinking */
+            min-height: 60px; /* Ensure adequate touch target area */
+          }
+          .mobile-controls .prev, .mobile-controls .next { 
+            min-height: 44px; 
+            min-width: 44px;
+            padding: 0 1rem; 
+            border-radius: .35rem; 
+            background: var(--button-bg-color, #222222f0); 
+            color: var(--button-color, #0b132b); 
+            border: 1px solid var(--border-color, #2a345a);
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+          }
+          .mobile-controls .step-indicator { flex: 1; text-align: center; color: var(--muted, #9aa3b2); font-size: 0.9rem; }
+        }
+        
+        /* Very small screens optimization */
+        @media (max-width: 360px) {
+          .wrap { gap: .4rem; padding-bottom: 70px; }
+          .input label { font-size: 0.9rem; }
+          .input input { min-height: 40px; padding: 0.3rem 0.5rem; }
+          .input button { min-height: 40px; padding: 0 .6rem; }
+          .mobile-controls { padding: .4rem; min-height: 56px; }
+          .mobile-controls .prev, .mobile-controls .next { 
+            min-height: 40px; 
+            min-width: 40px;
+            padding: 0 .8rem; 
+          }
+          .mobile-controls .step-indicator { font-size: 0.85rem; }
+          .output { font-size: 0.9rem; }
+        }
       </style>
 
       <div class="wrap">
-        <div class="panel-actions" style="display: flex; gap: 8px; margin-bottom: 10px;">
-          <button class="icon-btn clear-btn" aria-label="Clear inputs" title="Clear inputs">🧹</button>
-          <button class="icon-btn optional-btn" aria-label="Optional fields" title="Optional fields">🧾</button>
-        </div>
         <div class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
         <div class="output" id="total">Count: $<total>0.00</total></div>
         <div class="output" id="cash">Remove: $<cash>0.00</cash></div>
@@ -269,99 +432,97 @@ class DrawerCount extends HTMLElement {
         <div class="output" id="cardTotal">Slip Total: $<balance>0.00</balance></div>
         <div class="output" id="checkTotal">Check Total: $<balance>0.00</balance></div>
 
-        <div class="input" id="drawer">
+        <div class="input initial" id="drawer">
           <label for="drawer-input">Cash Total</label>
-          <input id="drawer-input" name="drawer" step=".01" type="number" placeholder="Cash Total" />
+          <input id="drawer-input" name="drawer" step=".01" type="number" placeholder="Cash Total" inputmode="decimal" enterkeyhint="next" autocomplete="off" />
            Cash Total: $<drawer>0.00</drawer>
         </div>
         <div class="input" id="roa">
           <label for="roa-input">ROA Amount</label>
-          <input id="roa-input" name="roa" step=".01" type="number" placeholder="ROA Amount" />
+          <input id="roa-input" name="roa" step=".01" type="number" placeholder="ROA Amount" inputmode="decimal" enterkeyhint="next" autocomplete="off" />
            ROA Amount: $<roa>0.00</roa>
         </div>
         <div class="input" id="slips">
           <label for="slips-input">Credit Cards</label>
-          <input id="slips-input" name="slips" step=".01" type="number" placeholder="Credit Cards" />
-          <button class="add-slip" title="Add Slip">+</r
-          </button>
+          <input id="slips-input" name="slips" step=".01" type="number" placeholder="Credit Cards" inputmode="decimal" enterkeyhint="next" autocomplete="off" />
+          <button class="add-slip" title="Add Slip">+</button>
           <span>0.00</span> Slip
         </div>
         <div class="input" id="checks">
           <label for="checks-input">Checks</label>
-          <input id="checks-input" name="checks" step=".01" type="number" placeholder="Checks" min="0" />
-          <button class="add-check" title="Add Check">+</r
-          </button>
+          <input id="checks-input" name="checks" step=".01" type="number" placeholder="Checks" min="0" inputmode="decimal" enterkeyhint="next" autocomplete="off" />
+          <button class="add-check" title="Add Check">+</button>
           <span>0.00</span> Check
         </div>
 
         <div class="input" id="hundreds">
           <label for="hundreds-input">Hundreds</label>
-          <input id="hundreds-input" name="hundreds" type="number" placeholder="Hundreds" min="0" max="20" />
+          <input id="hundreds-input" name="hundreds" type="number" placeholder="Hundreds" min="0" max="20" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Hundreds
         </div>
         <div class="input" id="fifties">
           <label for="fifties-input">Fifties</label>
-          <input id="fifties-input" name="fifties" type="number" placeholder="Fifties" min="0" max="30" />
+          <input id="fifties-input" name="fifties" type="number" placeholder="Fifties" min="0" max="30" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Fifties
         </div>
         <div class="input" id="twenties">
           <label for="twenties-input">Twenties</label>
-          <input id="twenties-input" name="twenties" type="number" placeholder="Twenties" min="0" max="40" />
+          <input id="twenties-input" name="twenties" type="number" placeholder="Twenties" min="0" max="40" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Twenties
         </div>
         <div class="input" id="tens">
           <label for="tens-input">Tens</label>
-          <input id="tens-input" name="tens" type="number" placeholder="Tens" min="0" max="50" />
+          <input id="tens-input" name="tens" type="number" placeholder="Tens" min="0" max="50" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Tens
         </div>
         <div class="input" id="fives">
           <label for="fives-input">Fives</label>
-          <input id="fives-input" name="fives" type="number" placeholder="Fives" min="0" max="75" />
+          <input id="fives-input" name="fives" type="number" placeholder="Fives" min="0" max="75" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Fives
         </div>
         <div class="input" id="dollars">
           <label for="dollars-input">Dollars</label>
-          <input id="dollars-input" name="dollars" type="number" placeholder="Dollars" min="0" max="100" />
+          <input id="dollars-input" name="dollars" type="number" placeholder="Dollars" min="0" max="100" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Ones
         </div>
         <div class="input" id="quarters">
           <label for="quarters-input">Quarters</label>
-          <input id="quarters-input" name="quarters" type="number" placeholder="Quarters" min="0" max="50" />
+          <input id="quarters-input" name="quarters" type="number" placeholder="Quarters" min="0" max="50" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Quarters
         </div>
         <div class="input" id="dimes">
           <label for="dimes-input">Dimes</label>
-          <input id="dimes-input" name="dimes" type="number" placeholder="Dimes" min="0" max="50" />
+          <input id="dimes-input" name="dimes" type="number" placeholder="Dimes" min="0" max="50" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Dimes
         </div>
         <div class="input" id="nickels">
           <label for="nickels-input">Nickels</label>
-          <input id="nickels-input" name="nickels" type="number" placeholder="Nickels" min="0" max="50" />
+          <input id="nickels-input" name="nickels" type="number" placeholder="Nickels" min="0" max="50" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Nickels
         </div>
         <div class="input" id="pennies">
           <label for="pennies-input">Pennies</label>
-          <input id="pennies-input" name="pennies" type="number" placeholder="Pennies" min="0" max="50" />
+          <input id="pennies-input" name="pennies" type="number" placeholder="Pennies" min="0" max="50" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Pennies
         </div>
         <div class="input" id="quarterrolls">
           <label for="quarterrolls-input">Quarter Rolls</label>
-          <input id="quarterrolls-input" name="quarterrolls" type="number" placeholder="Quarter Rolls" min="0" max="4" />
+          <input id="quarterrolls-input" name="quarterrolls" type="number" placeholder="Quarter Rolls" min="0" max="4" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Quarter Rolls
         </div>
         <div class="input" id="dimerolls">
           <label for="dimerolls-input">Dime Rolls</label>
-          <input id="dimerolls-input" name="dimerolls" type="number" placeholder="Dime Rolls" min="0" max="4" />
+          <input id="dimerolls-input" name="dimerolls" type="number" placeholder="Dime Rolls" min="0" max="4" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Dime Rolls
         </div>
         <div class="input" id="nickelrolls">
           <label for="nickelrolls-input">Nickel Rolls</label>
-          <input id="nickelrolls-input" name="nickelrolls" type="number" placeholder="Nickel Rolls" min="0" max="4" />
+          <input id="nickelrolls-input" name="nickelrolls" type="number" placeholder="Nickel Rolls" min="0" max="4" step="1" inputmode="numeric" enterkeyhint="next" autocomplete="off" />
           <span class="cash">0.00</span> in Nickel Rolls
         </div>
         <div class="input" id="pennyrolls">
           <label for="pennyrolls-input">Penny Rolls</label>
-          <input id="pennyrolls-input" name="pennyrolls" type="number" placeholder="Penny Rolls" min="0" max="4" />
+          <input id="pennyrolls-input" name="pennyrolls" type="number" placeholder="Penny Rolls" min="0" max="4" step="1" inputmode="numeric" enterkeyhint="done" autocomplete="off" />
           <span class="cash">0.00</span> in Penny Rolls
         </div>
 
@@ -400,6 +561,12 @@ class DrawerCount extends HTMLElement {
           </div>
         </div>
       </div>
+      <!-- Mobile-only stepper controls (hidden by default; shown via JS on touch + small screens) -->
+      <div class="mobile-controls" aria-label="Field navigation" role="group" style="display:none;">
+        <button class="prev" type="button" title="Previous field">Back</button>
+        <span class="step-indicator">1 / 1</span>
+        <button class="next" type="button" title="Next field">Next</button>
+      </div>
     `;
   }
 
@@ -411,38 +578,29 @@ class DrawerCount extends HTMLElement {
     $('#slips .add-slip')?.addEventListener('click', () => this._newInput('#checks'));
     $('#checks .add-check')?.addEventListener('click', () => this._newInput('#hundreds'));
 
-    // Panel action buttons
-    this._root.querySelector('.clear-btn')?.addEventListener('click', () => {
-      this.reset();
-      try { toast('Cleared', { type: 'info', duration: 1500 }); } catch(_) {}
-      // focus first input for convenience
-      setTimeout(() => { try { this._root.querySelector('input')?.focus(); } catch(_) {} }, 0);
-    });
-    this._root.querySelector('.optional-btn')?.addEventListener('click', () => {
-      try {
-        if (typeof getOptionalFieldsModal === 'function') {
-          getOptionalFieldsModal().open();
-        } else if (window.getOptionalFieldsModal) {
-          window.getOptionalFieldsModal().open();
-        }
-      } catch(_) {}
-    });
+    // Panel action buttons - now handled by count-panel, but methods exposed via public API
 
     // Delegated input handler on each .input block
     $$('.input').forEach((block) => block.addEventListener('input', this._onInputEvent));
 
-    // Enter to add another for base slip/check inputs
-    const slip = $('#slips input');
-    const check = $('#checks input');
-    const addKeyDownListener = (element, selector) => {
-      element?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.keyCode === 13) this._newInput(selector);
-        this._getTotal();
-        this._getBalance();
-      });
-    };
-    addKeyDownListener(slip, '#checks');
-    addKeyDownListener(check, '#hundreds');
+    // Keyboard/focus behavior
+  const mobileMode = this._shouldUseMobileStepper() || this._isTouchDevice();
+    if (mobileMode) {
+  this._bindMobileInputKeys?.();
+    } else {
+      // On desktop: preserve original behavior — Tab to move, Enter on base Slip/Check adds a row
+      const slip = $('#slips input');
+      const check = $('#checks input');
+      const addKeyDownListener = (element, selector) => {
+        element?.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.keyCode === 13) this._newInput(selector);
+          this._getTotal();
+          this._getBalance();
+        });
+      };
+      addKeyDownListener(slip, '#checks');
+      addKeyDownListener(check, '#hundreds');
+    }
 
     // Min values
     $('#checks input')?.setAttribute('min', '0');
@@ -453,6 +611,8 @@ class DrawerCount extends HTMLElement {
     this._getBalance();
     this._slipCheckCount();
 
+  // Optional fields are always present in the UI; modal edits these values directly.
+
     // Optional fields should trigger save/change events but not recompute totals
     const optIds = [
       '#opt-charges', '#opt-total-received', '#opt-net-sales',
@@ -461,10 +621,33 @@ class DrawerCount extends HTMLElement {
     optIds.forEach((sel) => {
       const el = this._root.querySelector(sel);
       el?.addEventListener('input', () => {
-        this.dispatchEvent(new CustomEvent('change', { detail: this.getCount(), bubbles: true, composed: true }));
+        // Unlock timestamp when user makes actual input (not during restore)
+        if (!this._isRestoring) {
+          this._lockedTimestamp = null;
+        }
+        
+        // Determine if this should trigger an auto-save for optional fields
+        let shouldAutoSave = false;
+        if (this._autoSaveEnabled && this._firstInputOfDay) {
+          // This is the very first input of a new day - auto-save it
+          shouldAutoSave = true;
+          this._firstInputOfDay = false; // Disable further auto-saves until explicitly re-enabled
+        }
+
+        this.dispatchEvent(new CustomEvent('change', { 
+          detail: this.getCount(), 
+          bubbles: true, 
+          composed: true,
+          autoSave: shouldAutoSave
+        }));
       });
     });
+
+    // Initialize mobile stepper
+    this._initMobileStepper?.();
   }
+
+  // (Previously: optional field visibility helpers removed; modal edits values directly.)
 
   _bindShortcuts() {
     // Global shortcuts for adding/removing rows
@@ -596,6 +779,12 @@ class DrawerCount extends HTMLElement {
 
   _onInputEvent(e) {
     if (this._readOnly) return;
+    
+    // Unlock timestamp when user makes actual input (not during restore)
+    if (!this._isRestoring) {
+      this._lockedTimestamp = null;
+    }
+    
     // e.currentTarget is the .input container
     const container = e.currentTarget;
     const id = container.id;
@@ -614,8 +803,21 @@ class DrawerCount extends HTMLElement {
     this._getBalance();
     this._slipCheckCount();
 
-    // Dispatch a composed change event so hosts can listen
-    this.dispatchEvent(new CustomEvent('change', { detail: this.getCount(), bubbles: true, composed: true }));
+    // Determine if this should trigger an auto-save
+    let shouldAutoSave = false;
+    if (this._autoSaveEnabled && this._firstInputOfDay) {
+      // This is the very first input of a new day - auto-save it
+      shouldAutoSave = true;
+      this._firstInputOfDay = false; // Disable further auto-saves until explicitly re-enabled
+    }
+
+    // Always dispatch change event for UI updates, but include auto-save flag
+    this.dispatchEvent(new CustomEvent('change', { 
+      detail: this.getCount(), 
+      bubbles: true, 
+      composed: true,
+      autoSave: shouldAutoSave
+    }));
   }
 
   _getMultiplier(id) {
@@ -637,6 +839,193 @@ class DrawerCount extends HTMLElement {
     }
   }
 
+  _isTouchDevice() {
+    try {
+      return (("ontouchstart" in window) || (navigator.maxTouchPoints > 0) || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches));
+    } catch(_) { return false; }
+  }
+
+  _shouldUseMobileStepper() {
+    try {
+      const mq = window.matchMedia('(max-width: 640px)');
+      // Enable on small screens regardless of touch to ensure it works on phones and emulators
+      return mq.matches;
+    } catch(_) { return false; }
+  }
+
+  _initMobileStepper() {
+    try {
+      const controls = this._root.querySelector('.mobile-controls');
+      if (!controls) return;
+      const enable = this._shouldUseMobileStepper();
+      controls.style.display = enable ? 'flex' : 'none';
+      // toggle :host attribute to control CSS that shows one input at a time
+      try { if (enable) this.setAttribute('data-stepper', 'on'); else this.removeAttribute('data-stepper'); } catch(_) {}
+      if (!enable) {
+        Array.from(this._root.querySelectorAll('.input.active')).forEach((n) => n.classList.remove('active'));
+        // Restore initial visibility for fallback CSS
+        const first = this._root.querySelector('.wrap > .input');
+        first?.classList.add('initial');
+        return;
+      }
+      this._refreshSteps();
+      if (!this._stepInputs?.length) return;
+      if (typeof this._currentStepIdx !== 'number') this._currentStepIdx = 0;
+      this._setActiveStep(this._currentStepIdx);
+      // Remove fallback class so only the active step shows
+      Array.from(this._root.querySelectorAll('.wrap > .input.initial')).forEach((n) => n.classList.remove('initial'));
+      const prev = controls.querySelector('.prev');
+      const next = controls.querySelector('.next');
+      prev.onclick = () => this._gotoPrev();
+      next.onclick = () => this._gotoNext();
+      this._stepInputs.forEach((inp, i) => inp.addEventListener('focus', () => this._setActiveStep(i)));
+      if (!this._resizeHandler) {
+        this._resizeHandler = () => this._initMobileStepper();
+        window.addEventListener('resize', this._resizeHandler);
+      }
+    } catch(_) {}
+  }
+
+  _refreshSteps() {
+    const containers = Array.from(this._root.querySelectorAll('.wrap > .input'));
+    this._stepContainers = containers;
+    this._stepInputs = containers.map((c) => c.querySelector('input')).filter(Boolean);
+    const indicator = this._root.querySelector('.mobile-controls .step-indicator');
+    if (indicator) {
+      const total = this._stepInputs.length || 1;
+      const idx = (this._currentStepIdx || 0) + 1;
+      indicator.textContent = `${Math.min(idx, total)} of ${total}`;
+    }
+  }
+
+  _setActiveStep(idx) {
+    if (!this._stepContainers?.length) return;
+    this._currentStepIdx = Math.max(0, Math.min(this._stepContainers.length - 1, idx));
+    this._stepContainers.forEach((c, i) => c.classList.toggle('active', i === this._currentStepIdx));
+    const indicator = this._root.querySelector('.mobile-controls .step-indicator');
+  if (indicator) indicator.textContent = `${this._currentStepIdx + 1} of ${this._stepContainers.length}`;
+    try {
+      const inp = this._stepInputs[this._currentStepIdx];
+      if (document.activeElement !== inp) {
+        inp?.focus({ preventScroll: false });
+        inp?.select?.();
+        inp?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+      }
+    } catch(_) {}
+    const next = this._root.querySelector('.mobile-controls .next');
+    if (next) next.textContent = (this._currentStepIdx === this._stepContainers.length - 1) ? 'Done' : 'Next';
+  }
+
+  _bindMobileInputKeys() {
+    try {
+      const inputs = Array.from(this._root.querySelectorAll('.input input, .optional-section input'));
+      inputs.forEach((inp) => {
+        if (inp.dataset.mobkeys === '1') return; // avoid double-binding
+        const onFocus = () => { try { inp.select?.(); inp.scrollIntoView?.({ block: 'center', behavior: 'smooth' }); } catch(_) {} };
+        const onKeyDown = (e) => {
+          const key = e.key || e.code;
+          if (key === 'Enter' || e.keyCode === 13) {
+            e.preventDefault();
+            // Special case: Enter on base slip/check with a value quickly adds a new row
+            const parentId = inp.closest('.input')?.id;
+            const isSlipBase = parentId === 'slips';
+            const isCheckBase = parentId === 'checks';
+            const allowQuickAdd = true; // Always enable Enter to add new slip/check rows
+            if (!e.shiftKey && allowQuickAdd && (isSlipBase || isCheckBase) && inp.value !== '') {
+              this._newInput(isSlipBase ? '#checks' : '#hundreds');
+              return;
+            }
+            // Stepper navigation: Enter = Next, Shift+Enter = Back
+            if (e.shiftKey) this._gotoPrev(); else this._gotoNext();
+          } else if (key === 'ArrowDown') {
+            e.preventDefault();
+            this._gotoNext();
+          } else if (key === 'ArrowUp') {
+            e.preventDefault();
+            this._gotoPrev();
+          }
+        };
+        inp.addEventListener('focus', onFocus);
+        // Use only keydown to avoid duplicate handling on some mobile browsers
+        inp.addEventListener('keydown', onKeyDown, { passive: false });
+        inp.dataset.mobkeys = '1';
+      });
+    } catch(_) {}
+  }
+
+  _gotoNext() {
+    if (!this._stepContainers?.length) return;
+    const curIdx = typeof this._currentStepIdx === 'number' ? this._currentStepIdx : 0;
+    const nextIdx = this._computeStepJump(curIdx, +1);
+    if (nextIdx >= this._stepContainers.length || nextIdx === curIdx) {
+      // Last step: blur to dismiss keyboard on mobile
+      try { this._stepInputs[curIdx]?.blur(); } catch(_) {}
+      
+      // Dispatch completion event when user finishes the stepper procedure
+      this.dispatchEvent(new CustomEvent('stepper-complete', {
+        bubbles: true,
+        composed: true,
+        detail: {
+          stepperCompleted: true,
+          finalStepIndex: curIdx
+        }
+      }));
+      return;
+    }
+    this._setActiveStep(nextIdx);
+  }
+
+  _gotoPrev() {
+    if (!this._stepContainers?.length) return;
+    const curIdx = typeof this._currentStepIdx === 'number' ? this._currentStepIdx : 0;
+    const prevIdx = this._computeStepJump(curIdx, -1);
+    this._setActiveStep(Math.max(0, prevIdx));
+  }
+
+  // Mobile stepper: compute next/prev index with grouping rules
+  _computeStepJump(idx, dir) {
+    try {
+      const containers = this._stepContainers || [];
+      if (!containers.length) return idx;
+      const cur = containers[idx];
+      if (!cur) return idx;
+      const isSlipGroup = (el) => el && (el.id === 'slips' || el.classList?.contains('slip'));
+      const isCheckGroup = (el) => el && (el.id === 'checks' || el.classList?.contains('check'));
+      if (dir > 0) {
+        // Forward: if in slips, jump to first non-slip container (typically #checks)
+        if (isSlipGroup(cur)) {
+          let j = idx + 1;
+          while (j < containers.length && isSlipGroup(containers[j])) j++;
+          return Math.min(containers.length - 1, j);
+        }
+        // If in checks, jump to first non-check container (typically #hundreds)
+        if (isCheckGroup(cur)) {
+          let j = idx + 1;
+          while (j < containers.length && isCheckGroup(containers[j])) j++;
+          return Math.min(containers.length - 1, j);
+        }
+        return Math.min(containers.length - 1, idx + 1);
+      } else {
+        // Backward: from checks/check -> base slips; from hundreds -> base checks
+        if (isCheckGroup(cur)) {
+          // scan backward to base slips id
+          for (let k = idx - 1; k >= 0; k--) {
+            if (containers[k]?.id === 'slips') return k;
+          }
+          return Math.max(0, idx - 1);
+        }
+        if (cur.id === 'hundreds') {
+          for (let k = idx - 1; k >= 0; k--) {
+            if (containers[k]?.id === 'checks') return k;
+          }
+          return Math.max(0, idx - 1);
+        }
+        return Math.max(0, idx - 1);
+      }
+    } catch(_) { /* ignore */ }
+    return idx;
+  }
+
   _newInput(anchorSelector) {
     if (this._readOnly) return;
     // Determine type based on anchor (match original logic: before #checks => slip, else check)
@@ -651,6 +1040,9 @@ class DrawerCount extends HTMLElement {
     input.placeholder = `Additional ${typeOf[0].toUpperCase()}${typeOf.slice(1)}`;
     input.name = typeOf;
     input.id = `${id}-input`;
+    input.autocomplete = 'off';
+    input.inputMode = 'decimal';
+    input.setAttribute('enterkeyhint', 'next');
 
     const btn = document.createElement('button');
     btn.className = 'rem';
@@ -658,21 +1050,24 @@ class DrawerCount extends HTMLElement {
     btn.textContent = 'x';
     btn.addEventListener('click', () => this.remInput(id));
 
-  const span = document.createElement('span');
-  span.textContent = '0.00';
-  // Visible, clickable label tied to the input, shown to the left
-  const visLabel = document.createElement('label');
-  visLabel.setAttribute('for', input.id);
-  visLabel.textContent = `${typeOf[0].toUpperCase()}${typeOf.slice(1)}`;
-  visLabel.className = 'dyn-label';
+    const span = document.createElement('span');
+    span.textContent = '0.00';
+    // Visible, clickable label tied to the input, shown to the left
+    const visLabel = document.createElement('label');
+    visLabel.setAttribute('for', input.id);
+    visLabel.textContent = `${typeOf[0].toUpperCase()}${typeOf.slice(1)}`;
+    visLabel.className = 'dyn-label';
 
-  // Append in UI order: label (left), input, button, value
-  div.append(visLabel, input, btn, span);
+    // Append in UI order: label (left), input, button, value
+    div.append(visLabel, input, btn, span);
     // delegate input/keydown
     div.addEventListener('input', this._onInputEvent);
     div.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.keyCode === 13) this._newInput(typeOf === 'slip' ? '#checks' : '#hundreds');
     });
+    if (this._isTouchDevice()) {
+      input.addEventListener('focus', () => { try { input.select?.(); input.scrollIntoView?.({ block: 'center', behavior: 'smooth' }); } catch(_) {} });
+    }
 
     const anchor = this._root.querySelector(anchorSelector);
     if (anchor && anchor.parentElement) {
@@ -687,6 +1082,14 @@ class DrawerCount extends HTMLElement {
     this._slipCheckCount();
     this._renumberDynamicLabels();
     input.focus();
+    if (this._shouldUseMobileStepper && this._shouldUseMobileStepper()) {
+      this._refreshSteps?.();
+      const containers = this._stepContainers || [];
+      const idx = containers.indexOf(div);
+      if (idx >= 0) this._setActiveStep?.(idx);
+      // Ensure new input has mobile key bindings
+      this._bindMobileInputKeys?.();
+    }
   }
 
   remInput(id) {
@@ -698,10 +1101,17 @@ class DrawerCount extends HTMLElement {
     this._slipCheckCount();
     this._renumberDynamicLabels();
     this.dispatchEvent(new CustomEvent('change', { detail: this.getCount(), bubbles: true, composed: true }));
+    if (this._shouldUseMobileStepper && this._shouldUseMobileStepper()) {
+      const prev = this._currentStepIdx || 0;
+      this._refreshSteps?.();
+      this._setActiveStep?.(Math.max(0, Math.min(prev, (this._stepContainers?.length || 1) - 1)));
+      this._bindMobileInputKeys?.();
+    }
   }
 
   _getTotal() {
-    const spans = Array.from(this._root.querySelectorAll('span'));
+    // Only sum numeric spans inside the component content to avoid NaN from unrelated spans (e.g., mobile step indicator)
+    const spans = Array.from(this._root.querySelectorAll('.wrap span'));
     const total = spans.reduce((a, b) => a + Number(b.innerText || 0), 0);
     const totalEl = this._root.querySelector('total');
     if (totalEl) totalEl.innerText = total.toFixed(2);

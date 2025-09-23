@@ -1,6 +1,6 @@
 {
   "name": "drawer-count-app",
-  "version": "0.2.13",
+  "version": "0.3.0",
   "description": "A minimal, installable PWA to help myself and coworkers count drawers at the end of the day.",
   "main": "index.html",
   "scripts": {
@@ -10,11 +10,13 @@
     "build": "echo \"No build step needed; this is a static app. Use 'npm run dev' for local preview.\"",
     "icons": "node ./scripts/generate-icons.js",
     "bump-sw": "node ./scripts/bump-sw-cache.js",
-    "release:patch": "node ./scripts/bump-sw-cache.js --patch",
-    "release:minor": "node ./scripts/bump-sw-cache.js --minor",
-    "release:major": "node ./scripts/bump-sw-cache.js --major",
+    "bump-sw:push": "node ./scripts/bump-sw-cache.js --push",
+    "release:patch": "node ./scripts/bump-sw-cache.js --patch --push",
+    "release:minor": "node ./scripts/bump-sw-cache.js --minor --push",
+    "release:major": "node ./scripts/bump-sw-cache.js --major --push",
     "release:patch:push": "node ./scripts/bump-sw-cache.js --patch --push",
     "release:tag-only": "node ./scripts/bump-sw-cache.js --no-commit",
+    "release:tag-only:push": "node ./scripts/bump-sw-cache.js --no-commit --push",
     "optimize-images": "node ./scripts/optimize-images.js",
     "predeploy": "npm run bump-sw && npm run optimize-images"
   },

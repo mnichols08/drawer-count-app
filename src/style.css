@@ -1,11 +1,15 @@
 :root {
   --bg: #0b132b;
   --fg: #e7ecff;
-  --muted: #9aa3b2;
+  --muted: #b4bccf;     /* lighter for better contrast in dark theme */
   --accent: #5aa0ff;
-  --card: #151c35;
+  /* Translucent card surface for frosted effect */
+  --card: rgba(21, 28, 53, 0.75);
   --border: #263056;
   --btn: #3a506b;
+  /* Backdrop overlays (used by modals/menus) */
+  --backdrop-bg: rgba(0,0,0,0.50);
+  --backdrop-weak-bg: rgba(0,0,0,0.25);
   --header-h: 64px; /* default; updated by JS at runtime */
   --banner-h: 0px;  /* height of install banner; updated by JS at runtime */
   /* App-wide input vars (used by modals, etc.) */
@@ -66,18 +70,22 @@ body {
 :root[data-theme="light"] {
   --bg: #f7f9ff;
   --fg: #0b132b;        /* darker text for stronger contrast */
-  --muted: #334155;     /* slate-700 for better readability */
+  --muted: #475569;     /* slate-600 for even better readability */
   --accent: #1c64f2;
-  --card: #ffffff;
-  --border: #b8c1e1;    /* darker border for clearer separation */
+  /* Light theme translucent card (more opaque for better contrast) */
+  --card: rgba(255, 255, 255, 0.90);
+  --border: #a8b5d8;    /* slightly darker border for clearer separation */
   --btn: #dbe4ff;       /* slightly darker button bg */
+  /* Backdrops in light mode with stronger opacity for better contrast */
+  --backdrop-bg: rgba(0,0,0,0.60);
+  --backdrop-weak-bg: rgba(0,0,0,0.30);
   /* App-wide input vars (light) */
   --input-bg-color: #f3f6ff;
   --input-fg-color: #0b132b;
   /* Header/primary buttons map to theme vars in light mode */
   --button-bg-color: var(--btn);
   --button-color: var(--fg);
-  --shadow: 0 8px 28px rgba(10, 14, 35, 0.12);
+  --shadow: 0 8px 28px rgba(10, 14, 35, 0.15);
   /* Light variants */
   --banner-bg: #e8f0ff;
   --banner-fg: #0b132b;
@@ -112,21 +120,60 @@ body {
   background: var(--bg);
   transition: top 160ms ease; /* subtle animation when banner shows/hides */
 }
-.icon-btn { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: .35rem .6rem; cursor: pointer; min-height: 44px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.icon-btn { 
+  background: var(--btn-muted-bg, rgba(255,255,255,0.08)); 
+  color: var(--btn-muted-fg, var(--fg)); 
+  border: 1px solid var(--border); 
+  border-radius: 8px; 
+  padding: .4rem .65rem; 
+  cursor: pointer; 
+  min-height: 44px; 
+  touch-action: manipulation; 
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 200ms ease, background-color 200ms ease, box-shadow 200ms ease;
+}
 .icon-btn:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
-.icon-btn:hover { filter: brightness(1.08); }
-.icon-btn:active { transform: translateY(1px); }
+.icon-btn:hover { 
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  background: var(--btn);
+  color: var(--fg);
+}
+.icon-btn:active { 
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
 
 .container {
   display: grid;
   place-items: center;
   /* Mobile-first padding; scales up via media queries */
   padding: calc(1rem + var(--header-h) + var(--banner-h)) 1rem 2rem; /* add top space equal to header + banner height */
+  min-height: 100vh; /* Ensure full viewport height */
+}
+
+/* Mobile: Better viewport handling */
+@media (max-width: 640px) {
+  .container {
+    padding: calc(0.5rem + var(--header-h) + var(--banner-h)) 0.5rem 1rem;
+    min-height: 100vh;
+    align-items: start; /* Align to top instead of center on mobile */
+  }
+}
+
+/* Mobile landscape optimization */
+@media (max-width: 640px) and (orientation: landscape) {
+  .container {
+    padding: calc(0.25rem + var(--header-h) + var(--banner-h)) 0.5rem 0.5rem;
+  }
+  .card {
+    max-height: calc(100vh - 80px);
+  }
 }
 
 .card {
   /* Translucent card to let the background image subtly show through */
-  background: rgba(21, 28, 53, 0.72);
+  background: var(--card);
   /* Frosted-glass effect where supported */
   backdrop-filter: saturate(120%) blur(6px);
   -webkit-backdrop-filter: saturate(120%) blur(6px);
@@ -138,12 +185,24 @@ body {
   width: 100%;
   max-width: 640px;
   margin: auto;
+  /* Mobile: ensure card doesn't exceed viewport */
+  max-height: calc(100vh - 2rem);
+  overflow: hidden;
 }
 
-/* Light theme translucency for card */
-:root[data-theme="light"] .card {
-  background: rgba(255, 255, 255, 0.25);
+/* Mobile card improvements */
+@media (max-width: 640px) {
+  .card {
+    border-radius: 12px;
+    padding: 0.8rem;
+    margin: 0.5rem;
+    max-height: calc(100vh - 120px); /* Account for header and safe areas */
+    display: flex;
+    flex-direction: column;
+  }
 }
+
+/* Light theme translucency is controlled via --card */
 
 /* Bridge theme variables into <drawer-count> shadow via host */
 drawer-count {
@@ -153,12 +212,16 @@ drawer-count {
   --button-bg-color: var(--btn);
   --button-color: #10b981;
   --button-rem-color: #ef4444;
+  /* Background for mobile stepper bar within shadow DOM */
+  --panel-bg: var(--card);
 }
 :root[data-theme="light"] drawer-count {
   --input-bg-color: #f3f6ff;
   --button-bg-color: #dbe4ff;
   --button-color: #0b132b; /* dark text for contrast on light button */
   --button-rem-color: #b91c1c;
+  /* Light-themed panel background for stepper */
+  --panel-bg: var(--card);
 }
 
 input[type="number"] {
@@ -277,10 +340,7 @@ network-status .server-badge.err .text { color: #fca5a5; }
 
 /* Theme variables and dark mode improvements */
 :root {
-  --panel-bg: rgba(255,255,255,0.85);
-  --panel-fg: #0b132b;
-  --panel-muted: #6b7280;
-  --panel-border: rgba(0,0,0,0.08);
+  /* Buttons within count-panel use these */
   --btn-bg: #0b132b;
   --btn-fg: #ffffff;
   --btn-muted-bg: rgba(11,19,43,0.08);
@@ -288,14 +348,17 @@ network-status .server-badge.err .text { color: #fca5a5; }
 }
 
 [data-theme="dark"] {
-  --panel-bg: rgba(13,17,23,0.85);
-  --panel-fg: #e5e7eb;
-  --panel-muted: #9ca3af;
-  --panel-border: rgba(255,255,255,0.08);
   --btn-bg: #60a5fa;
   --btn-fg: #0b132b;
   --btn-muted-bg: rgba(255,255,255,0.08);
   --btn-muted-fg: #e5e7eb;
+}
+
+[data-theme="light"] {
+  --btn-bg: #1c64f2;
+  --btn-fg: #ffffff;
+  --btn-muted-bg: rgba(28,100,242,0.08);
+  --btn-muted-fg: #0b132b;
 }
 
 /* Center the main card/panel in the page while keeping background visible */
@@ -303,6 +366,11 @@ main.container {
   min-height: calc(100svh - 5rem);
   display: grid;
   place-items: start center;
+}
+
+/* When empty, center the initial message vertically */
+main.container:has(.count-panel.empty) {
+  place-items: center;
 }
 /* Background image layer managed by JS (fades in when ready) */
 #bg-layer {
@@ -320,11 +388,6 @@ main.container {
 main.container > .card {
   width: min(900px, 92vw);
   margin-inline: auto;
-  background: var(--panel-bg);
-  color: var(--panel-fg);
-  backdrop-filter: saturate(120%) blur(6px);
-  -webkit-backdrop-filter: saturate(120%) blur(6px);
-  border: 1px solid var(--panel-border);
 }
 
 /* Collapsible count panel */
@@ -341,9 +404,46 @@ main.container > .card {
 .count-panel .panel-actions button {
   padding: 0.4rem 0.65rem;
   border-radius: 8px;
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--border);
   background: var(--btn-muted-bg);
   color: var(--btn-muted-fg);
+  transition: transform 200ms ease, background-color 200ms ease, box-shadow 200ms ease;
+  cursor: pointer;
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.count-panel .panel-actions button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.count-panel .panel-actions button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Enhanced toggle button animation */
+.count-panel .panel-actions .toggle-btn {
+  transition: background-color 200ms ease,
+              box-shadow 200ms ease,
+              color 200ms ease;
+  position: relative;
+  font-weight: 500;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.count-panel .panel-actions .toggle-btn:hover {
+  background-color: var(--btn);
+  color: var(--fg);
+}
+
+.count-panel .panel-actions .toggle-btn:active {
+  transform: scale(0.95);
 }
 .count-panel .panel-actions .start-btn,
 .count-panel .panel-actions .complete-btn,
@@ -351,6 +451,31 @@ main.container > .card {
   background: var(--btn-bg);
   color: var(--btn-fg);
   border-color: transparent;
+}
+
+/* Enhanced styling for start button - make it more prominent on initial page load */
+.count-panel .panel-actions .start-btn {
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 1.05rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(90, 160, 255, 0.25);
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+}
+
+.count-panel .panel-actions .start-btn:hover {
+  background: var(--accent);
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(90, 160, 255, 0.35);
+}
+
+.count-panel .panel-actions .start-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(90, 160, 255, 0.3);
 }
 .count-panel .panel-actions .complete-btn { filter: saturate(115%); }
 .count-panel .panel-actions .reopen-btn { filter: saturate(115%); }
@@ -388,13 +513,56 @@ main.container > .card {
 .count-panel .panel-body {
   overflow: hidden;
   height: 0;
-  transition: height 220ms ease;
+  transition: height 320ms cubic-bezier(0.4, 0.0, 0.2, 1), 
+              opacity 280ms ease,
+              transform 280ms cubic-bezier(0.4, 0.0, 0.2, 1);
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.count-panel .panel-body:not([hidden]) {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .count-panel .panel-body {
+    transition: height 150ms ease, opacity 100ms ease;
+    transform: none !important;
+  }
+  
+  .count-panel .panel-summary {
+    transition: height 150ms ease, opacity 100ms ease;
+    transform: none !important;
+  }
+  
+  .count-panel .panel-actions .toggle-btn {
+    transition: background-color 150ms ease;
+  }
+}
+
+/* Mobile: Allow scrolling when panel is expanded */
+@media (max-width: 640px) {
+  .count-panel .panel-body:not([hidden]) {
+    overflow-y: auto;
+    max-height: calc(100vh - 160px); /* Constrain to available viewport */
+  }
 }
 
 .count-panel .panel-summary {
   overflow: hidden;
   height: 0;
-  transition: height 220ms ease;
+  transition: height 320ms cubic-bezier(0.4, 0.0, 0.2, 1), 
+              opacity 280ms ease,
+              transform 280ms cubic-bezier(0.4, 0.0, 0.2, 1);
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.count-panel .panel-summary:not([hidden]) {
+  opacity: 1;
+  transform: translateY(0);
 }
 .count-panel .panel-summary .sum-grid {
   display: grid;
@@ -402,7 +570,7 @@ main.container > .card {
   gap: 6px 12px;
 }
 .count-panel .panel-summary .row { display: contents; }
-.count-panel .panel-summary .k { color: var(--panel-muted); }
+.count-panel .panel-summary .k { color: var(--muted); }
 .count-panel .panel-summary .v { font-weight: 600; }
 .count-panel .panel-summary .row.ts .k { opacity: 0.9; }
 
@@ -410,7 +578,7 @@ main.container > .card {
 .count-panel .panel-summary h4 {
   margin: 0 0 4px 0;
   font-size: 0.95rem;
-  color: var(--panel-fg);
+  color: var(--fg);
 }
 .count-panel .panel-summary .list {
   list-style: none;
@@ -421,15 +589,15 @@ main.container > .card {
   gap: 4px 12px;
 }
 .count-panel .panel-summary .list li { display: contents; }
-.count-panel .panel-summary .list .label { color: var(--panel-muted); }
+.count-panel .panel-summary .list .label { color: var(--muted); }
 .count-panel .panel-summary .list .val { font-weight: 600; }
 
 .count-panel.completed .panel-title::after {
   content: ' • Completed';
-  color: var(--panel-muted);
+  color: var(--muted);
   font-weight: 500;
 }
-.count-panel .done-hint { margin-top: 0.5rem; color: var(--panel-muted); }
+.count-panel .done-hint { margin-top: 0.5rem; color: var(--muted); }
 
 /* Prefer small buttons on narrow screens */
 @media (max-width: 480px) {
@@ -437,26 +605,92 @@ main.container > .card {
   .count-panel .panel-title { font-size: 0.95rem; }
 }
 
-/* Empty state: keep the card minimal/invisible until counting or reviewing */
-.count-panel.empty .panel-header,
-.count-panel.empty .panel-body,
-.count-panel.empty .panel-summary,
-.count-panel.empty .hint { display: none !important; }
-.count-panel.empty { min-height: 0; }
-
-/* Show a tiny accessible placeholder CTA only in empty state */
-.count-panel .panel-empty { display: none; text-align: center; }
-.count-panel.empty .panel-empty { display: grid; place-items: center; gap: 6px; padding: 6px 0; }
-.count-panel .panel-empty .btn-start-ghost {
-  background: transparent;
-  color: var(--btn-bg);
-  border: 1px dashed var(--panel-border);
-  padding: 0.35rem 0.6rem;
-  border-radius: 999px;
-  cursor: pointer;
+/* Additional mobile improvements for very small screens */
+@media (max-width: 360px) {
+  .card {
+    margin: 0.25rem;
+    padding: 0.6rem;
+    border-radius: 8px;
+  }
+  .count-panel .panel-header {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: stretch;
+  }
+  .count-panel .panel-actions {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .count-panel .panel-actions button {
+    min-width: 0;
+    flex: 1;
+    min-width: 80px;
+  }
 }
-.count-panel .panel-empty .btn-start-ghost:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
-.count-panel .panel-empty .empty-hint { margin: 0; color: var(--panel-muted); font-size: 0.9rem; }
+
+/* Empty state: completely hide the card until counting or reviewing */
+.card:has(.count-panel.empty) {
+  display: none;
+}
+
+/* Hide specific content areas when card is empty, but keep header with start button visible */
+.card.card-empty .panel-body,
+.card.card-empty .panel-summary {
+  display: none;
+}
+
+/* When the panel becomes active, ensure it's visible with smooth transition */
+.count-panel:not(.empty) {
+  display: block;
+}
+
+.card:not(.card-empty) {
+  animation: cardSlideIn 300ms ease;
+}
+
+/* Show a clear, readable placeholder message when no card is visible */
+.container:has(.count-panel.empty)::after,
+.container.show-empty-hint::after {
+  content: "Click the ⬒ drawer icon in the header to start today's count";
+  display: block;
+  text-align: center;
+  color: var(--fg);
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 2rem 1rem;
+  opacity: 0.85;
+  animation: fadeInHint 1s ease 0.5s both;
+  max-width: 320px;
+  margin: 0 auto;
+  line-height: 1.5;
+  /* Add subtle background for better readability over background images */
+  background: var(--card);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+/* Mobile: Adjust hint message */
+@media (max-width: 640px) {
+  .container:has(.count-panel.empty)::after,
+  .container.show-empty-hint::after {
+    content: "Tap the ☰ menu button, then ⬒ to start counting";
+    font-size: 0.95rem;
+    padding: 1.75rem 1rem;
+    max-width: 280px;
+  }
+}
+
+@keyframes fadeInHint {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to { opacity: 0.85; transform: translateY(0) scale(1); }
+}
+
+@keyframes cardSlideIn {
+  from { opacity: 0; transform: translateY(-10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
 
 /* Hide elements on initial load until JS removes this class */
 .hidden-on-load {

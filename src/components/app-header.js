@@ -44,11 +44,11 @@ class AppHeader extends HTMLElement {
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,1px,1px); white-space: nowrap; border: 0; }
         .menu-toggle { display: inline-flex; align-items: center; justify-content: center; background: var(--button-bg-color, var(--btn)); color: var(--button-color, var(--fg)); border: 1px solid var(--border, #2a345a); border-radius: 10px; padding: 6px 10px; cursor: pointer; min-height: 44px; }
         .menu-toggle[aria-expanded="true"] { filter: brightness(1.08); }
-        .nav-menu { position: absolute; right: 0; top: 100%; margin-top: 8px; background: var(--panel-bg, var(--card)); color: var(--panel-fg, var(--fg)); border: 1px solid var(--panel-border, var(--border)); border-radius: 14px; padding: 10px; z-index: 50; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); min-width: 220px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; opacity: 0; transform: translateY(-6px) scale(0.98); visibility: hidden; pointer-events: none; transition: opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms; }
+  .nav-menu { position: absolute; right: 0; top: 100%; margin-top: 8px; background: var(--card); color: var(--fg); border: 1px solid var(--border); border-radius: 14px; padding: 10px; z-index: 50; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); min-width: 220px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; opacity: 0; transform: translateY(-6px) scale(0.98); visibility: hidden; pointer-events: none; transition: opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms; backdrop-filter: saturate(120%) blur(6px); -webkit-backdrop-filter: saturate(120%) blur(6px); }
         .nav-menu.open { opacity: 1; transform: translateY(0) scale(1); visibility: visible; pointer-events: auto; transition-delay: 0s; }
         .nav-menu .row { display: contents; }
         .nav-menu .icon-btn { width: 100%; min-height: 40px; }
-        .menu-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.25); z-index: 40; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 140ms ease, visibility 0s linear 140ms; }
+  .menu-backdrop { position: fixed; inset: 0; background: var(--backdrop-weak-bg, rgba(0,0,0,.25)); z-index: 40; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 140ms ease, visibility 0s linear 140ms; }
         .menu-backdrop.show { opacity: 1; visibility: visible; transition-delay: 0s; backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); pointer-events: auto; }
         html[data-tour-open] app-header .menu-backdrop.show { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
         @media (max-width: 380px) { .nav-menu { grid-template-columns: 1fr; min-width: 180px; } }
@@ -99,8 +99,18 @@ class AppHeader extends HTMLElement {
     this.querySelectorAll('.info-btn')?.forEach((el) => el.addEventListener('click', this._onHelp));
     this.querySelectorAll('.panel-toggle-btn')?.forEach((el) => el.addEventListener('click', this._onPanelToggle));
     this.querySelector('.profile-select')?.addEventListener('change', this._onProfileChange);
-    this.querySelector('.new-profile-btn')?.addEventListener('click', this._onNewProfile);
-    this.querySelector('.delete-profile-btn')?.addEventListener('click', this._onDeleteProfile);
+    
+    const newProfileBtn = this.querySelector('.new-profile-btn');
+    const deleteProfileBtn = this.querySelector('.delete-profile-btn');
+    
+    newProfileBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      this._onNewProfile();
+    });
+    deleteProfileBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      this._onDeleteProfile();
+    });
     this.querySelectorAll('.days-btn')?.forEach((el) => el.addEventListener('click', this._onOpenDays));
     this.querySelector('.menu-toggle')?.addEventListener('click', this._onMenuToggle);
     window.addEventListener('keydown', this._onWindowKey);
@@ -136,14 +146,56 @@ class AppHeader extends HTMLElement {
     try {
       const today = getTodayKey();
       try { setActiveViewDateKey(today); } catch(_) {}
-      try { restoreDay(today); } catch(_) {}
+      
       const panel = document.querySelector('count-panel');
       let started = false, completed = false;
       try { const pid = getActiveProfileId?.(); const key = `${pid || 'default'}::${today}`; const raw = localStorage.getItem('drawer-panel-v1'); const all = raw ? JSON.parse(raw) : {}; const st = all[key]; if (st && typeof st === 'object') { started = !!st.started; completed = !!st.completed; } } catch(_) {}
+      
+      // Check if there's actual saved data
+      const hasSavedData = panel && typeof panel._hasSavedDay === 'function' ? panel._hasSavedDay(today) : false;
+      
       if (panel) {
-        if (completed && typeof panel.showCompletedSummary === 'function') { panel.showCompletedSummary(); }
-        else if (!started) { try { panel.querySelector('.start-btn')?.click?.(); } catch(_) {} }
-        else { try { if (typeof panel.expand === 'function') panel.expand(); else panel.querySelector('.toggle-btn')?.click?.(); } catch(_) {} }
+        if (completed && hasSavedData) {
+          // Completed with saved data → Show summary
+          panel.showCompletedSummary();
+        }
+        else if (!started) {
+          // Not started → Start counting
+          try { panel.querySelector('.start-btn')?.click?.(); } catch(_) {}
+        }
+        else if (started && !hasSavedData) {
+          // Started but no saved data → Reset to initial state
+          try {
+            // Reset the panel state to empty
+            const state = { started: false, collapsed: true, completed: false, reopened: false };
+            if (typeof panel._savePersisted === 'function') {
+              panel._savePersisted(state);
+            }
+            if (typeof panel._refresh === 'function') {
+              panel._refresh();
+            }
+            toast('Returned to start screen', { type: 'info', duration: 1200 });
+          } catch(_) {}
+        }
+        else {
+          // Started with saved data → Toggle expand/collapse
+          try {
+            const dc = document.querySelector('drawer-count');
+            if (dc && typeof dc.disableAutoSave === 'function') {
+              dc.disableAutoSave();
+            }
+          } catch(_) {}
+          
+          try { restoreDay(today); } catch(_) {}
+          
+          try {
+            if (typeof panel.isCollapsed === 'function' && typeof panel.expand === 'function' && typeof panel.collapse === 'function') {
+              panel.isCollapsed() ? panel.expand() : panel.collapse();
+            } else {
+              panel.querySelector('.toggle-btn')?.click?.();
+            }
+          } catch(_) {}
+        }
       }
       try { applyReadOnlyByActiveDate(this); updateLockButtonUI(this); } catch(_) {}
       this._closeMenu();
@@ -161,8 +213,49 @@ class AppHeader extends HTMLElement {
   }
 
   _onProfileChange(e) { try { const id = e.target?.value; if (!id) return; setActiveProfile(id); restoreActiveProfile(); ensureDayResetIfNeeded(this); setActiveViewDateKey(getTodayKey()); applyReadOnlyByActiveDate(this); populateProfilesSelect(this); try { const mode = getProfileThemeMode(); applyTheme(mode, false); } catch(_) {} toast('Switched profile', { type:'info', duration: 1200}); } catch(_){} }
-  async _onNewProfile() { try { const modal = getNewProfileModal(); const name = await modal.open(''); if (!name) return; const currentMode = getProfileThemeMode?.() || 'system'; const id = createProfile(name); setActiveProfile(id); try { if (currentMode) applyTheme(currentMode, true); } catch(_) {} saveToActiveProfile(); populateProfilesSelect(this); applyReadOnlyByActiveDate(this); toast('Profile created', { type: 'success', duration: 1800 }); } catch(_){} }
-  async _onDeleteProfile() { try { const data = loadProfilesData(); const ids = Object.keys(data.profiles||{}); if (ids.length<=1) { toast('Cannot delete last profile', { type:'warning', duration: 2200}); return; } const active = data.activeId; const name = data.profiles[active]?.name || active; const modal = getDeleteProfileModal(); const ok = await modal.open(name); if (!ok) return; delete data.profiles[active]; const nextId = ids.find((x)=>x!==active) || 'default'; data.activeId = nextId; saveProfilesData(data); restoreActiveProfile(); populateProfilesSelect(this); applyReadOnlyByActiveDate(this); try { const mode = getProfileThemeMode?.(); applyTheme(mode, false); } catch(_) {} toast('Profile deleted', { type: 'success', duration: 1800}); } catch(_){} }
+  async _onNewProfile() { 
+    try { 
+      const modal = getNewProfileModal(); 
+      const name = await modal.open(''); 
+      if (!name) return; 
+      const currentMode = getProfileThemeMode?.() || 'system'; 
+      const id = createProfile(name); 
+      setActiveProfile(id); 
+      try { if (currentMode) applyTheme(currentMode, true); } catch(_) {} 
+      saveToActiveProfile(); 
+      populateProfilesSelect(this); 
+      applyReadOnlyByActiveDate(this); 
+      toast('Profile created', { type: 'success', duration: 1800 }); 
+    } catch(err) { 
+      console.error('Error in _onNewProfile:', err); 
+    } 
+  }
+  async _onDeleteProfile() { 
+    try { 
+      const data = loadProfilesData(); 
+      const ids = Object.keys(data.profiles||{}); 
+      if (ids.length<=1) { 
+        toast('Cannot delete last profile', { type:'warning', duration: 2200}); 
+        return; 
+      } 
+      const active = data.activeId; 
+      const name = data.profiles[active]?.name || active; 
+      const modal = getDeleteProfileModal(); 
+      const ok = await modal.open(name); 
+      if (!ok) return; 
+      delete data.profiles[active]; 
+      const nextId = ids.find((x)=>x!==active) || 'default'; 
+      data.activeId = nextId; 
+      saveProfilesData(data); 
+      restoreActiveProfile(); 
+      populateProfilesSelect(this); 
+      applyReadOnlyByActiveDate(this); 
+      try { const mode = getProfileThemeMode?.(); applyTheme(mode, false); } catch(_) {} 
+      toast('Profile deleted', { type: 'success', duration: 1800}); 
+    } catch(err) { 
+      console.error('Error in _onDeleteProfile:', err); 
+    } 
+  }
   async _onOpenDays() {
     try {
       const days = (listSavedDaysForActiveProfile() || []).map(d => d.date);
@@ -172,8 +265,8 @@ class AppHeader extends HTMLElement {
       if (!picked) return;
       setActiveViewDateKey(picked);
       const ok = restoreDay(picked);
-  const header = this;
-  applyReadOnlyByActiveDate(header);
+      const header = this;
+      applyReadOnlyByActiveDate(header);
       try {
         const today = getTodayKey();
         if (picked !== today) { document.querySelector('count-panel')?.showCompletedSummary?.(); }

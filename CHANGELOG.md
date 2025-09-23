@@ -1,5 +1,219 @@
 # Changelog
 
+## v0.3.0 - 2025-09-23
+### Major Features
+- **Always-enabled Enter key functionality**: Removed mobile-only preference setting for Enter key behavior. The Enter key now always automatically adds new slips/checks and focuses the new input field across all devices, providing consistent keyboard navigation without requiring users to toggle settings.
+- **Enhanced profile management system**: Completely overhauled profile creation and deletion with robust modal handling, proper Promise resolution, and conflict-free event management for reliable multi-profile workflows.
+
+### User Experience Improvements  
+- **Centered initial welcome message**: The app's initial guidance message now appears vertically centered on screen instead of at the top, creating a more balanced and welcoming first impression for new users.
+- **Streamlined settings interface**: Removed the mobile preference section from settings modal, simplifying the user interface and eliminating confusion about platform-specific behaviors.
+- **Improved count panel state management**: Enhanced the logic for displaying save/cancel buttons, completed summaries, and panel collapse states with better handling of past dates, unsaved changes, and read-only modes.
+
+### Technical Enhancements
+- **Robust modal event handling**: Fixed critical modal close event conflicts that prevented proper Promise resolution in profile creation/deletion workflows. Modals now properly distinguish between user-initiated closes (escape/X button) and programmatic closes (form submission).
+- **Enhanced auto-save and restore functionality**: Improved persistence across components with better state synchronization, automatic data recovery, and more reliable profile switching.
+- **Better read-only state handling**: Refined logic for completed and reopened items across all dates with improved edit mode detection and appropriate UI feedback.
+
+### UI/UX Polish
+- **Enhanced theme contrast and readability**: Improved color schemes in both light and dark themes with better contrast ratios, more prominent start buttons, and refined empty state messaging for better accessibility.
+- **Improved button functionality**: Added clear and optional field buttons with proper functionality, better disabled states, and enhanced visual feedback during user interactions.
+- **Better modal backdrop effects**: Enhanced backdrop blur effects and improved light theme contrast for more polished modal presentations.
+
+### Component Architecture Improvements
+- **Count panel state refactoring**: Completely rewrote state management logic to handle complex scenarios including past date editing, completion states, unsaved changes, and panel visibility with proper error handling and edge case coverage.
+- **Modal system standardization**: Standardized all profile-related modals to use consistent event handling patterns, Promise resolution strategies, and accessibility features.
+- **Enhanced drawer count component**: Improved keyboard navigation, input validation, and state persistence with better integration into the overall count panel workflow.
+
+### Bugfixes
+- **Fixed profile creation conflicts**: Resolved issues where multiple event handlers would conflict during profile creation, causing Promise resolution failures and inconsistent UI states.
+- **Fixed profile deletion reliability**: Eliminated race conditions in profile deletion modal that prevented proper confirmation handling and could leave the UI in inconsistent states.
+- **Fixed unlock functionality after saving**: Resolved critical bug where the unlock button would not work on today's count after marking it complete. The unlock modal now properly appears and allows editing of completed counts on any date, including today.
+- **Improved panel visibility logic**: Fixed edge cases where count panels would show incorrect states when switching between dates, profiles, or completion modes.
+- **Enhanced lock button behavior**: Corrected lock button visibility and icon states based on edit modes for past days with proper read-only state enforcement.
+- **Better empty state handling**: Fixed scenarios where empty count panels would display incorrectly or fail to show appropriate guidance messages to users.
+
+### Development Experience
+- **Cleaner debugging workflow**: Implemented comprehensive console logging during development and proper cleanup for production builds without debug noise.
+- **Better event binding**: Improved event listener management with proper cleanup, prevention of memory leaks, and more reliable component lifecycle handling.
+- **Enhanced error handling**: Added robust error boundaries and graceful degradation for edge cases in profile management and count panel operations.
+
+### Performance Optimizations
+- **Reduced DOM manipulation**: Optimized count panel rendering to minimize unnecessary updates and improve responsiveness during state changes.
+- **Better event listener management**: Implemented more efficient event binding patterns with proper cleanup to prevent memory leaks during component lifecycle operations.
+- **Improved state synchronization**: Enhanced data flow between components to reduce redundant operations and improve overall application responsiveness.
+
+This release represents a significant maturation of the drawer counting application with major improvements to reliability, user experience, and technical architecture. The removal of mobile-specific preferences and enhancement of profile management make the app more intuitive and dependable for daily use across all devices.
+
+## v0.2.26 - 2025-09-22
+### Mobile Experience Enhancements
+- **Improved mobile scrolling**: Enhanced drawer-count component with proper scrolling behavior on mobile devices to prevent content from being cut off on smaller screens.
+- **Better viewport handling**: Added mobile-specific CSS optimizations including landscape mode support, proper touch targets, and improved container sizing.
+- **Responsive animations**: All animations now respect mobile viewport constraints and reduced motion preferences for better accessibility.
+
+### UI/UX Improvements
+- **Hidden empty card state**: The card container now completely disappears when empty, eliminating the unpleasant blank card with blurred background. A helpful hint message guides users to start counting via the header menu.
+- **Smooth expand/collapse animations**: Completely redesigned panel animations with Material Design-inspired easing curves, opacity transitions, and subtle transform effects for a more polished experience.
+- **Intuitive toggle button**: Replaced confusing rotating + symbol with clear directional arrows (▼ for expand, ▲ for collapse) that indicate the action direction.
+
+### Animation System Overhaul
+- **Enhanced timing and easing**: Upgraded from simple linear transitions to sophisticated cubic-bezier curves (320ms) with coordinated height, opacity, and transform animations.
+- **Fixed animation conflicts**: Resolved issues where panels would open then immediately close by properly managing animation states and preventing race conditions.
+- **Better performance**: Added `will-change` optimizations and proper cleanup of animation event listeners for smoother performance.
+
+### Accessibility Improvements
+- **Reduced motion support**: All animations respect `prefers-reduced-motion` settings, providing simpler transitions for users with vestibular disorders.
+- **Enhanced touch targets**: Improved button sizing and spacing for better mobile accessibility with 44px minimum touch targets.
+- **Screen reader compatibility**: Maintained proper ARIA states and labels throughout all animation and visibility changes.
+
+### Technical Implementation
+- Refactored count-panel animation logic from compressed single-line functions to readable, maintainable methods with proper error handling.
+- Added mobile-first responsive design with breakpoints at 640px, 480px, and 360px for comprehensive device coverage.
+- Implemented CSS `:has()` selector with JavaScript fallback for broad browser compatibility in empty state management.
+- Enhanced mobile stepper integration to work seamlessly with new scrolling and animation systems.
+- Added smooth card appearance animations when transitioning from empty to active states.
+
+## v0.2.25 - 2025-09-22
+### Bugfixes
+- **Fixed service worker OPEN_APP message handling**: Resolved issue where service worker would fail to send proper response messages when handling app open requests from web app manifests or external triggers. Improved message handling by removing problematic `waitUntil` usage for response messages and adding proper error handling with immediate response delivery.
+- **Updated sitemap domain**: Changed sitemap URL from placeholder `your-domain.example.com` to the actual production domain `drawercounter.journeytocode.io` for proper SEO indexing.
+
+### Technical Implementation
+- Modified service worker OPEN_APP message handler to send responses immediately without using `event.waitUntil()` which was causing message delivery issues.
+- Added proper error handling and response states (`OPEN_APP_DONE`, `OPEN_APP_ERROR`) for better debugging and user feedback.
+- Enhanced client focus logic to check for closed message ports before attempting to send responses.
+- Updated sitemap.xml to reference the correct production domain for search engine optimization.
+
+## v0.2.24 - 2025-09-22
+### UX Improvements
+- **Enhanced date picker behavior**: Day picker modal now intelligently defaults to today's date when it has saved data, providing more intuitive navigation and selection.
+- **Fresh app load improvements**: Application now consistently defaults to today's date on fresh loads instead of potentially showing random or cached dates.
+
+### Bugfixes
+- **Fixed modal click-outside behavior**: Resolved issue where clicking outside modal windows (date picker, help, onboarding, etc.) would not close them. All modals now properly close when clicking on the backdrop area outside the dialog, improving user experience and interaction consistency.
+- **Fixed sitemap URL**: Updated robots.txt to reference the correct domain for sitemap accessibility.
+
+### Code Cleanup
+- **Removed legacy component**: Cleaned up duplicate drawer-count component file that was no longer in use, reducing bundle size and potential confusion.
+
+### Technical Implementation
+- Updated `app-modal` component to handle click events on the container element instead of the backdrop element, which was being obscured by the overlaid container.
+- Added smart click detection that only closes modals when clicking directly outside the dialog content, preserving existing functionality for clicks within modal dialogs.
+- Enhanced day picker selection logic to prioritize today's date when saved data exists.
+- Added initialization logic to reset active view date to today on fresh application loads.
+- Maintained all existing modal behaviors including Escape key dismissal, close button functionality, and proper focus management.
+
+## v0.2.24 - 2025-09-22
+### Documentation
+- **Fixed changelog version history**: Corrected version attribution where v0.2.21 stepper completion features were incorrectly documented under v0.2.22, and properly separated bugfixes into their respective versions.
+
+## v0.2.23 - 2025-09-22
+### Bugfixes
+- **Fixed modal accessibility violation**: Resolved `aria-hidden` attribute conflict that occurred when modals contained focused elements, eliminating browser accessibility warnings and improving screen reader compatibility.
+- **Enhanced modal focus management**: Modal dialogs now properly remove `aria-hidden` attributes when open and set focus order correctly to prevent assistive technology conflicts.
+
+## v0.2.22 - 2025-09-22
+### Bugfixes
+- **Fixed calendar date selection**: Calendar modal now properly returns selected dates instead of null, resolving issue where clicking calendar dates wouldn't change the active view.
+- **Fixed seeding balance calculations**: Developer seed functions now generate perfectly balanced test data (balance = $0.00) using the correct mathematical formula.
+
+## v0.2.21 - 2025-09-22
+### Auto-Completion on Stepper Navigation Finish
+- **Stepper completion workflow**: When using mobile stepper navigation, completing the final step (pressing "Done" or Enter on the last field) now automatically marks the drawer count as complete.
+- **Seamless UX**: Users no longer need to manually tap "Mark complete" after finishing the stepper procedure - the completion happens automatically.
+- **Smart completion logic**: Auto-completion only triggers when appropriate (drawer count started, not already completed, and not in read-only mode).
+- **Existing workflows preserved**: Manual completion via "Mark complete" button continues to work as before.
+
+### Technical Implementation
+- Added `stepper-complete` event dispatch from drawer-count component when reaching end of stepper navigation.
+- Enhanced count-panel component to listen for stepper completion events and trigger existing completion logic.
+- Maintained all existing safeguards and state management for consistent behavior.
+
+## v0.2.20 - 2025-09-22
+### Mobile UX: Enhanced Stepper Navigation & Per-Profile Preferences
+- **Fixed mobile stepper navigation**: Next/Prev buttons now reliably advance past entire slip/check groups instead of getting stuck on individual dynamic rows.
+- **Enter key improvements**: On mobile, pressing Enter now triggers the Next button (Shift+Enter for Previous) instead of requiring manual taps.
+- **Light theme stepper colors**: Mobile stepper bar and buttons now properly inherit theme variables for consistent appearance in both light and dark modes.
+- **Per-profile preferences**: Added a new mobile-only setting "Mobile: Enter adds slip/check row" in Settings → Preferences.
+  - When enabled, Enter on base Credit Cards/Checks with a value quickly adds a new row (legacy behavior).
+  - When disabled (default), Enter always navigates to the next field for streamlined data entry.
+  - Setting is stored per profile and updates live without reload.
+- **Better keyboard navigation**: Arrow Up/Down also trigger stepper navigation; final field blurs to dismiss mobile keyboard.
+
+### Technical Improvements
+- Enhanced step computation logic to scan and skip over entire slip/check groups during navigation.
+- Added global event system for preference changes with proper cleanup on component disconnect.
+- Mobile-only UI elements are now properly hidden on desktop (≥641px) via responsive CSS.
+- Improved mobile key event handling to use only `keydown` and avoid duplicate triggers on some browsers.
+
+## v0.2.19 - 2025-09-22
+### UI/Accessibility: Standardized, Scrollable Modals
+- Introduced a reusable modal component `app-modal` with a scrollable body and sticky header/footer for consistent behavior across screens, especially mobile.
+- Standardized all modals to use it: Optional Fields, Unlock Confirm, Revert Confirm, Help, Settings, Delete Profile, Day Picker, and New Profile.
+- Features: background scroll lock while open, Escape/backdrop to close (when appropriate), focus trapping including slotted content, and ARIA-compliant dialog semantics.
+- Day Picker maintains full keyboard navigation and saved/today indicators; selecting a saved day confirms immediately.
+
+### Dev note
+- Consider running `npm run bump-sw` before deploy so clients pick up the latest modal scripts/styles via an SW cache bump.
+
+## v0.2.17 - 2025-09-22
+### Mobile UX: Single-field Stepper (small screens)
+- On viewports ≤ 640px, the drawer count now shows one field at a time with sticky Back/Next controls and a clear "X of Y" step indicator.
+- Stepper activates by width (no touch requirement) so it works in desktop device emulation and on phones.
+- Enter advances to the next field; Shift+Enter moves to the previous. Pressing Enter in the base Credit Cards or Checks field with a value quickly adds another row.
+- The first field is guaranteed visible immediately via a CSS fallback (even before JS initializes), and step activation focuses, selects, and scrolls the active input into view.
+
+### Bugfixes & Stability
+- Fixed a NaN total issue by summing only numeric spans inside the main component (ignoring UI spans like the step indicator).
+- Scoped the currency prefix (`$`) to value spans inside the content so non-value text (e.g., the step indicator) doesn’t get prefixed.
+- Hardened mobile key handling by binding `keydown`/`keypress`/`keyup` for Enter navigation and re-binding after dynamic add/remove of slip/check rows.
+- Removed an invalid reference in dynamic label renumbering and added the missing helper methods (`_onInputEvent`, `_getMultiplier`, `_focusInputIn`, `_focusAfterRemoval`) to stabilize event flows.
+- Desktop behavior and styling remain unchanged (Tab to move; Enter on base slip/check adds a row).
+
+### Dev note
+- This is a PWA; if you don’t see the new stepper immediately, perform a hard refresh (Ctrl+F5) or temporarily bypass/unregister the service worker. Before deploy, consider `npm run bump-sw` so clients fetch the latest assets.
+
+## v0.2.16 - 2025-09-22
+### Bugfix/UX: Optional Fields button opens working modal
+- Restored the original behavior for the Optional Fields (🧾) button: it now reliably opens a modal where you edit optional daily values directly.
+- The modal pre-fills current values from the drawer and, on Apply, writes them back to the inline optional inputs inside `drawer-count`, dispatching `input` events so autosave/status logic runs.
+- Accessor `getOptionalFieldsModal()` is available as a module export and on `window` for robust use from shadow DOM and legacy code paths; the button falls back to a lazy import if needed.
+
+### Cleanup: Remove legacy modal duplicate
+- Removed the unused `src/components/optional-fields-modal-legacy.js` (functionality fully replaced by `optional-fields-modal.js`).
+	- Note: If the file persists locally due to tooling, it’s neutered to avoid duplicate customElements registrations.
+
+### Dev note
+- No data shape changes; optional values remain informative and do not affect totals/balance. No service worker bump required beyond normal releases.
+
+## v0.2.15 - 2025-09-22
+### Bugfix: Respect lock for Clear action
+- The "Clear inputs" button now correctly does nothing when the drawer/day is locked (read-only). A small warning toast is shown instead.
+- The clear button is disabled whenever read-only mode is active, matching other mutating controls.
+
+### Cleanup: Consolidate DrawerCount source
+- Removed legacy duplicate `src/drawer-count.js`; all logic now lives in `src/components/drawer-count.js`.
+- Removed a redundant direct `<script>` include for the component in `index.html`; the component is imported via `main.js` and `count-panel`.
+
+### Deploy note
+- If the PWA still loads an older HTML/script, hard refresh (Ctrl+F5) or run `npm run bump-sw` before deploy to ensure clients fetch the latest assets.
+
+## v0.2.14 - 2025-09-22
+### Theme & UI Consistency
+- Fixed light-mode Calendar: previous/past days no longer render with a blue background; day cells now use input theme variables for a neutral look in light mode and stay correct in dark mode.
+- Standardized all surfaces to shared theme variables: `--card` (surface), `--fg` (foreground), and `--border` (stroke). Removed legacy `--panel-*` usages across components.
+- Adopted a frosted-glass UI: translucent `--card` backgrounds with `backdrop-filter: blur(6px)` applied to dialogs, menus, onboarding, and toast notifications for a consistent feel.
+- Tuned light theme contrast by slightly increasing the light `--card` alpha for readability.
+
+### Overlays & Backdrops
+- Introduced theme-aware backdrop variables: `--backdrop-bg` and `--backdrop-weak-bg`, replacing hard-coded rgba overlays in modals, header menus, and onboarding.
+
+### Components touched (high level)
+- Day Picker Modal, Settings Modal, New Profile, Optional Fields, Delete Profile, Unlock Confirm, Revert Confirm, Help Modal, App Header menu, Onboarding Tour, and Toasts.
+
+### Developer notes
+- If clients don’t immediately pick up the new styles, perform a hard refresh or bump the service worker cache before deploy.
+
 ## v0.2.13 - 2025-09-22
 ### UX / PWA: Onboarding-aware Install Banner
 - Install banner now stays hidden while the onboarding tour is open (respects `html[data-tour-open]`).

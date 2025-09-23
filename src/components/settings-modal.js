@@ -3,6 +3,7 @@ import { toast } from '../lib/toast.js';
 import { saveToActiveProfile, restoreActiveProfile, exportProfilesToFile, openImportDialog } from '../lib/persistence.js';
 import { listSavedDaysForActiveProfile, _getActiveDaysEntry, getTodayKey, setDayLabel, setActiveViewDateKey, restoreDay, deleteDay } from '../lib/persistence.js';
 import { getDrawerComponent, updateStatusPill, applyReadOnlyByActiveDate, saveDaysData } from '../lib/persistence.js';
+import './app-modal.js';
 
 class SettingsModal extends HTMLElement {
   constructor() {
@@ -27,13 +28,6 @@ class SettingsModal extends HTMLElement {
       <style>
         :host { display: none; }
         :host([open]) { display: block; }
-        .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(2px); z-index: 1000; }
-        .dialog { position: fixed; inset: 12% auto auto 50%; transform: translateX(-50%);
-          max-width: min(560px, 92vw); max-height: min(85vh, 92vh); overflow-y: auto; overflow-x: hidden; background: var(--card, #1c2541); color: var(--fg, #e0e6ff);
-          border: 1px solid var(--border, #2a345a); border-radius: 14px; padding: 1.1rem 1.1rem 1.25rem; z-index: 1001; box-shadow: var(--shadow, 0 12px 36px rgba(0,0,0,.35)); }
-        .hd { display:flex; justify-content: space-between; align-items:center; gap: 8px; margin-bottom: 10px; }
-        .hd h2 { margin: 0; font-size: 1.1rem; }
-        .close { background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; cursor: pointer; }
         .section { border-top: 1px solid var(--border, #2a345a); padding-top: 10px; margin-top: 10px; }
         .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; flex-wrap: wrap; }
         .radios { display: flex; gap: 12px; align-items: center; }
@@ -48,14 +42,13 @@ class SettingsModal extends HTMLElement {
         .btn .dots { display: inline-block; width: 1.5em; text-align: left; }
         @keyframes dca-ellipsis { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } 100% { content: ''; } }
         .btn.processing .dots::after { content: ''; display: inline-block; animation: dca-ellipsis 1.2s steps(4, end) infinite; }
+        /* Only show mobile-only prefs on small screens */
+        @media (min-width: 641px) {
+          .mobile-only { display: none !important; }
+        }
       </style>
-      <div class="backdrop" part="backdrop"></div>
-      <div class="dialog" role="dialog" aria-modal="true" aria-label="Settings">
-        <div class="hd">
-          <h2>Settings</h2>
-          <button class="close" aria-label="Close">Close</button>
-        </div>
-        <div class="content">
+      <app-modal title="Settings" closable>
+        <div class="content" slot="body">
           <div class="section">
             <div class="row">
               <div>Theme</div>
@@ -112,11 +105,10 @@ class SettingsModal extends HTMLElement {
           </div>
           ` : ''}
         </div>
-      </div>
+      </app-modal>
     `;
     this._els = {
-      backdrop: this._shadow.querySelector('.backdrop'),
-      close: this._shadow.querySelector('.close'),
+      modal: this._shadow.querySelector('app-modal'),
       radios: Array.from(this._shadow.querySelectorAll('input[name="theme"]')),
       exportBtn: this._shadow.querySelector('.export-btn'),
       importBtn: this._shadow.querySelector('.import-btn'),
@@ -134,14 +126,13 @@ class SettingsModal extends HTMLElement {
     };
   const chosen = mode || currentTheme;
     this._els.radios.forEach((r) => { r.checked = r.value === chosen; r.addEventListener('change', this._onThemeChange); });
-    this._els.backdrop?.addEventListener('click', () => this.close());
-    this._els.close?.addEventListener('click', () => this.close());
+    this._els.modal?.addEventListener('modal-close', () => this.close());
     this._els.exportBtn?.addEventListener('click', this._onExport);
     this._els.importBtn?.addEventListener('click', this._onImport);
     this._els.saveBtn?.addEventListener('click', () => { try { saveToActiveProfile(); const header = document.querySelector('app-header'); updateStatusPill(header); toast('Profile saved', { type: 'success', duration: 2000 }); } catch (_) {} });
     this._els.restoreBtn?.addEventListener('click', () => { try { const ok = restoreActiveProfile(); const header = document.querySelector('app-header'); updateStatusPill(header); toast(ok? 'Profile restored':'No saved state for profile', { type: ok?'success':'warning', duration: 2200 }); } catch (_) { toast('Restore failed', { type: 'error', duration: 2500 }); } });
     this._els.clearBtn?.addEventListener('click', () => { try { const comp = getDrawerComponent(); comp?.reset?.(); const header = document.querySelector('app-header'); updateStatusPill(header); toast('Cleared', { type: 'info', duration: 1500 }); } catch(_){} });
-    this._els.dayLoadBtn?.addEventListener('click', this._onDayLoad);
+  this._els.dayLoadBtn?.addEventListener('click', this._onDayLoad);
     this._els.dayDeleteBtn?.addEventListener('click', this._onDayDelete);
     this._els.daySelect?.addEventListener('change', () => {
       const has = !!this._els.daySelect?.value;
@@ -159,8 +150,8 @@ class SettingsModal extends HTMLElement {
     if (this._els.dayLoadBtn) this._els.dayLoadBtn.disabled = !this._els.daySelect?.value;
     if (this._els.dayDeleteBtn) this._els.dayDeleteBtn.disabled = !this._els.daySelect?.value;
   }
-  open() { this.setAttribute('open', ''); try { this._populateDaysSelect(); } catch(_) {} }
-  close() { this.removeAttribute('open'); }
+  open() { this.setAttribute('open', ''); try { this._populateDaysSelect(); } catch(_) {} this._els?.modal?.show(); }
+  close() { this._els?.modal?.hide('programmatic'); this.removeAttribute('open'); }
   _onKeyDown(e) { if (e.key === 'Escape') this.close(); }
   _onThemeChange(e) {
     const val = e.target?.value;
