@@ -1,13 +1,11 @@
-import { test, describe, beforeEach, afterEach } from 'node:test';
-import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { spawn } from 'node:child_process';
-import { setTimeout } from 'node:timers/promises';
+const { test, describe, beforeEach, afterEach } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { spawn } = require('node:child_process');
+const { setTimeout } = require('node:timers/promises');
+const { skipIfNoEnv } = require('../utils/skip');
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '../..');
 const serverPath = path.join(projectRoot, 'server.js');
 
@@ -167,11 +165,9 @@ describe('server.js', () => {
     assert.equal(response.status, 404);
   });
 
-  test('should handle API routes when MongoDB is configured', async () => {
+  test('should handle API routes when MongoDB is configured', async (t) => {
     // Skip this test if we don't have a test MongoDB URI
-    if (!process.env.TEST_MONGODB_URI) {
-      return; // Skip test
-    }
+    skipIfNoEnv(t, 'TEST_MONGODB_URI', 'No TEST_MONGODB_URI provided');
     
     serverProcess = await startServer({ 
       MONGODB_URI: process.env.TEST_MONGODB_URI 

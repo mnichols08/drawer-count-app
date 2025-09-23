@@ -1,50 +1,87 @@
-import { test, describe, beforeEach, afterEach } from 'node:test';
-import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { spawn } from 'node:child_process';
+const { test, describe, beforeEach, afterEach } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { spawn } = require('node:child_process');
+const { skipIfMissingDevDep, skipIfMissingFile } = require('../utils/skip');
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '../..');
 const packageJsonPath = path.join(projectRoot, 'package.json');
 
-// Helper function to run npm scripts
+// Resolve npm command cross-platform
+const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+
+function getPackageJson() {
+  return JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+}
+
+function getScriptCommand(scriptName) {
+  const pkg = getPackageJson();
+  const cmd = pkg.scripts && pkg.scripts[scriptName];
+  if (!cmd) throw new Error(`Script '${scriptName}' not found in package.json`);
+  return cmd;
+}
+
+// Helper function to run npm scripts, with fallback to executing the script command directly
 async function runNpmScript(scriptName, args = [], timeout = 30000) {
-  return new Promise((resolve, reject) => {
-    const child = spawn('npm', ['run', scriptName, ...args], {
-      cwd: projectRoot,
-      stdio: 'pipe',
-      env: { ...process.env, CI: 'true' } // Set CI to avoid interactive prompts
+  function runWithShell(command, argsStr) {
+    return new Promise((resolve) => {
+      const full = argsStr ? `${command} ${argsStr}` : command;
+      const child = spawn(full, {
+        cwd: projectRoot,
+        stdio: 'pipe',
+        shell: true,
+        env: { ...process.env, CI: 'true' }
+      });
+      let stdout = '';
+      let stderr = '';
+      let timeoutId;
+      child.stdout.on('data', d => { stdout += d.toString(); });
+      child.stderr.on('data', d => { stderr += d.toString(); });
+      child.on('close', (code) => { if (timeoutId) clearTimeout(timeoutId); resolve({ code, stdout, stderr }); });
+      child.on('error', () => { if (timeoutId) clearTimeout(timeoutId); resolve({ code: 1, stdout, stderr }); });
+      timeoutId = setTimeout(() => { try { child.kill(); } catch {} resolve({ code: 1, stdout, stderr: `${stderr}\nTimeout after ${timeout}ms` }); }, timeout);
     });
+  }
+
+  return new Promise((resolve) => {
+    let child;
+    try {
+      child = spawn(npmCmd, ['run', scriptName, ...args], {
+        cwd: projectRoot,
+        stdio: 'pipe',
+        env: { ...process.env, CI: 'true' }
+      });
+    } catch (e) {
+      // Fallback immediately
+      const cmd = getScriptCommand(scriptName);
+      runWithShell(cmd, args.join(' ')).then(resolve);
+      return;
+    }
 
     let stdout = '';
     let stderr = '';
     let timeoutId;
-    
-    child.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-    
-    child.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-    
+    child.stdout.on('data', (data) => { stdout += data.toString(); });
+    child.stderr.on('data', (data) => { stderr += data.toString(); });
     child.on('close', (code) => {
       if (timeoutId) clearTimeout(timeoutId);
-      resolve({ code, stdout, stderr });
+      if ((code === undefined || code === null) && stderr.includes('spawn')) {
+        // Fallback if spawn failed silently
+        const cmd = getScriptCommand(scriptName);
+        runWithShell(cmd, args.join(' ')).then(resolve);
+      } else {
+        resolve({ code, stdout, stderr });
+      }
     });
-    
-    child.on('error', (error) => {
+    child.on('error', () => {
       if (timeoutId) clearTimeout(timeoutId);
-      reject(error);
+      const cmd = getScriptCommand(scriptName);
+      runWithShell(cmd, args.join(' ')).then(resolve);
     });
-
-    // Set timeout
     timeoutId = setTimeout(() => {
-      child.kill();
-      reject(new Error(`Script '${scriptName}' timed out after ${timeout}ms`));
+      try { child.kill(); } catch {}
+      resolve({ code: 1, stdout, stderr: `${stderr}\nTimeout after ${timeout}ms` });
     }, timeout);
   });
 }
@@ -100,7 +137,7 @@ describe('package.json scripts', () => {
     cleanupTestArtifacts();
   });
 
-  test('build script should create dist directory', async () => {
+  test('build script should create dist directory', async (t) => {
     const result = await runNpmScript('build');
     
     assert.equal(result.code, 0, `Build script failed: ${result.stderr}`);
@@ -116,12 +153,9 @@ describe('package.json scripts', () => {
     }
   });
 
-  test('build:prod script should optimize and build', async () => {
+  test('build:prod script should optimize and build', async (t) => {
     // Skip if Sharp is not available (might not be installed in CI)
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    if (!packageJson.devDependencies || !packageJson.devDependencies.sharp) {
-      return; // Skip test
-    }
+    if (skipIfMissingDevDep(t, 'sharp', 'Sharp is optional; skipping build:prod test')) return;
 
     const result = await runNpmScript('build:prod', [], 60000); // Longer timeout for optimization
     
@@ -134,18 +168,13 @@ describe('package.json scripts', () => {
     }
   });
 
-  test('icons script should generate icon files', async () => {
+  test('icons script should generate icon files', async (t) => {
     // Skip if favicons is not available
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    if (!packageJson.devDependencies || !packageJson.devDependencies.favicons) {
-      return; // Skip test
-    }
+    if (skipIfMissingDevDep(t, 'favicons', 'favicons not installed; skipping icons test')) return;
 
     // Ensure source SVG exists
-    const sourceIcon = path.join(projectRoot, 'src', 'icons', 'favicon.svg');
-    if (!fs.existsSync(sourceIcon)) {
-      return; // Skip test if source doesn't exist
-    }
+  const sourceIcon = path.join(projectRoot, 'src', 'icons', 'favicon.svg');
+  if (skipIfMissingFile(t, sourceIcon, 'favicon.svg missing; skipping icons test')) return;
 
     const result = await runNpmScript('icons', [], 45000); // Longer timeout for icon generation
     
@@ -157,7 +186,7 @@ describe('package.json scripts', () => {
     }
   });
 
-  test('bump-sw script should update cache version', async () => {
+  test('bump-sw script should update cache version', async (t) => {
     const result = await runNpmScript('bump-sw', ['--dry']);
     
     assert.equal(result.code, 0, `bump-sw script failed: ${result.stderr}`);
@@ -165,7 +194,7 @@ describe('package.json scripts', () => {
               'Should show version bump information');
   });
 
-  test('clean script should remove dist directory', async () => {
+  test('clean script should remove dist directory', async (t) => {
     // First create a dist directory
     const distDir = path.join(projectRoot, 'dist');
     fs.mkdirSync(distDir, { recursive: true });
@@ -177,12 +206,9 @@ describe('package.json scripts', () => {
     assert.ok(!fs.existsSync(distDir), 'dist directory should be removed');
   });
 
-  test('optimize-images script should process images', async () => {
+  test('optimize-images script should process images', async (t) => {
     // Skip if Sharp is not available
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    if (!packageJson.devDependencies || !packageJson.devDependencies.sharp) {
-      return; // Skip test
-    }
+    if (skipIfMissingDevDep(t, 'sharp', 'Sharp not installed; skipping optimize-images')) return;
 
     const result = await runNpmScript('optimize-images');
     
@@ -211,7 +237,7 @@ describe('package.json scripts', () => {
                 'predeploy should run build:prod');
   });
 
-  test('deploy script should show deployment message', async () => {
+  test('deploy script should show deployment message', async (t) => {
     const result = await runNpmScript('deploy');
     
     assert.equal(result.code, 0, 'Deploy script should complete');
@@ -219,13 +245,13 @@ describe('package.json scripts', () => {
               'Should show deployment instructions');
   });
 
-  test('test script should indicate no tests specified', async () => {
+  test('test script should run the suite and show summary', async (t) => {
     const result = await runNpmScript('test');
-    
-    assert.equal(result.code, 1, 'Test script should exit with error code');
-    assert.ok(result.stderr.includes('no test specified') || 
-             result.stdout.includes('no test specified'), 
-             'Should indicate no tests are specified');
+
+    // Our test runner exits 0 on success and prints a summary
+    assert.equal(result.code, 0, 'Test script should exit with success code when tests pass');
+    assert.ok(result.stdout.includes('Test Summary') || result.stdout.includes('All tests passed'),
+              'Should show test summary output');
   });
 
   test('all npm scripts should be defined', async () => {
@@ -257,13 +283,24 @@ describe('package.json scripts', () => {
     }
   });
 
-  test('start:dev script should be able to start server', async () => {
+  test('start:dev script should be able to start server', async (t) => {
     // Test that the script can start (we'll kill it quickly)
-    const child = spawn('npm', ['run', 'start:dev'], {
-      cwd: projectRoot,
-      stdio: 'pipe',
-      env: { ...process.env, PORT: '3999' } // Use different port
-    });
+    let child;
+    try {
+      child = spawn(npmCmd, ['run', 'start:dev'], {
+        cwd: projectRoot,
+        stdio: 'pipe',
+        env: { ...process.env, PORT: '3999' }
+      });
+    } catch {
+      const cmd = getScriptCommand('start:dev');
+      child = spawn(cmd, {
+        cwd: projectRoot,
+        stdio: 'pipe',
+        shell: true,
+        env: { ...process.env, PORT: '3999' }
+      });
+    }
 
     let started = false;
     let stdout = '';
