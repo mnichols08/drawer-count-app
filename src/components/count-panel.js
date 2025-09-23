@@ -204,18 +204,19 @@ class CountPanel extends HTMLElement {
         const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
         const hasSaved = key ? this._hasSavedDay(key) : false;
         const hasUnsaved = this._hasUnsavedChangesComparedToSaved();
+        const hasContent = this._hasAnyFormContent();
         
-        // Show cancel button when editing (has saved data and potentially unsaved changes)
-        const todayReopenCase = (!saveMode && !!this._state.reopened && hasSaved);
-        const pastEditCase = (saveMode && hasSaved);
+        // Only show save/cancel buttons when there are actual changes or content
+        const todayReopenCase = (!saveMode && !!this._state.reopened && hasSaved && hasUnsaved);
+        const pastEditCase = (saveMode && hasSaved && hasUnsaved);
+        const newTodayCase = (!saveMode && !hasSaved && !completed && hasContent); // New today entry with content
+        
         showCancel = !!(pastEditCase || todayReopenCase);
-        
-        // Show save/complete button when editing, but disable if no unsaved changes
-        showComplete = !!(pastEditCase || todayReopenCase || !completed);
+        showComplete = !!(pastEditCase || todayReopenCase || newTodayCase);
       }
     } catch(_) { 
       showCancel = false; 
-      showComplete = !started || !!completed || readOnly || !!this._state.collapsed;
+      showComplete = false;
     }
     
     this._els.cancel.hidden = !showCancel;
@@ -227,41 +228,13 @@ class CountPanel extends HTMLElement {
     this._els.optional.hidden = !showActionButtons;
 
     if (this._els.complete) {
-      let disabled = !!this._isProcessing || readOnly;
-      
-      // Also disable if no unsaved changes for save mode or reopened items
-      if (!disabled && started && !this._state.collapsed && !readOnly) {
-        const saveMode = this._isSaveMode();
-        if (saveMode || this._state.reopened) {
-          const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
-          const hasSaved = key ? this._hasSavedDay(key) : false;
-          const hasUnsaved = this._hasUnsavedChangesComparedToSaved();
-          if (hasSaved && !hasUnsaved) {
-            disabled = true; // Disable if no unsaved changes
-          }
-        }
-      }
-      
-      this._els.complete.disabled = disabled;
+      // Simple disable logic since buttons are hidden when no changes
+      this._els.complete.disabled = !!this._isProcessing || readOnly;
     }
     
     if (this._els.cancel) {
-      let disabled = !!this._isProcessing;
-      
-      // Also disable cancel if no unsaved changes (nothing to cancel)
-      if (!disabled && started && !this._state.collapsed && !readOnly) {
-        const saveMode = this._isSaveMode();
-        if (saveMode || this._state.reopened) {
-          const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
-          const hasSaved = key ? this._hasSavedDay(key) : false;
-          const hasUnsaved = this._hasUnsavedChangesComparedToSaved();
-          if (hasSaved && !hasUnsaved) {
-            disabled = true; // Disable if no unsaved changes to cancel
-          }
-        }
-      }
-      
-      this._els.cancel.disabled = disabled;
+      // Simple disable logic since buttons are hidden when no changes
+      this._els.cancel.disabled = !!this._isProcessing;
     }
     if (this._els.lock) {
       this._els.lock.disabled = !!this._isProcessing;
@@ -422,7 +395,56 @@ class CountPanel extends HTMLElement {
   }
 
   _hasUnsavedChangesComparedToSaved() {
-    try { const comp = this.querySelector('drawer-count'); const cur = comp?.getState?.(); if (!cur) return false; const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; if (!key) return false; const { entry } = _getActiveDaysEntry(false); const saved = entry?.days?.[key]?.state; if (!saved) return false; return JSON.stringify(cur) !== JSON.stringify(saved); } catch(_) { return false; }
+    try { 
+      const comp = this.querySelector('drawer-count'); 
+      const cur = comp?.getState?.(); 
+      if (!cur) return false; 
+      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
+      if (!key) return false; 
+      const { entry } = _getActiveDaysEntry(false); 
+      const saved = entry?.days?.[key]?.state; 
+      if (!saved) return false; 
+      
+      // Compare only the meaningful data fields, excluding timestamp and version
+      const normalize = (state) => {
+        if (!state) return null;
+        return {
+          base: state.base || {},
+          optional: state.optional || {},
+          extra: state.extra || { slips: [], checks: [] }
+        };
+      };
+      
+      const curNormalized = normalize(cur);
+      const savedNormalized = normalize(saved);
+      
+      return JSON.stringify(curNormalized) !== JSON.stringify(savedNormalized);
+    } catch(_) { 
+      return false; 
+    }
+  }
+
+  _hasAnyFormContent() {
+    try {
+      const comp = this.querySelector('drawer-count');
+      const state = comp?.getState?.();
+      if (!state) return false;
+      
+      // Check base fields for any non-zero values
+      const baseValues = Object.values(state.base || {});
+      if (baseValues.some(val => val > 0)) return true;
+      
+      // Check optional fields for any non-zero values
+      const optionalValues = Object.values(state.optional || {});
+      if (optionalValues.some(val => val > 0)) return true;
+      
+      // Check extra arrays for any content
+      if (state.extra?.slips?.length > 0 || state.extra?.checks?.length > 0) return true;
+      
+      return false;
+    } catch(_) { 
+      return false; 
+    }
   }
 
   async _onToggleLock() {
