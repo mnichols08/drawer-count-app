@@ -137,7 +137,14 @@ class CountPanel extends HTMLElement {
   }
   toggleCollapsed() { if (!this._state.started) return false; this._state.collapsed = !this._state.collapsed; this._savePersisted({ collapsed: this._state.collapsed, started: this._state.started }); this._refresh(); return true; }
 
-  showCompletedSummary() { this._state.started = true; this._state.completed = true; this._state.collapsed = false; this._savePersisted({ started: true, completed: true, collapsed: false }); try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch (_) {} this._refresh(); }
+  showCompletedSummary() { 
+    // Don't override reopened state - if something is reopened, let it stay reopened
+    if (this._state?.reopened) {
+      return;
+    }
+    
+    this._state.started = true; this._state.completed = true; this._state.collapsed = true; this._savePersisted({ started: true, completed: true, collapsed: true }); try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch (_) {} this._refresh(); 
+  }
 
   _refresh(noAnim = false) {
     this._state = { ...{ started: false, collapsed: true, completed: false, reopened: false }, ...this._loadPersisted() };
@@ -199,7 +206,18 @@ class CountPanel extends HTMLElement {
 
     this._els.toggle.textContent = collapsed ? '▼' : '▲';
     this._els.toggle.setAttribute('aria-expanded', String(!collapsed));
-    this._els.toggle.setAttribute('aria-label', collapsed ? 'Expand' : 'Collapse');
+    
+    // Contextual labels based on completion or reopened state
+    if (completed || this._state.reopened) {
+      const label = collapsed ? 'Edit count' : 'Show summary';
+      const title = collapsed ? 'Expand to edit this count' : 'Collapse to show summary';
+      this._els.toggle.setAttribute('aria-label', label);
+      this._els.toggle.setAttribute('title', title);
+    } else {
+      const label = collapsed ? 'Expand' : 'Collapse';
+      this._els.toggle.setAttribute('aria-label', label);
+      this._els.toggle.setAttribute('title', label);
+    }
 
     const saveMode = this._isSaveMode();
     try { if (this._els.title) this._els.title.textContent = this._activeDayTitle(); } catch(_) {}
@@ -215,18 +233,37 @@ class CountPanel extends HTMLElement {
 
     const container = this._visibleContainer();
     
-    // Render summary data when completed
-    if (completed) this._renderSummary();
+    // Render summary data when completed or reopened
+    if (completed || this._state.reopened) this._renderSummary();
     
     const collapsedChanged = this._lastCollapsed !== collapsed;
     const completedChanged = this._lastCompleted !== completed;
     
     // Handle animations for state changes
     if (!isEmpty && (collapsedChanged || completedChanged)) {
-      if (collapsed) {
-        this._collapseEl(container, !noAnim);
+      // First sync containers to ensure proper visibility state
+      this._syncContainersVisibility();
+      
+      // For completed OR reopened states with toggle behavior, we need to handle both containers
+      if ((completed || this._state.reopened) && collapsedChanged) {
+        if (collapsed) {
+          // Switching to summary view - ensure body is hidden first, then animate summary
+          this._els.body.hidden = true;
+          this._els.body.setAttribute('aria-hidden', 'true');
+          this._expandEl(this._els.summary, !noAnim);
+        } else {
+          // Switching to edit view - ensure summary is hidden first, then animate body
+          this._els.summary.hidden = true;
+          this._els.summary.setAttribute('aria-hidden', 'true');
+          this._expandEl(this._els.body, !noAnim);
+        }
       } else {
-        this._expandEl(container, !noAnim);
+        // Single container animation for other cases
+        if (collapsed) {
+          this._collapseEl(container, !noAnim);
+        } else {
+          this._expandEl(container, !noAnim);
+        }
       }
     } else if (isEmpty) {
       // For empty state, immediately hide without animation conflicts
@@ -240,10 +277,8 @@ class CountPanel extends HTMLElement {
         this._els.summary.setAttribute('aria-hidden', 'true'); 
         this._els.summary.style.height = '0px';
       } catch(_) {}
-    }
-    
-    // Only sync visibility after handling animations
-    if (!collapsedChanged && !completedChanged) {
+    } else {
+      // Always sync visibility when no state changes occurred
       this._syncContainersVisibility();
     }
     
@@ -284,9 +319,12 @@ class CountPanel extends HTMLElement {
           try { const header = document.querySelector('app-header'); updateStatusPill(header); applyReadOnlyByActiveDate(header); } catch(_) {}
           
           // Set completed state to show summary (same as save)
-          this._state.completed = true; 
-          this._state.collapsed = false;
-          this._savePersisted({ completed: true, started: true, collapsed: false });
+          // But don't override reopened state
+          if (!this._state.reopened) {
+            this._state.completed = true; 
+            this._state.collapsed = true;
+            this._savePersisted({ completed: true, started: true, collapsed: true });
+          }
           
           toast('Reverted changes. Showing summary.', { type: 'info', duration: 1800 }); 
         } catch(_) {}
@@ -397,25 +435,53 @@ class CountPanel extends HTMLElement {
     }
   }
 
-  _visibleContainer() { return this._state.completed ? this._els.summary : this._els.body; }
+  _visibleContainer() { 
+    const { completed, collapsed, reopened } = this._state;
+    if (completed || reopened) {
+      // When completed OR reopened: collapsed=true shows summary, collapsed=false shows body for editing
+      return collapsed ? this._els.summary : this._els.body;
+    } else {
+      // When not completed: always body
+      return this._els.body;
+    }
+  }
 
   _syncContainersVisibility() {
-    const { completed, collapsed } = this._state;
+    const { completed, collapsed, reopened } = this._state;
+    
+    // Skip if visibility state hasn't changed
+    const currentVisState = `${completed}_${collapsed}_${reopened}`;
+    if (this._lastVisState === currentVisState) {
+      return;
+    }
+    this._lastVisState = currentVisState;
     
     // Simple visibility management - let animations handle the transitions
-    if (completed) {
-      this._els.body.hidden = true;
-      this._els.body.setAttribute('aria-hidden', 'true');
+    if (completed || reopened) {
+      // When completed OR reopened: collapsed=true shows summary, collapsed=false shows body for editing
       if (collapsed) {
+        // Show summary, hide body
+        this._els.body.hidden = true;
+        this._els.body.setAttribute('aria-hidden', 'true');
+        this._els.summary.hidden = false;
+        this._els.summary.setAttribute('aria-hidden', 'false');
+      } else {
+        // Show body for editing, hide summary
         this._els.summary.hidden = true;
         this._els.summary.setAttribute('aria-hidden', 'true');
+        this._els.body.hidden = false;
+        this._els.body.setAttribute('aria-hidden', 'false');
       }
     } else {
+      // When not completed: collapsed=true hides body, collapsed=false shows body
       this._els.summary.hidden = true;
       this._els.summary.setAttribute('aria-hidden', 'true');
       if (collapsed) {
         this._els.body.hidden = true;
         this._els.body.setAttribute('aria-hidden', 'true');
+      } else {
+        this._els.body.hidden = false;
+        this._els.body.setAttribute('aria-hidden', 'false');
       }
     }
   }
@@ -523,7 +589,21 @@ class CountPanel extends HTMLElement {
   }
 
   _computeReadOnly() {
-    try { const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; if (!key) return false; const past = key !== today; const unlocked = (typeof isDayEditUnlocked === 'function') ? isDayEditUnlocked() : false; return past && !unlocked; } catch (_) { return false; }
+    try { 
+      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
+      const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; 
+      if (!key) return false; 
+      const past = key !== today; 
+      const unlocked = (typeof isDayEditUnlocked === 'function') ? isDayEditUnlocked() : false; 
+      
+      // If item is reopened (completed item being edited), it should be read-only until unlocked
+      if (this._state?.reopened) {
+        return !unlocked;
+      }
+      
+      // Otherwise, only past dates require unlocking
+      return past && !unlocked; 
+    } catch (_) { return false; }
   }
 
   _activeDayTitle() {
@@ -562,7 +642,12 @@ class CountPanel extends HTMLElement {
     queueMicrotask(() => this._focusFirstInput());
   }
 
-  _onToggle() { if (!this._state.started) return; this._state.collapsed = !this._state.collapsed; this._savePersisted({ collapsed: this._state.collapsed, started: this._state.started }); this._refresh(); }
+  _onToggle() { 
+    if (!this._state.started) return; 
+    this._state.collapsed = !this._state.collapsed; 
+    this._savePersisted({ collapsed: this._state.collapsed, started: this._state.started }); 
+    this._refresh(); 
+  }
 
   _beginProcessing(kind) { this._isProcessing = true; this._processingKind = kind || null; this._refresh(); }
   _endProcessing() { this._isProcessing = false; this._processingKind = null; this._refresh(); }
@@ -581,9 +666,12 @@ class CountPanel extends HTMLElement {
         try { const header = document.querySelector('app-header'); updateStatusPill(header); applyReadOnlyByActiveDate(header); } catch(_) {} 
         
         // Set completed state to show summary after saving
-        this._state.completed = true; 
-        this._state.collapsed = false;
-        this._savePersisted({ completed: true, started: true, collapsed: false });
+        // But don't override reopened state  
+        if (!this._state.reopened) {
+          this._state.completed = true; 
+          this._state.collapsed = true;
+          this._savePersisted({ completed: true, started: true, collapsed: true });
+        }
         
         toast('Saved. Editing locked.', { type: 'success', duration: 3000 }); 
       } catch (_) { }
@@ -595,7 +683,7 @@ class CountPanel extends HTMLElement {
     try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch (_) {}
     try { if (typeof getActiveViewDateKey === 'function' && typeof saveSpecificDay === 'function') { const key = getActiveViewDateKey(); if (key) saveSpecificDay(key); } } catch (_) {}
     try { toast('Marked complete for this day.'); } catch(_) {}
-    this._state.collapsed = false;
+    this._state.collapsed = true;
     setTimeout(() => this._endProcessing(), 250);
     this._refresh();
   }
