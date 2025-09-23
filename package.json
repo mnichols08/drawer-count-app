@@ -4,7 +4,11 @@
   "description": "A minimal, installable PWA to help myself and coworkers count drawers at the end of the day.",
   "main": "src/index.html",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node tests/run-tests.js",
+    "test:setup": "node --test tests/setup.test.js",
+    "test:basic": "node --test tests/scripts/basic-tests.test.js",
+    "test:watch": "node --test --watch tests/",
+    "test:coverage": "node --test --experimental-test-coverage tests/",
     "dev": "nodemon server.js",
     "start": "cross-env NODE_ENV=production node server.js",
     "start:dev": "node server.js",
