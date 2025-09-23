@@ -1,0 +1,38 @@
+ISC License
+
+Copyright (c) 2025, Mikey Nichols
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+---
+
+## Encouragement to Fork and Customize
+
+This Drawer Count App was built to be easily adaptable for various business
+needs. You are strongly encouraged to:
+
+• Fork this repository and customize it for your specific requirements
+• Modify the calculator logic for different types of counting scenarios
+• Add new features that benefit your workflow
+• Integrate with your existing business systems
+• Share improvements back to the community (though not required)
+
+The codebase uses modern web standards (Web Components, ES6 modules) and
+is designed to be maintainable and extensible. Feel free to use this as
+a foundation for your own point-of-sale tools, inventory systems, or any
+other counting applications.
+
+If you create something interesting based on this project, I'd love to
+hear about it! You can reach out via GitHub issues or discussions.
+
+Happy coding!
