@@ -34,7 +34,7 @@ class NewProfileModal extends HTMLElement {
         .btn[disabled] { opacity: .6; cursor: not-allowed; }
       </style>
       <app-modal title="Create Profile" closable>
-        <form slot="body">
+        <form slot="body" id="np-form">
           <label for="np-name">Profile name</label>
           <input id="np-name" name="name" type="text" autocomplete="off" placeholder="e.g., Name" />
         </form>
@@ -51,15 +51,41 @@ class NewProfileModal extends HTMLElement {
       cancel: this._shadow.querySelector('.btn-cancel'),
       submit: this._shadow.querySelector('.btn-submit'),
     };
-    this._els.modal?.addEventListener('modal-close', () => this._cancel());
+    this._els.modal?.addEventListener('modal-close', (e) => {
+      // Only cancel if the modal was closed by escape/cancel, not by form submission
+      if (e.detail?.reason !== 'submit') {
+        this._cancel();
+      }
+    });
     this._els.cancel?.addEventListener('click', () => this._cancel());
     this._els.input?.addEventListener('input', () => { const name = (this._els.input.value || '').trim(); this._els.submit.disabled = name.length === 0; });
-    this._els.form?.addEventListener('submit', (e) => { e.preventDefault(); const name = (this._els.input.value || '').trim(); if (!name) { this._els.input.focus(); return; } this.removeAttribute('open'); this._els.modal?.hide('submit'); this._resolve(name); });
+    this._els.form?.addEventListener('submit', (e) => { 
+      e.preventDefault(); 
+      const name = (this._els.input.value || '').trim(); 
+      if (!name) { this._els.input.focus(); return; } 
+      this.removeAttribute('open'); 
+      this._els.modal?.hide('submit'); 
+      this._resolve(name); 
+    });
   }
-  open(defaultValue = '') { this.setAttribute('open', ''); if (!this._els) this._render(); this._els.input.value = defaultValue || ''; this._els.submit.disabled = (this._els.input.value.trim().length === 0); this._els.modal?.show(); setTimeout(() => { try { this._els.input.focus(); this._els.input.select(); } catch(_) {} }, 0); return new Promise((resolve) => { this._resolver = resolve; }); }
+  open(defaultValue = '') { 
+    this.setAttribute('open', ''); 
+    if (!this._els) this._render(); 
+    this._els.input.value = defaultValue || ''; 
+    this._els.submit.disabled = (this._els.input.value.trim().length === 0); 
+    this._els.modal?.show(); 
+    setTimeout(() => { try { this._els.input.focus(); this._els.input.select(); } catch(_) {} }, 0); 
+    return new Promise((resolve) => { this._resolver = resolve; }); 
+  }
   close() { this._els?.modal?.hide('programmatic'); this.removeAttribute('open'); this._resolve(null); }
   _cancel() { this.close(); }
-  _resolve(value) { const r = this._resolver; this._resolver = null; if (r) r(value); }
+  _resolve(value) { 
+    const r = this._resolver; 
+    this._resolver = null; 
+    if (r) {
+      r(value); 
+    }
+  }
   _onKeyDown(e) { if (e.key === 'Escape' && this.hasAttribute('open')) this.close(); }
 }
 

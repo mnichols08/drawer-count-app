@@ -99,8 +99,18 @@ class AppHeader extends HTMLElement {
     this.querySelectorAll('.info-btn')?.forEach((el) => el.addEventListener('click', this._onHelp));
     this.querySelectorAll('.panel-toggle-btn')?.forEach((el) => el.addEventListener('click', this._onPanelToggle));
     this.querySelector('.profile-select')?.addEventListener('change', this._onProfileChange);
-    this.querySelector('.new-profile-btn')?.addEventListener('click', this._onNewProfile);
-    this.querySelector('.delete-profile-btn')?.addEventListener('click', this._onDeleteProfile);
+    
+    const newProfileBtn = this.querySelector('.new-profile-btn');
+    const deleteProfileBtn = this.querySelector('.delete-profile-btn');
+    
+    newProfileBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      this._onNewProfile();
+    });
+    deleteProfileBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      this._onDeleteProfile();
+    });
     this.querySelectorAll('.days-btn')?.forEach((el) => el.addEventListener('click', this._onOpenDays));
     this.querySelector('.menu-toggle')?.addEventListener('click', this._onMenuToggle);
     window.addEventListener('keydown', this._onWindowKey);
@@ -203,8 +213,49 @@ class AppHeader extends HTMLElement {
   }
 
   _onProfileChange(e) { try { const id = e.target?.value; if (!id) return; setActiveProfile(id); restoreActiveProfile(); ensureDayResetIfNeeded(this); setActiveViewDateKey(getTodayKey()); applyReadOnlyByActiveDate(this); populateProfilesSelect(this); try { const mode = getProfileThemeMode(); applyTheme(mode, false); } catch(_) {} toast('Switched profile', { type:'info', duration: 1200}); } catch(_){} }
-  async _onNewProfile() { try { const modal = getNewProfileModal(); const name = await modal.open(''); if (!name) return; const currentMode = getProfileThemeMode?.() || 'system'; const id = createProfile(name); setActiveProfile(id); try { if (currentMode) applyTheme(currentMode, true); } catch(_) {} saveToActiveProfile(); populateProfilesSelect(this); applyReadOnlyByActiveDate(this); toast('Profile created', { type: 'success', duration: 1800 }); } catch(_){} }
-  async _onDeleteProfile() { try { const data = loadProfilesData(); const ids = Object.keys(data.profiles||{}); if (ids.length<=1) { toast('Cannot delete last profile', { type:'warning', duration: 2200}); return; } const active = data.activeId; const name = data.profiles[active]?.name || active; const modal = getDeleteProfileModal(); const ok = await modal.open(name); if (!ok) return; delete data.profiles[active]; const nextId = ids.find((x)=>x!==active) || 'default'; data.activeId = nextId; saveProfilesData(data); restoreActiveProfile(); populateProfilesSelect(this); applyReadOnlyByActiveDate(this); try { const mode = getProfileThemeMode?.(); applyTheme(mode, false); } catch(_) {} toast('Profile deleted', { type: 'success', duration: 1800}); } catch(_){} }
+  async _onNewProfile() { 
+    try { 
+      const modal = getNewProfileModal(); 
+      const name = await modal.open(''); 
+      if (!name) return; 
+      const currentMode = getProfileThemeMode?.() || 'system'; 
+      const id = createProfile(name); 
+      setActiveProfile(id); 
+      try { if (currentMode) applyTheme(currentMode, true); } catch(_) {} 
+      saveToActiveProfile(); 
+      populateProfilesSelect(this); 
+      applyReadOnlyByActiveDate(this); 
+      toast('Profile created', { type: 'success', duration: 1800 }); 
+    } catch(err) { 
+      console.error('Error in _onNewProfile:', err); 
+    } 
+  }
+  async _onDeleteProfile() { 
+    try { 
+      const data = loadProfilesData(); 
+      const ids = Object.keys(data.profiles||{}); 
+      if (ids.length<=1) { 
+        toast('Cannot delete last profile', { type:'warning', duration: 2200}); 
+        return; 
+      } 
+      const active = data.activeId; 
+      const name = data.profiles[active]?.name || active; 
+      const modal = getDeleteProfileModal(); 
+      const ok = await modal.open(name); 
+      if (!ok) return; 
+      delete data.profiles[active]; 
+      const nextId = ids.find((x)=>x!==active) || 'default'; 
+      data.activeId = nextId; 
+      saveProfilesData(data); 
+      restoreActiveProfile(); 
+      populateProfilesSelect(this); 
+      applyReadOnlyByActiveDate(this); 
+      try { const mode = getProfileThemeMode?.(); applyTheme(mode, false); } catch(_) {} 
+      toast('Profile deleted', { type: 'success', duration: 1800}); 
+    } catch(err) { 
+      console.error('Error in _onDeleteProfile:', err); 
+    } 
+  }
   async _onOpenDays() {
     try {
       const days = (listSavedDaysForActiveProfile() || []).map(d => d.date);

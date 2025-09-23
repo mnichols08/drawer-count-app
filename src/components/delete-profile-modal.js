@@ -43,7 +43,12 @@ class DeleteProfileModal extends HTMLElement {
       name: this._shadow.querySelector('.pname'),
       warn: this._shadow.querySelector('.danger'),
     };
-    this._els.modal?.addEventListener('modal-close', () => this._cancel());
+    this._els.modal?.addEventListener('modal-close', (e) => {
+      // Only cancel if the modal was closed by escape/X button, not by programmatic close
+      if (e.detail?.reason !== 'programmatic') {
+        this._cancel();
+      }
+    });
     this._els.cancel?.addEventListener('click', () => this._cancel());
     this._els.del?.addEventListener('click', () => this._confirm());
   }
@@ -61,10 +66,25 @@ class DeleteProfileModal extends HTMLElement {
     this._els.modal?.show();
     return new Promise((resolve) => { this._resolver = resolve; });
   }
-  close() { this._els?.modal?.hide('programmatic'); this.removeAttribute('open'); }
-  _cancel() { this.close(); this._resolve(false); }
-  _confirm() { this.close(); this._resolve(true); }
-  _resolve(v) { const r = this._resolver; this._resolver = null; if (r) r(v); }
+  close() { 
+    this._els?.modal?.hide('programmatic'); 
+    this.removeAttribute('open'); 
+  }
+  _cancel() { 
+    this.close(); 
+    this._resolve(false); 
+  }
+  _confirm() { 
+    this.close(); 
+    this._resolve(true); 
+  }
+  _resolve(v) { 
+    const r = this._resolver; 
+    this._resolver = null; 
+    if (r) {
+      r(v);
+    }
+  }
   _onKeyDown(e) { if (e.key === 'Escape' && this.hasAttribute('open')) this._cancel(); }
 }
 
