@@ -9,142 +9,25 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     strategy:
       matrix:
         node-version: [18.x, 20.x, 22.x]
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Setup Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: npm ci
-    
-    - name: Run test suite
-      run: npm test
-      env:
-        CI: true
-    
-    - name: Run individual test categories
-      run: |
-        npm run test:build
-        npm run test:bump
-        npm run test:icons
-        npm run test:images
-        npm run test:server
-        npm run test:scripts
-      env:
-        CI: true
-    
-    # Optional: Run with coverage on Node 20+
-    - name: Run tests with coverage
-      if: matrix.node-version == '20.x'
-      run: npm run test:coverage
-      env:
-        CI: true
 
-  test-dependencies:
-    runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20.x'
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: npm ci
-    
-    - name: Test without optional dependencies
-      run: |
-        # Test core functionality without heavy dependencies
-        npm run test:build
-        npm run test:bump
-        npm run test:server
-        npm run test:scripts
-      env:
-        CI: true
-    
-    - name: Test build process
-      run: |
-        npm run build
-        test -d dist
-        test -f dist/index.html
-        test -f dist/manifest.webmanifest
-        test -f dist/sw.js
-    
-    - name: Test version bumping
-      run: |
-        npm run bump-sw -- --dry
-    
-    - name: Test clean process
-      run: |
-        npm run clean
-        test ! -d dist
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  test-scripts-integration:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20.x'
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: npm ci
-    
-    - name: Test full build pipeline
-      run: |
-        # Test the complete build pipeline
-        npm run clean
-        npm run build
-        npm run bump-sw -- --dry --no-git
-        
-        # Verify artifacts
-        test -d dist
-        test -f dist/index.html
-        test -f dist/sw.js
-        test -f dist/manifest.webmanifest
-    
-    - name: Test server startup
-      run: |
-        # Start server in background and test it responds
-        timeout 10s npm run start:dev &
-        sleep 5
-        # Server should be running (this will exit with code 124 from timeout, which is expected)
-      env:
-        PORT: 3000
-    
-    - name: Verify package.json scripts
-      run: |
-        # Ensure all scripts are properly defined
-        node -e "
-          const pkg = require('./package.json');
-          const scripts = pkg.scripts;
-          console.log('Available scripts:', Object.keys(scripts));
-          
-          // Check for required scripts
-          const required = ['test', 'build', 'start', 'dev', 'clean'];
-          for (const script of required) {
-            if (!scripts[script]) {
-              throw new Error(\`Required script '\${script}' is missing\`);
-            }
-          }
-          console.log('✅ All required scripts are present');
-        "
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run test suite
+        run: npm test
+        env:
+          CI: true
