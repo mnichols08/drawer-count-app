@@ -75,7 +75,7 @@ const BG_IMAGES = [
   'eclipse-challenge-bg',
   'vw-bg',
 ];
-const BG_IMAGE_BASE = './src/images/';
+const BG_IMAGE_BASE = './images/';
 let CURRENT_BG_URL = null;
 let SUPPORTS_WEBP = null;
 let BG_LAYER_EL = null;
