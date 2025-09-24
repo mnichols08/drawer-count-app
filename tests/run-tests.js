@@ -29,6 +29,7 @@ async function runTests() {
 
   const testFiles = [
     'tests/setup.test.js',
+    'tests/scripts/build.test.js',
     'tests/scripts/basic-tests.test.js',
     'tests/scripts/package-scripts.test.js'
   ];

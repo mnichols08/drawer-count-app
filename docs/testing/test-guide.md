@@ -96,6 +96,7 @@ describe('Script Name', () => {
 - ✅ Handles custom domain configuration
 - ✅ Validates critical files exist
 - ✅ Cleans existing dist before building
+- ✅ Verifies manifest-referenced favicon assets exist and contain valid SVG markup
 - ✅ Error handling for missing source files
 
 ### 2. Version Bump Tests (`bump-sw-cache.test.js`)

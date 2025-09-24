@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.9 - 2025-09-24
+### Testing
+- Added a regression check in `tests/scripts/build.test.js` to ensure `dist/icons/favicon.svg` is generated with valid SVG markup and remains referenced by the web app manifest after every build, preventing production 404s.
+- Wired the build script suite into `npm test` so CI and local runs catch build regressions automatically.
+
+### Documentation
+- Updated `docs/testing/test-guide.md` to highlight the new favicon safeguard covered by the build tests.
+
 ## v0.3.8 - 2025-09-24
 ### Scripts
 - Removed npm release helper scripts (`release:*`) and the `bump-sw:push` shortcut in favor of running `npm run bump-sw` with explicit flags when needed.
