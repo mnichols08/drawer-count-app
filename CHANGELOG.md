@@ -1,4 +1,13 @@
 # Changelog
+
+## v0.3.9 - 2025-09-24
+### Scripts
+- Removed npm release helper scripts (`release:*`) and the `bump-sw:push` shortcut in favor of running `npm run bump-sw` with explicit flags when needed.
+- Retired the `build:prod` alias; `npm run predeploy` now performs asset optimization (`optimize-images`) followed by the build step directly.
+- Consolidated development commands: `npm run dev` now handles nodemon-based hot reload, so the redundant `start:dev` and `dev:server` scripts were removed.
+- `npm run test` now runs the package-scripts suite alongside the other Node tests to keep script regressions visible in CI.
+- Updated documentation and CI configuration to reference the streamlined `predeploy` workflow.
+
 ## v0.3.8 - 2025-09-24
 ### Testing: Client E2E suite, offline, and no-console-errors
 - Added robust end-to-end (E2E) browser tests using Playwright:

@@ -19,7 +19,7 @@ npm run build
 
 ### Production Build (with optimization)
 ```bash
-npm run build:prod  # Runs optimize-images then build
+npm run predeploy  # Runs optimize-images then build
 ```
 
 ### Direct Script Execution
@@ -221,15 +221,14 @@ if (process.env.CUSTOM_ENV === 'staging') {
 ### With Other Scripts
 ```bash
 # Full production pipeline
-npm run optimize-images  # First optimize assets
-npm run build            # Then build
+npm run predeploy        # Optimize assets and build
 npm run deploy           # Finally deploy
 ```
 
 ### In CI/CD
 ```yaml
 - name: Build for production
-  run: npm run build:prod
+  run: npm run predeploy
   env:
     NODE_ENV: production
 ```

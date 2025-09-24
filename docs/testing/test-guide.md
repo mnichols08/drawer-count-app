@@ -55,7 +55,7 @@ node --test tests/scripts/optimize-images.test.js
 # Test server functionality
 node --test tests/scripts/server.test.js
 
-# Test package.json scripts
+# Test package.json scripts (already included in `npm test`)
 node --test tests/scripts/package-scripts.test.js
 ```
 
@@ -139,6 +139,7 @@ describe('Script Name', () => {
 - ✅ Version bump scripts work correctly
 - ✅ Environment-specific script behavior
 - ✅ Script dependency validation
+- 🛈 This suite runs automatically as part of `npm test`; run it directly for focused debugging.
 
 ## Test Utilities
 

@@ -16,7 +16,7 @@ The project includes sophisticated version management through the `bump-sw-cache
 
 **Usage**:
 ```bash
-npm run bump-sw-cache
+npm run bump-sw
 # or
 node scripts/bump-sw-cache.js
 ```
@@ -84,9 +84,9 @@ const CACHE_NAME = 'drawer-count-v1.0.1';  // ← Updated automatically
 
 ```bash
 # Recommended deployment workflow
-npm run bump-sw-cache    # Update versions
-npm run build           # Build with new version
-npm run deploy          # Deploy to production
+npm run bump-sw        # Update versions and SW cache
+npm run predeploy      # Optimize assets and build
+npm run deploy         # Deploy to production
 ```
 
 ### Automation Options
@@ -95,7 +95,7 @@ npm run deploy          # Deploy to production
 ```json
 {
   "scripts": {
-    "predeploy": "npm run bump-sw-cache && npm run build",
+    "release": "npm run bump-sw && npm run predeploy",
     "deploy": "node scripts/deploy.js"
   }
 }
@@ -105,7 +105,7 @@ npm run deploy          # Deploy to production
 ```yaml
 - name: Bump version and build
   run: |
-    npm run bump-sw-cache
+  npm run bump-sw
     npm run build
 ```
 
@@ -146,7 +146,7 @@ Integrate with Git hooks:
 ```bash
 # .git/hooks/pre-commit
 #!/bin/sh
-npm run bump-sw-cache
+npm run bump-sw
 git add package.json src/sw.js
 ```
 
@@ -165,8 +165,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: npm run bump-sw-cache
-      - run: npm run build
+      - run: npm run bump-sw
+      - run: npm run predeploy
 ```
 
 ### Version Tracking

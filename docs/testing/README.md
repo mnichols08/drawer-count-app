@@ -55,10 +55,11 @@ node --test tests/scripts/build.test.js     # Specific Node test file
 🧪 Running comprehensive script tests...
 ✅ tests/setup.test.js - PASSED
 ✅ tests/scripts/basic-tests.test.js - PASSED
+✅ tests/scripts/package-scripts.test.js - PASSED
 
 📊 Test Summary:
-Total Tests: 19
-Passed: 19
+Total Tests: 32
+Passed: 32
 Failed: 0
 
 🎉 All tests passed!
@@ -79,7 +80,7 @@ tests/
     ├── generate-icons.test.js # Advanced icon testing (reference)
     ├── optimize-images.test.js # Advanced image testing (reference)
     ├── server.test.js         # Advanced server testing (reference)
-    └── package-scripts.test.js # Advanced script testing (reference)
+    └── package-scripts.test.js # npm scripts validation (runs with npm test)
 ```
 
 ## 🔧 Test Framework Details

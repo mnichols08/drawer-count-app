@@ -117,13 +117,12 @@ The app supports both development and production builds:
 ### Development
 ```bash
 npm run dev          # Development with auto-reload (serves from /src)
-npm run start:dev    # Development without auto-reload (serves from /src)
 ```
 
 ### Production Build
 ```bash
 npm run build        # Build /dist folder from /src
-npm run build:prod   # Build with image optimization
+npm run predeploy    # Optimize assets, then build /dist
 npm start            # Production mode (serves from /dist)
 ```
 
@@ -137,25 +136,23 @@ The build process:
 ```bash
 # Development
 npm run dev          # Development server with auto-reload (nodemon)
-npm run start:dev    # Development server without auto-reload
 
 # Production  
 npm start            # Production server (NODE_ENV=production)
 npm run build        # Build /dist folder from /src
-npm run build:prod   # Build with image optimization
+npm run predeploy    # Optimize assets, then build /dist
 
 # Assets
 npm run icons        # Generate icon set from favicon.svg
 npm run optimize-images  # Optimize PNGs and generate WebP variants
 
 # Release Management
-npm run bump-sw      # Bump service worker cache version
-npm run release:patch    # Patch version bump + SW cache + push
-npm run release:minor    # Minor version bump + SW cache + push
-npm run release:major    # Major version bump + SW cache + push
+# Use flags for publish flow (e.g., npm run bump-sw -- --minor --push)
+npm run bump-sw      # Bump service worker cache version / SW assets
 
 # Deployment
 npm run predeploy    # Full production build with optimizations
+npm run deploy       # Deploy (shows instructions)
 npm run clean        # Remove /dist folder
 
 # Linting
@@ -181,10 +178,10 @@ npm run clean:all    # Remove dist/ and Playwright artifacts
 ```
 
 The server automatically serves:
-- `/src` folder in development mode
-- `/dist` folder in production mode (NODE_ENV=production)
+- `/src` folder in development mode (`npm run dev`)
+- `/dist` folder in production mode (`npm start` with NODE_ENV=production)
 
-Deploy the `/dist` folder to your hosting provider after running `npm run build:prod`.
+Deploy the `/dist` folder to your hosting provider after running `npm run predeploy`.
 
 ### E2E Testing
 
@@ -221,7 +218,7 @@ This repository includes a GitHub Actions workflow that automatically builds and
 
 The GitHub Actions workflow:
 - Installs dependencies
-- Runs `npm run build:prod` (includes image optimization)
+- Runs `npm run predeploy` (includes image optimization)
 - Deploys the `/dist` folder to GitHub Pages
 - Handles path updates automatically for GitHub Pages environment
 

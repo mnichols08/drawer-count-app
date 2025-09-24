@@ -159,21 +159,6 @@ describe('package.json scripts', () => {
     }
   });
 
-  test('build:prod script should optimize and build', async (t) => {
-    // Skip if Sharp is not available (might not be installed in CI)
-    if (skipIfMissingDevDep(t, 'sharp', 'Sharp is optional; skipping build:prod test')) return;
-
-    const result = await runNpmScript('build:prod', [], 60000); // Longer timeout for optimization
-    
-    // Should either succeed or fail gracefully
-    assert.ok([0, 1].includes(result.code), 'build:prod should complete with valid exit code');
-    
-    if (result.code === 0) {
-      const distDir = path.join(projectRoot, 'dist');
-      assert.ok(fs.existsSync(distDir), 'dist directory should be created');
-    }
-  });
-
   test('icons script should generate icon files', async (t) => {
     // Skip if favicons is not available
     if (skipIfMissingDevDep(t, 'favicons', 'favicons not installed; skipping icons test')) return;
@@ -225,22 +210,13 @@ describe('package.json scripts', () => {
              'Should process images or report none found');
   });
 
-  test('release scripts should show dry run information', async () => {
-    // Test patch release dry run
-    const result = await runCommand('node', [
-      path.join(projectRoot, 'scripts', 'bump-sw-cache.js'),
-      '--patch', '--dry', '--no-git'
-    ]);
-    
-    assert.equal(result.code, 0, 'Release patch dry run should work');
-    assert.ok(result.stdout.includes('Next:'), 'Should show next version');
-  });
-
-  test('predeploy script should run build:prod', async () => {
-    // This is tested indirectly since predeploy runs build:prod
+  test('predeploy script should optimize images then build', async () => {
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    assert.equal(packageJson.scripts.predeploy, 'npm run build:prod', 
-                'predeploy should run build:prod');
+    assert.equal(
+      packageJson.scripts.predeploy,
+      'npm run optimize-images && npm run build',
+      'predeploy should optimize images before running build'
+    );
   });
 
   test('deploy script should show deployment message', async (t) => {
@@ -251,110 +227,59 @@ describe('package.json scripts', () => {
               'Should show deployment instructions');
   });
 
-  test('test script should run the suite and show summary', async (t) => {
-    if (isTruthyEnv(process.env.DCA_SKIP_FULL_TEST)) {
-      t.diagnostic('Skipping full test script verification during node-only test runs.');
-      t.skip('DCA_SKIP_FULL_TEST is enabled');
-      return;
-    }
-
-    const result = await runNpmScript('test', [], 120000);
-
-    // Our test runner exits 0 on success and prints a summary
-    assert.equal(result.code, 0, 'Test script should exit with success code when tests pass');
-    assert.ok(result.stdout.includes('Test Summary') || result.stdout.includes('All tests passed'),
-              'Should show test summary output');
-  });
-
-  test('all npm scripts should be defined', async () => {
+  test('npm scripts list should include required commands and exclude deprecated ones', async () => {
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
     const expectedScripts = [
       'test',
-      'dev',
-      'start',
-      'start:dev',
+    'test:e2e',
+    'test:watch',
+    'test:ui',
+      'e2e:install',
+  'dev',
+  'start',
       'build',
-      'build:prod',
       'icons',
       'bump-sw',
+      'optimize-images',
+      'predeploy',
+      'deploy',
+      'clean',
+      'clean:e2e',
+      'clean:all',
+      'verify:git',
+      'lint',
+      'lint:js',
+      'lint:md'
+    ];
+
+    for (const script of expectedScripts) {
+      assert.ok(packageJson.scripts[script], `Script '${script}' should be defined`);
+    }
+
+    const removedScripts = [
+      'build:prod',
       'bump-sw:push',
       'release:patch',
       'release:minor',
       'release:major',
       'release:patch:push',
       'release:tag-only',
-      'release:tag-only:push',
-      'optimize-images',
-      'predeploy',
-      'deploy',
-      'clean'
+      'release:tag-only:push'
     ];
 
-    for (const script of expectedScripts) {
-      assert.ok(packageJson.scripts[script], `Script '${script}' should be defined`);
+    for (const script of removedScripts) {
+      assert.ok(!packageJson.scripts[script], `Script '${script}' should no longer be defined`);
     }
   });
 
-  test('start:dev script should be able to start server', async (t) => {
-    // Test that the script can start (we'll kill it quickly)
-    let child;
-    try {
-      child = spawn(npmCmd, ['run', 'start:dev'], {
-        cwd: projectRoot,
-        stdio: 'pipe',
-        env: { ...process.env, PORT: '3999' }
-      });
-    } catch {
-      const cmd = getScriptCommand('start:dev');
-      child = spawn(cmd, {
-        cwd: projectRoot,
-        stdio: 'pipe',
-        shell: true,
-        env: { ...process.env, PORT: '3999' }
-      });
-    }
+  test('bump-sw dry run should work', async () => {
+    const result = await runCommand('node', [
+      path.join(projectRoot, 'scripts', 'bump-sw-cache.js'),
+      '--dry', '--no-git'
+    ]);
 
-    let started = false;
-    let stdout = '';
-
-    const timeout = setTimeout(() => {
-      if (!started) {
-        child.kill();
-      }
-    }, 5000);
-
-    child.stdout.on('data', (data) => {
-      stdout += data.toString();
-      if (stdout.includes('listening') || stdout.includes('server')) {
-        started = true;
-        child.kill();
-        clearTimeout(timeout);
-      }
-    });
-
-    await new Promise((resolve) => {
-      child.on('close', resolve);
-    });
-
-    // Should either start successfully or fail gracefully
-    assert.ok(started || stdout.length > 0, 'start:dev script should attempt to start server');
-  });
-
-  test('bump-sw variations should work', async () => {
-    // Test different bump-sw script variations
-    const bumpScripts = [
-      'bump-sw',
-      'release:tag-only'
-    ];
-
-    for (const script of bumpScripts) {
-      const result = await runCommand('node', [
-        path.join(projectRoot, 'scripts', 'bump-sw-cache.js'),
-        '--dry', '--no-git'
-      ]);
-      
-      assert.equal(result.code, 0, `${script} equivalent should work in dry mode`);
-    }
+    assert.equal(result.code, 0, 'bump-sw dry run should work');
+    assert.ok(result.stdout.includes('Next:'), 'Dry run should report the next version');
   });
 
   test('scripts should handle missing dependencies gracefully', async () => {

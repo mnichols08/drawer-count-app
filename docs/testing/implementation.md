@@ -63,9 +63,12 @@ I have created a comprehensive test suite for all scripts in the Drawer Count Ap
 📝 Running tests/scripts/basic-tests.test.js...
 ✅ tests/scripts/basic-tests.test.js - PASSED
 
-📊 Test Summary:
-Total Tests: 19
-Passed: 19
+� Running tests/scripts/package-scripts.test.js...
+✅ tests/scripts/package-scripts.test.js - PASSED
+
+�📊 Test Summary:
+Total Tests: 32
+Passed: 32
 Failed: 0
 
 🎉 All tests passed!
@@ -113,7 +116,7 @@ tests/
     ├── generate-icons.test.js   # Advanced icon testing
     ├── optimize-images.test.js  # Advanced image testing
     ├── server.test.js           # Advanced server testing
-    └── package-scripts.test.js  # Advanced script testing
+  └── package-scripts.test.js  # npm script validation (included in npm test)
 ```
 
 ### 🔧 Updated Package.json
