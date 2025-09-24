@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.9 - 2025-09-24
+## v0.3.8 - 2025-09-24
 ### Scripts
 - Removed npm release helper scripts (`release:*`) and the `bump-sw:push` shortcut in favor of running `npm run bump-sw` with explicit flags when needed.
 - Retired the `build:prod` alias; `npm run predeploy` now performs asset optimization (`optimize-images`) followed by the build step directly.
@@ -8,7 +8,6 @@
 - `npm run test` now runs the package-scripts suite alongside the other Node tests to keep script regressions visible in CI.
 - Updated documentation and CI configuration to reference the streamlined `predeploy` workflow.
 
-## v0.3.8 - 2025-09-24
 ### Testing: Client E2E suite, offline, and no-console-errors
 - Added robust end-to-end (E2E) browser tests using Playwright:
 	- `drawer-balance.spec.js`: verifies drawer math and asserts no console/page errors.
