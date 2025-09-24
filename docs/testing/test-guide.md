@@ -27,6 +27,17 @@ Tests use **Node.js built-in test runner** (Node 18+), which means:
 npm test
 ```
 
+### Run Playwright E2E Tests
+```bash
+npm run test:e2e
+```
+
+### Watch Modes
+```bash
+npm run test:watch    # Watch Node + Playwright suites together (headless)
+npm run test:ui       # Launch Playwright UI alongside watch mode
+```
+
 ### Run Individual Test Files
 ```bash
 # Test build script
@@ -122,7 +133,7 @@ describe('Script Name', () => {
 - ✅ Graceful error handling
 
 ### 6. Package Scripts Tests (`package-scripts.test.js`)
-- ✅ All defined scripts can be executed
+- ✅ All defined scripts can be executed (including consolidated test commands)
 - ✅ Build process creates expected outputs
 - ✅ Clean script removes artifacts
 - ✅ Version bump scripts work correctly

@@ -75,21 +75,23 @@ Failed: 0
 
 #### Quick Start
 ```bash
-# Run all tests
+# Run the full suite (Node + Playwright)
 npm test
 
-# Run individual test categories
-npm run test:setup
-npm run test:basic
+# Playwright-only suite
+npm run test:e2e
 ```
 
 #### Advanced Options
 ```bash
-# Watch mode (Node 19+)
+# Watch both suites together (headless)
 npm run test:watch
 
+# Interactive Playwright UI with watch mode
+npm run test:ui
+
 # Coverage report (Node 20+)
-npm run test:coverage
+node --test --experimental-test-coverage tests/
 
 # Individual test files
 node --test tests/setup.test.js
@@ -116,15 +118,14 @@ tests/
 
 ### 🔧 Updated Package.json
 
-Added comprehensive test scripts:
+Consolidated test scripts:
 ```json
 {
   "scripts": {
-    "test": "node tests/run-tests.js",
-    "test:setup": "node --test tests/setup.test.js",
-    "test:basic": "node --test tests/scripts/basic-tests.test.js",
-    "test:watch": "node --test --watch tests/",
-    "test:coverage": "node --test --experimental-test-coverage tests/"
+    "test": "cross-env DCA_SKIP_FULL_TEST=1 node tests/run-tests.js && npm run test:e2e",
+    "test:e2e": "playwright test",
+    "test:watch": "concurrently -n node,e2e -c blue,magenta \"chokidar \\\"tests/**/*.js\\\" \\\"scripts/**/*.js\\\" --ignore \\\"tests/e2e/**\\\" --ignore \\\"dist/**\\\" --ignore \\\"node_modules/**\\\" --ignore \\\"playwright-report/**\\\" --ignore \\\"test-results/**\\\" --initial --debounce 250 -c \\\"cross-env DCA_SKIP_FULL_TEST=1 node tests/run-tests.js\\\"\" \"chokidar \\\"src/**/*\\\" \\\"tests/e2e/**/*.{js,ts}\\\" playwright.config.js --ignore \\\"dist/**\\\" --ignore \\\"node_modules/**\\\" --ignore \\\"playwright-report/**\\\" --ignore \\\"test-results/**\\\" --initial --debounce 250 -c \\\"npm run test:e2e\\\"\"",
+    "test:ui": "concurrently -n watch,ui -c blue,magenta \"npm run test:watch\" \"playwright test --ui\""
   }
 }
 ```

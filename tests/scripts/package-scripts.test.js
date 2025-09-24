@@ -11,6 +11,12 @@ const packageJsonPath = path.join(projectRoot, 'package.json');
 // Resolve npm command cross-platform
 const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
+function isTruthyEnv(value) {
+  if (value === undefined || value === null) return false;
+  const normalized = String(value).trim().toLowerCase();
+  return normalized !== '' && !['0', 'false', 'no', 'off'].includes(normalized);
+}
+
 function getPackageJson() {
   return JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 }
@@ -246,7 +252,13 @@ describe('package.json scripts', () => {
   });
 
   test('test script should run the suite and show summary', async (t) => {
-    const result = await runNpmScript('test');
+    if (isTruthyEnv(process.env.DCA_SKIP_FULL_TEST)) {
+      t.diagnostic('Skipping full test script verification during node-only test runs.');
+      t.skip('DCA_SKIP_FULL_TEST is enabled');
+      return;
+    }
+
+    const result = await runNpmScript('test', [], 120000);
 
     // Our test runner exits 0 on success and prints a summary
     assert.equal(result.code, 0, 'Test script should exit with success code when tests pass');

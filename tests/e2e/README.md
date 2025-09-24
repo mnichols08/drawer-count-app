@@ -15,6 +15,10 @@ Run locally:
 
    npm run test:e2e
 
-3. Open UI mode (optional):
+3. Watch tests for changes (optional):
 
-   npm run test:e2e:ui
+   npm run test:watch
+
+4. Open UI mode with Node watcher (optional):
+
+   npm run test:ui

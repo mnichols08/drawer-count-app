@@ -31,16 +31,23 @@ The Drawer Count App has a comprehensive test suite that validates all scripts a
 
 ### Running Tests
 ```bash
-# Run all tests with custom runner
+# Run full suite (Node + Playwright)
 npm test
 
-# Run individual test categories
-npm run test:setup      # Environment validation
-npm run test:basic      # Core functionality tests
+npm run test:e2e
 
-# Use Node.js test runner directly
-node --test tests/      # All test files
-node --test tests/setup.test.js  # Specific test file
+# Watch both suites together (Node + Playwright)
+npm run test:watch
+
+# Playwright UI alongside watch mode
+npm run test:ui
+```
+
+You can also invoke the Node.js test runner directly for focused execution:
+
+```bash
+node --test tests/                          # All Node-based test files
+node --test tests/scripts/build.test.js     # Specific Node test file
 ```
 
 ### Test Results
@@ -56,6 +63,8 @@ Failed: 0
 
 🎉 All tests passed!
 ```
+
+After the Node-based suite finishes, Playwright executes the browser tests and prints its own summary (for example, `Running 6 tests using 1 worker`).
 
 ## 📁 Test Structure
 
@@ -157,7 +166,7 @@ Quick start:
 ```bash
 npm run e2e:install  # one-time install of Playwright browsers
 npm run test:e2e     # run E2E suite
-npm run test:e2e:ui  # interactive UI mode
+npm run test:ui       # interactive Playwright UI + watch mode
 ```
 
 Configuration:

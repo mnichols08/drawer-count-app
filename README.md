@@ -163,10 +163,17 @@ npm run lint         # Run JS + Markdown linters
 npm run lint:js      # ESLint (flat config)
 npm run lint:md      # markdownlint (relaxed rules)
 
+# Testing
+npm test              # Run Node + Playwright suites
+npm run test:e2e      # Run Playwright E2E suite
+npm run test:watch    # Watch Node + Playwright suites
+npm run test:ui       # Playwright UI alongside watch mode
+
 # End-to-End (E2E) Tests
 npm run e2e:install  # One-time: install Playwright browsers
 npm run test:e2e     # Run E2E tests (headless)
-npm run test:e2e:ui  # Run E2E tests in UI mode
+npm run test:watch   # Headless watch mode for Node + Playwright
+npm run test:ui      # Launch Playwright UI with watch mode
 
 # Housekeeping
 npm run clean:e2e    # Remove Playwright artifacts (playwright-report/, test-results/)
@@ -186,7 +193,8 @@ This project includes Playwright-based E2E tests that drive the app in a real br
 Basics:
 - One-time: `npm run e2e:install`
 - Run: `npm run test:e2e`
-- UI mode: `npm run test:e2e:ui`
+- Watch: `npm run test:watch`
+- UI mode: `npm run test:ui`
 
 Seeding configuration used by E2E:
 - Tests seed recent days with balanced values for determinism.
