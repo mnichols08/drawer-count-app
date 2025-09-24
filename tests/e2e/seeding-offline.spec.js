@@ -2,6 +2,13 @@
 const { test, expect } = require('@playwright/test');
 const { SEED_COUNT, INCLUDE_TODAY } = require('./config');
 
+// Initial navigation for Playwright UI preview to attach
+test.beforeEach(async ({ page }) => {
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+  await expect(page.locator('body')).toBeVisible();
+});
+
 async function collectConsoleErrors(page) {
   const messages = [];
   page.on('console', (msg) => {

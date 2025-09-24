@@ -2,6 +2,14 @@
 // Uses Playwright's test runner
 const { test, expect } = require('@playwright/test');
 
+// Ensure the UI preview attaches immediately in Playwright UI by performing
+// an initial navigation before each test.
+test.beforeEach(async ({ page }) => {
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+  await expect(page.locator('body')).toBeVisible();
+});
+
 async function collectConsoleErrors(page) {
   const messages = [];
   page.on('console', (msg) => {

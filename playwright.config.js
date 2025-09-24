@@ -5,8 +5,24 @@
  * - Exposes baseURL for tests
  */
 const { defineConfig, devices } = require('@playwright/test');
+const process = require('node:process');
 
 const PORT = process.env.E2E_PORT || '3100';
+
+/**
+ * @param {unknown} value
+ * @param {boolean} [fallback]
+ */
+const toBool = (value, fallback = false) => {
+  if (value === undefined || value === null) return fallback;
+  const normalized = String(value).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'y', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'n', 'off'].includes(normalized)) return false;
+  return fallback;
+};
+
+const skipWebServer = toBool(process.env.PLAYWRIGHT_SKIP_WEB_SERVER ?? process.env.DCA_USE_EXTERNAL_SERVER, false);
+const resolvedHeadless = toBool(process.env.PLAYWRIGHT_HEADLESS ?? process.env.HEADLESS, true);
 
 module.exports = defineConfig({
   testDir: './tests/e2e',
@@ -18,10 +34,13 @@ module.exports = defineConfig({
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: `http://localhost:${PORT}`,
-    headless: true,
-    trace: 'on-first-retry'
+    headless: resolvedHeadless,
+    trace: 'on-first-retry',
+    launchOptions: {
+      args: ['--disable-web-security', '--disable-features=VizDisplayCompositor']
+    }
   },
-  webServer: {
+  webServer: skipWebServer ? undefined : {
     command: `node server.js`,
     env: {
       ...process.env,

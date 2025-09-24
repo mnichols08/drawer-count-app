@@ -1,6 +1,13 @@
 // E2E: Verify summary vs editor visibility by day completion state
 const { test, expect } = require('@playwright/test');
 
+// Perform an initial navigation so the Playwright UI preview attaches/browser connects
+test.beforeEach(async ({ page }) => {
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+  await expect(page.locator('body')).toBeVisible();
+});
+
 async function gotoHome(page) {
   await page.goto('/');
   await page.waitForLoadState('networkidle');
