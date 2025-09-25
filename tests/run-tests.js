@@ -31,6 +31,7 @@ async function runTests() {
     'tests/setup.test.js',
     'tests/scripts/build.test.js',
     'tests/scripts/basic-tests.test.js',
+    'tests/scripts/sync-merge.test.js',
     'tests/scripts/package-scripts.test.js'
   ];
 

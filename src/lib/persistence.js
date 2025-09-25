@@ -24,7 +24,12 @@ export function ensureProfilesInitialized() {
     const now = Date.now();
     if (!data.profiles || typeof data.profiles !== 'object') { data.profiles = {}; changed = true; }
     if (Object.keys(data.profiles).length === 0) { data.profiles.default = { name: 'Default', state: null, updatedAt: now, prefs: {} }; changed = true; }
-    if (!data.activeId || !data.profiles[data.activeId]) { data.activeId = 'default'; if (!data.profiles.default) { data.profiles.default = { name: 'Default', state: null, updatedAt: now }; } changed = true; }
+    if (!data.activeId || !data.profiles[data.activeId]) {
+      data.activeId = 'default';
+      if (!data.profiles.default) { data.profiles.default = { name: 'Default', state: null, updatedAt: now, prefs: {} }; }
+      if (!data.profiles.default.prefs || typeof data.profiles.default.prefs !== 'object') { data.profiles.default.prefs = {}; }
+      changed = true;
+    }
     if (changed) { data.updatedAt = now; saveProfilesData(data); return true; }
     return false;
   } catch (_) {
