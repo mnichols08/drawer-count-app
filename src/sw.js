@@ -41,9 +41,10 @@ const OFFLINE_PATH = toScopePath('offline.html');
 
 // Connectivity state + broadcaster
 let isOffline = false;
+let forcedMode = null; // null | 'offline' | 'mixed'
 const broadcastStatus = async (offline) => {
   const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-  for (const client of clients) client.postMessage({ type: 'NETWORK_STATUS', offline });
+  for (const client of clients) client.postMessage({ type: 'NETWORK_STATUS', offline, forced: forcedMode });
 };
 const setOffline = (flag) => {
   if (isOffline !== flag) {
@@ -51,6 +52,38 @@ const setOffline = (flag) => {
     // fire only on transitions
     broadcastStatus(isOffline);
   }
+};
+
+const forcedOfflineResponse = async (request) => {
+  try {
+    const url = new URL(request.url);
+    if (url.origin === self.location.origin && url.pathname.startsWith(new URL('/api/', self.registration.scope).pathname)) {
+      return new Response(JSON.stringify({ offline: true, forced: true }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    if (request.mode === 'navigate') {
+      const precache = await caches.open(PRECACHE);
+      return (
+        (await precache.match(INDEX_PATH)) ||
+        (await precache.match(ROOT_PATH)) ||
+        (await precache.match(OFFLINE_PATH)) ||
+        new Response('Offline', { status: 503 })
+      );
+    }
+    if (request.method === 'GET') {
+      const precache = await caches.open(PRECACHE);
+      const runtime = await caches.open(RUNTIME);
+      const cached =
+        (await precache.match(request)) ||
+        (await runtime.match(request)) ||
+        (await precache.match(stripQuery(url.pathname))) ||
+        (await runtime.match(stripQuery(url.pathname)));
+      if (cached) return cached;
+    }
+  } catch (_) { /* ignore */ }
+  return new Response('', { status: 503 });
 };
 
 self.addEventListener('install', (event) => {
@@ -75,7 +108,23 @@ self.addEventListener('message', (event) => {
   const data = event.data;
   if (!data) return;
   if (data.type === 'GET_NETWORK_STATUS') {
-    event.source?.postMessage({ type: 'NETWORK_STATUS', offline: isOffline });
+    event.source?.postMessage({ type: 'NETWORK_STATUS', offline: isOffline, forced: forcedMode });
+  } else if (data.type === 'DEV_SET_NETWORK_MODE') {
+    const rawMode = typeof data.mode === 'string' ? data.mode.toLowerCase() : '';
+    if (rawMode === 'offline') {
+      forcedMode = 'offline';
+      setOffline(true);
+    } else if (rawMode === 'mixed') {
+      forcedMode = 'mixed';
+      setOffline(false);
+    } else {
+      forcedMode = null;
+      setOffline(false);
+    }
+    broadcastStatus(isOffline);
+    if (event.source && !event.source.closed) {
+      event.source.postMessage({ type: 'DEV_NETWORK_MODE_ACK', mode: forcedMode });
+    }
   } else if (data.type === 'OPEN_APP') {
     // Handle OPEN_APP request without using waitUntil for response messages
     (async () => {
@@ -117,6 +166,25 @@ self.addEventListener('message', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  if (forcedMode === 'offline') {
+    setOffline(true);
+    event.respondWith(forcedOfflineResponse(request));
+    return;
+  }
+
+  if (forcedMode === 'mixed') {
+    setOffline(false);
+    if (url.origin === self.location.origin && /\/health$/i.test(url.pathname)) {
+      event.respondWith(
+        new Response(
+          JSON.stringify({ ok: true, db: { configured: true, connected: false }, forced: true }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+      return;
+    }
+  }
 
   // Always bypass cache for API requests; prefer live data
   if (url.origin === self.location.origin && url.pathname.startsWith(new URL('/api/', self.registration.scope).pathname)) {

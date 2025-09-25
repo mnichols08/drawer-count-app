@@ -7,15 +7,26 @@ class NetworkStatus extends HTMLElement {
     this._onSwMessage = this._onSwMessage.bind(this);
     this._askSwStatus = this._askSwStatus.bind(this);
     this._tickHealth = this._tickHealth.bind(this);
+    this._onDevNetMode = this._onDevNetMode.bind(this);
     this._offline = null;
     this._server = { cls: 'warn', short: 'N/A', title: 'Server: n/a' };
     this._timer = null;
+    this._forcedMode = null;
+    this._lastForcedMode = null;
   }
 
   connectedCallback() {
     this._baseTitle = (document.title || 'Drawer Count').replace(/\s*\u2022\s*Offline$/i, '');
     window.addEventListener('online', this._update);
     window.addEventListener('offline', this._update);
+    window.addEventListener('dca-dev-network-mode', this._onDevNetMode);
+
+    try {
+      this._forcedMode = (typeof window !== 'undefined' && window.__dcaDevNetMode) ? window.__dcaDevNetMode : null;
+    } catch (_) {
+      this._forcedMode = null;
+    }
+    this._lastForcedMode = null;
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', this._onSwMessage);
@@ -32,6 +43,7 @@ class NetworkStatus extends HTMLElement {
   disconnectedCallback() {
     window.removeEventListener('online', this._update);
     window.removeEventListener('offline', this._update);
+     window.removeEventListener('dca-dev-network-mode', this._onDevNetMode);
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.removeEventListener('message', this._onSwMessage);
       navigator.serviceWorker.removeEventListener('controllerchange', this._askSwStatus);
@@ -42,11 +54,15 @@ class NetworkStatus extends HTMLElement {
   _update() { this._setStatus(!navigator.onLine); }
 
   _setStatus(offline) {
-    if (this._offline === offline) return;
-    this._offline = offline;
-    document.title = offline ? `${this._baseTitle} \u2022 Offline` : this._baseTitle;
-    this.classList.toggle('offline', !!offline);
-    this.classList.toggle('online', !offline);
+    const forced = this._forcedMode;
+    const effectiveOffline = forced === 'offline' ? true : offline;
+    const stateChanged = this._offline !== effectiveOffline || this._lastForcedMode !== forced;
+    if (!stateChanged) return;
+    this._offline = effectiveOffline;
+    this._lastForcedMode = forced;
+    document.title = effectiveOffline ? `${this._baseTitle} \u2022 Offline` : this._baseTitle;
+    this.classList.toggle('offline', !!effectiveOffline);
+    this.classList.toggle('online', !effectiveOffline);
     this.setAttribute('aria-live', 'polite');
     this.setAttribute('role', 'status');
     this._render();
@@ -55,9 +71,16 @@ class NetworkStatus extends HTMLElement {
   _onSwMessage(event) {
     const data = event.data;
     if (!data || data.type !== 'NETWORK_STATUS') return;
-    const swOffline = Boolean(data.offline);
+    const forcedRaw = typeof data.forced === 'string' ? data.forced.toLowerCase() : null;
+    if (forcedRaw === 'offline' || forcedRaw === 'mixed') {
+      this._forcedMode = forcedRaw;
+    } else {
+      this._forcedMode = null;
+    }
+    const swOffline = data.offline === true;
     const browserOffline = !navigator.onLine;
-    this._setStatus(swOffline || browserOffline);
+    const effectiveOffline = this._forcedMode === 'offline' ? true : (swOffline || browserOffline);
+    this._setStatus(effectiveOffline);
   }
 
   async _askSwStatus() {
@@ -71,8 +94,37 @@ class NetworkStatus extends HTMLElement {
     } catch (_) {}
   }
 
+  _onDevNetMode(event) {
+    try {
+      const detailMode = event?.detail?.mode;
+      if (detailMode === 'offline' || detailMode === 'mixed') {
+        this._forcedMode = detailMode;
+      } else {
+        this._forcedMode = null;
+      }
+    } catch (_) {
+      this._forcedMode = null;
+    }
+    const offline = this._forcedMode === 'offline' ? true : !navigator.onLine;
+    this._setStatus(offline);
+    if (!this._forcedMode) {
+      this._tickHealth();
+    }
+  }
+
   async _tickHealth() {
     try {
+      if (this._forcedMode === 'offline') {
+        this._server = { cls: 'warn', short: 'OFF', title: 'Server: offline (dev override)' };
+        this._render();
+        return;
+      }
+      if (this._forcedMode === 'mixed') {
+        this._server = { cls: 'warn', short: 'DEV', title: 'Server: limited (dev override)' };
+        this._render();
+        return;
+      }
+
       const offline = !navigator.onLine;
       let cls = 'warn'; let short = 'N/A'; let title = 'Server: n/a';
       const prevDbConnected = !!(this._server && this._server.cls === 'ok');
@@ -92,20 +144,31 @@ class NetworkStatus extends HTMLElement {
   }
 
   _render() {
+    const forced = this._forcedMode;
     const offline = !!this._offline;
     const { cls } = this._server || { cls: 'warn', short: 'N/A', title: 'Server: n/a' };
-    const mixed = (!offline && cls !== 'ok');
+    const mixed = (!offline && ((forced === 'mixed') || cls !== 'ok'));
     const label = offline ? 'Offline' : (mixed ? 'Limited' : 'Online');
 
     try {
       this.classList.toggle('offline', offline);
       this.classList.toggle('mixed', mixed);
       this.classList.toggle('online', !offline && !mixed);
+      this.classList.toggle('forced', !!forced);
     } catch (_) {}
 
     let tooltip = '';
-    if (mixed) { if (cls === 'warn') tooltip = 'Network OK, DB unavailable'; else if (cls === 'err') tooltip = 'Network OK, DB error'; else tooltip = 'Network OK, DB status unknown'; }
-    else if (offline) { tooltip = 'Offline'; } else { tooltip = 'Online'; }
+    if (forced === 'mixed') {
+      tooltip = 'Limited (dev override)';
+    } else if (mixed) {
+      if (cls === 'warn') tooltip = 'Network OK, DB unavailable';
+      else if (cls === 'err') tooltip = 'Network OK, DB error';
+      else tooltip = 'Network OK, DB status unknown';
+    } else if (offline) {
+      tooltip = forced === 'offline' ? 'Offline (dev override)' : 'Offline';
+    } else {
+      tooltip = 'Online';
+    }
     this.innerHTML = `
       <span class="dot" aria-hidden="true"></span>
       <span class="label" title="${tooltip}">${label}</span>
