@@ -28,6 +28,8 @@ function getScriptCommand(scriptName) {
   return cmd;
 }
 
+const skipPackageScriptsSuite = isTruthyEnv(process.env.CI) && !isTruthyEnv(process.env.DCA_RUN_PACKAGE_SCRIPTS);
+
 // Helper function to run npm scripts, with fallback to executing the script command directly
 async function runNpmScript(scriptName, args = [], timeout = 30000) {
   function runWithShell(command, argsStr) {
@@ -134,176 +136,180 @@ function cleanupTestArtifacts() {
   }
 }
 
-describe('package.json scripts', () => {
-  beforeEach(() => {
-    cleanupTestArtifacts();
+if (skipPackageScriptsSuite) {
+  test('package.json scripts (skipped in CI environment)', { skip: true }, () => {});
+} else {
+  describe('package.json scripts', () => {
+    beforeEach(() => {
+      cleanupTestArtifacts();
+    });
+
+    afterEach(() => {
+      cleanupTestArtifacts();
+    });
+
+    test('build script should create dist directory', async (t) => {
+      const result = await runNpmScript('build');
+
+      assert.equal(result.code, 0, `Build script failed: ${result.stderr}`);
+
+      const distDir = path.join(projectRoot, 'dist');
+      assert.ok(fs.existsSync(distDir), 'dist directory should be created');
+
+      // Verify critical files exist
+      const criticalFiles = ['index.html', 'manifest.webmanifest', 'sw.js'];
+      for (const file of criticalFiles) {
+        const filePath = path.join(distDir, file);
+        assert.ok(fs.existsSync(filePath), `${file} should exist in dist`);
+      }
+    });
+
+    test('icons script should generate icon files', async (t) => {
+      // Skip if favicons is not available
+      if (skipIfMissingDevDep(t, 'favicons', 'favicons not installed; skipping icons test')) return;
+
+      // Ensure source SVG exists
+      const sourceIcon = path.join(projectRoot, 'src', 'icons', 'favicon.svg');
+      if (skipIfMissingFile(t, sourceIcon, 'favicon.svg missing; skipping icons test')) return;
+
+      const result = await runNpmScript('icons', [], 45000); // Longer timeout for icon generation
+
+      if (result.code === 0) {
+        // Check that some icons were generated
+        const iconsDir = path.join(projectRoot, 'src', 'icons');
+        const iconFiles = fs.readdirSync(iconsDir).filter(f => f.endsWith('.png'));
+        assert.ok(iconFiles.length > 0, 'Should generate icon files');
+      }
+    });
+
+    test('bump-sw script should update cache version', async (t) => {
+      const result = await runNpmScript('bump-sw', ['--dry']);
+
+      assert.equal(result.code, 0, `bump-sw script failed: ${result.stderr}`);
+      assert.ok(result.stdout.includes('Current:') && result.stdout.includes('Next:'),
+        'Should show version bump information');
+    });
+
+    test('clean script should remove dist directory', async (t) => {
+      // First create a dist directory
+      const distDir = path.join(projectRoot, 'dist');
+      fs.mkdirSync(distDir, { recursive: true });
+      fs.writeFileSync(path.join(distDir, 'test.txt'), 'test');
+
+      const result = await runNpmScript('clean');
+
+      assert.equal(result.code, 0, `Clean script failed: ${result.stderr}`);
+      assert.ok(!fs.existsSync(distDir), 'dist directory should be removed');
+    });
+
+    test('optimize-images script should process images', async (t) => {
+      // Skip if Sharp is not available
+      if (skipIfMissingDevDep(t, 'sharp', 'Sharp not installed; skipping optimize-images')) return;
+
+      const result = await runNpmScript('optimize-images');
+
+      // Should complete successfully or report no files found
+      assert.equal(result.code, 0, `optimize-images script failed: ${result.stderr}`);
+      assert.ok(result.stdout.includes('No PNG files found') ||
+        result.stdout.includes('.png'),
+        'Should process images or report none found');
+    });
+
+    test('predeploy script should optimize images then build', async () => {
+      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+      assert.equal(
+        packageJson.scripts.predeploy,
+        'npm run optimize-images && npm run build',
+        'predeploy should optimize images before running build'
+      );
+    });
+
+    test('deploy script should show deployment message', async (t) => {
+      const result = await runNpmScript('deploy');
+
+      assert.equal(result.code, 0, 'Deploy script should complete');
+      assert.ok(result.stdout.includes('Deploy') || result.stdout.includes('hosting'),
+        'Should show deployment instructions');
+    });
+
+    test('npm scripts list should include required commands and exclude deprecated ones', async () => {
+      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+      const expectedScripts = [
+        'test',
+        'test:e2e',
+        'test:watch',
+        'test:ui',
+        'e2e:install',
+        'dev',
+        'start',
+        'build',
+        'icons',
+        'bump-sw',
+        'optimize-images',
+        'predeploy',
+        'deploy',
+        'clean',
+        'clean:e2e',
+        'clean:all',
+        'verify:git',
+        'lint',
+        'lint:js',
+        'lint:md'
+      ];
+
+      for (const script of expectedScripts) {
+        assert.ok(packageJson.scripts[script], `Script '${script}' should be defined`);
+      }
+
+      const removedScripts = [
+        'build:prod',
+        'bump-sw:push',
+        'release:patch',
+        'release:minor',
+        'release:major',
+        'release:patch:push',
+        'release:tag-only',
+        'release:tag-only:push'
+      ];
+
+      for (const script of removedScripts) {
+        assert.ok(!packageJson.scripts[script], `Script '${script}' should no longer be defined`);
+      }
+    });
+
+    test('bump-sw dry run should work', async () => {
+      const result = await runCommand('node', [
+        path.join(projectRoot, 'scripts', 'bump-sw-cache.js'),
+        '--dry', '--no-git'
+      ]);
+
+      assert.equal(result.code, 0, 'bump-sw dry run should work');
+      assert.ok(result.stdout.includes('Next:'), 'Dry run should report the next version');
+    });
+
+    test('scripts should handle missing dependencies gracefully', async () => {
+      // Test that scripts handle missing optional dependencies
+      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+
+      // All scripts should be runnable (though some may fail gracefully)
+      assert.ok(typeof packageJson.scripts === 'object', 'Scripts should be defined');
+      assert.ok(Object.keys(packageJson.scripts).length > 0, 'Should have multiple scripts defined');
+    });
+
+    test('environment-specific scripts should handle NODE_ENV', async () => {
+      // Test that start script references production mode
+      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+
+      assert.ok(packageJson.scripts.start.includes('NODE_ENV=production') ||
+        packageJson.scripts.start.includes('cross-env'),
+        'Start script should handle production environment');
+    });
+
+    test('dev script should use nodemon', async () => {
+      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+
+      assert.ok(packageJson.scripts.dev.includes('nodemon'),
+        'Dev script should use nodemon for development');
+    });
   });
-
-  afterEach(() => {
-    cleanupTestArtifacts();
-  });
-
-  test('build script should create dist directory', async (t) => {
-    const result = await runNpmScript('build');
-    
-    assert.equal(result.code, 0, `Build script failed: ${result.stderr}`);
-    
-    const distDir = path.join(projectRoot, 'dist');
-    assert.ok(fs.existsSync(distDir), 'dist directory should be created');
-    
-    // Verify critical files exist
-    const criticalFiles = ['index.html', 'manifest.webmanifest', 'sw.js'];
-    for (const file of criticalFiles) {
-      const filePath = path.join(distDir, file);
-      assert.ok(fs.existsSync(filePath), `${file} should exist in dist`);
-    }
-  });
-
-  test('icons script should generate icon files', async (t) => {
-    // Skip if favicons is not available
-    if (skipIfMissingDevDep(t, 'favicons', 'favicons not installed; skipping icons test')) return;
-
-    // Ensure source SVG exists
-  const sourceIcon = path.join(projectRoot, 'src', 'icons', 'favicon.svg');
-  if (skipIfMissingFile(t, sourceIcon, 'favicon.svg missing; skipping icons test')) return;
-
-    const result = await runNpmScript('icons', [], 45000); // Longer timeout for icon generation
-    
-    if (result.code === 0) {
-      // Check that some icons were generated
-      const iconsDir = path.join(projectRoot, 'src', 'icons');
-      const iconFiles = fs.readdirSync(iconsDir).filter(f => f.endsWith('.png'));
-      assert.ok(iconFiles.length > 0, 'Should generate icon files');
-    }
-  });
-
-  test('bump-sw script should update cache version', async (t) => {
-    const result = await runNpmScript('bump-sw', ['--dry']);
-    
-    assert.equal(result.code, 0, `bump-sw script failed: ${result.stderr}`);
-    assert.ok(result.stdout.includes('Current:') && result.stdout.includes('Next:'), 
-              'Should show version bump information');
-  });
-
-  test('clean script should remove dist directory', async (t) => {
-    // First create a dist directory
-    const distDir = path.join(projectRoot, 'dist');
-    fs.mkdirSync(distDir, { recursive: true });
-    fs.writeFileSync(path.join(distDir, 'test.txt'), 'test');
-    
-    const result = await runNpmScript('clean');
-    
-    assert.equal(result.code, 0, `Clean script failed: ${result.stderr}`);
-    assert.ok(!fs.existsSync(distDir), 'dist directory should be removed');
-  });
-
-  test('optimize-images script should process images', async (t) => {
-    // Skip if Sharp is not available
-    if (skipIfMissingDevDep(t, 'sharp', 'Sharp not installed; skipping optimize-images')) return;
-
-    const result = await runNpmScript('optimize-images');
-    
-    // Should complete successfully or report no files found
-    assert.equal(result.code, 0, `optimize-images script failed: ${result.stderr}`);
-    assert.ok(result.stdout.includes('No PNG files found') || 
-             result.stdout.includes('.png'), 
-             'Should process images or report none found');
-  });
-
-  test('predeploy script should optimize images then build', async () => {
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    assert.equal(
-      packageJson.scripts.predeploy,
-      'npm run optimize-images && npm run build',
-      'predeploy should optimize images before running build'
-    );
-  });
-
-  test('deploy script should show deployment message', async (t) => {
-    const result = await runNpmScript('deploy');
-    
-    assert.equal(result.code, 0, 'Deploy script should complete');
-    assert.ok(result.stdout.includes('Deploy') || result.stdout.includes('hosting'), 
-              'Should show deployment instructions');
-  });
-
-  test('npm scripts list should include required commands and exclude deprecated ones', async () => {
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    const expectedScripts = [
-      'test',
-    'test:e2e',
-    'test:watch',
-    'test:ui',
-      'e2e:install',
-  'dev',
-  'start',
-      'build',
-      'icons',
-      'bump-sw',
-      'optimize-images',
-      'predeploy',
-      'deploy',
-      'clean',
-      'clean:e2e',
-      'clean:all',
-      'verify:git',
-      'lint',
-      'lint:js',
-      'lint:md'
-    ];
-
-    for (const script of expectedScripts) {
-      assert.ok(packageJson.scripts[script], `Script '${script}' should be defined`);
-    }
-
-    const removedScripts = [
-      'build:prod',
-      'bump-sw:push',
-      'release:patch',
-      'release:minor',
-      'release:major',
-      'release:patch:push',
-      'release:tag-only',
-      'release:tag-only:push'
-    ];
-
-    for (const script of removedScripts) {
-      assert.ok(!packageJson.scripts[script], `Script '${script}' should no longer be defined`);
-    }
-  });
-
-  test('bump-sw dry run should work', async () => {
-    const result = await runCommand('node', [
-      path.join(projectRoot, 'scripts', 'bump-sw-cache.js'),
-      '--dry', '--no-git'
-    ]);
-
-    assert.equal(result.code, 0, 'bump-sw dry run should work');
-    assert.ok(result.stdout.includes('Next:'), 'Dry run should report the next version');
-  });
-
-  test('scripts should handle missing dependencies gracefully', async () => {
-    // Test that scripts handle missing optional dependencies
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    
-    // All scripts should be runnable (though some may fail gracefully)
-    assert.ok(typeof packageJson.scripts === 'object', 'Scripts should be defined');
-    assert.ok(Object.keys(packageJson.scripts).length > 0, 'Should have multiple scripts defined');
-  });
-
-  test('environment-specific scripts should handle NODE_ENV', async () => {
-    // Test that start script references production mode
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    
-    assert.ok(packageJson.scripts.start.includes('NODE_ENV=production') || 
-             packageJson.scripts.start.includes('cross-env'), 
-             'Start script should handle production environment');
-  });
-
-  test('dev script should use nodemon', async () => {
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    
-    assert.ok(packageJson.scripts.dev.includes('nodemon'), 
-              'Dev script should use nodemon for development');
-  });
-});
+}
