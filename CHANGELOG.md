@@ -1,12 +1,13 @@
 # Changelog
 
+## v0.3.11 - 2025-09-25
+### Build & CI
+- Hardened `scripts/build.js` to warn-and-continue when GitHub Pages rewrites target a missing HTML or manifest file, allowing the subsequent critical file validation to fail builds with the intended error message instead of crashing the rewrite step in CI.
+
 ## v0.3.10 - 2025-09-25
 ### Developer Experience
 - Added developer-only connectivity controls in `settings-modal` that let testers force offline, mixed, or online modes and broadcast the override to the UI for quick validation of connectivity-dependent flows.
 - Introduced a one-click local storage reset in the developer tools panel to simulate a first-time load without needing server access.
-
-### Build & CI
-- Hardened `scripts/build.js` to warn-and-continue when GitHub Pages rewrites target a missing HTML or manifest file, allowing the subsequent critical file validation to fail builds with the intended error message instead of crashing the rewrite step in CI.
 
 ### Offline Sync & Data Hygiene
 - Deleting profiles while offline now records tombstones that sync back to the server, ensuring remote data stays consistent when connectivity is restored.
