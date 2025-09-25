@@ -193,6 +193,13 @@ Basics:
 - Watch: `npm run test:watch`
 - UI mode: `npm run test:ui`
 
+Focus on a single scenario by appending the spec filename, for example `npm run test:e2e -- profile-deletion-prunes.spec.js`.
+
+Current Playwright coverage highlights:
+- `drawer-balance.spec.js` checks math accuracy and asserts the page stays free of console errors.
+- `seeding-offline.spec.js` seeds deterministic history, restores past days, and verifies baseline offline behavior.
+- `profile-deletion-prunes.spec.js` exercises offline profile deletion, ensures day-history pruning, and confirms tombstones sync once connectivity returns.
+
 Seeding configuration used by E2E:
 - Tests seed recent days with balanced values for determinism.
 - You can override defaults via env:

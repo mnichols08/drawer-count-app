@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.3.10 - 2025-09-25
+### Developer Experience
+- Added developer-only connectivity controls in `settings-modal` that let testers force offline, mixed, or online modes and broadcast the override to the UI for quick validation of connectivity-dependent flows.
+- Introduced a one-click local storage reset in the developer tools panel to simulate a first-time load without needing server access.
+
+### Offline Sync & Data Hygiene
+- Deleting profiles while offline now records tombstones that sync back to the server, ensuring remote data stays consistent when connectivity is restored.
+- Associated day-history entries are pruned when a profile is removed so local storage stays lean and retains only live data.
+
+### Testing
+- Added Playwright spec `tests/e2e/profile-deletion-prunes.spec.js` that creates, deletes, and resyncs a profile to confirm day history pruning and tombstone propagation end to end.
+
+### Documentation
+- Updated the README E2E section to highlight the new pruning coverage and how to target the spec during focused runs.
+
 ## v0.3.9 - 2025-09-24
 ### Testing
 - Added a regression check in `tests/scripts/build.test.js` to ensure `dist/icons/favicon.svg` is generated with valid SVG markup and remains referenced by the web app manifest after every build, preventing production 404s.
