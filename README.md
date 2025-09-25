@@ -131,6 +131,7 @@ The build process:
 2. Copies all files from `/src` to `/dist`
 3. Validates that critical files exist
 4. Creates a production-ready distribution
+5. Logs a warning (instead of crashing) if GitHub Pages path rewrites skip a missing HTML/manifest file, so the subsequent critical-file check surfaces the build failure cleanly in CI.
 
 ### Available Scripts
 ```bash

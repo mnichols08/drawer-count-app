@@ -41,7 +41,11 @@ function copyDir(src, dest) {
 // Helper to update paths in HTML files for GitHub Pages
 function updateHtmlPaths(filePath, baseUrl) {
   if (baseUrl === '/' || !baseUrl) return; // No changes needed for root deployment
-  
+  if (!fs.existsSync(filePath)) {
+    console.warn(`[build] Skipping path update; file not found: ${path.relative(distDir, filePath)}`);
+    return;
+  }
+
   let content = fs.readFileSync(filePath, 'utf8');
   
   // Update relative paths to include base URL for GitHub Pages
@@ -72,7 +76,11 @@ function updateHtmlPaths(filePath, baseUrl) {
 // Helper to update manifest for GitHub Pages
 function updateManifest(filePath, baseUrl) {
   if (baseUrl === '/' || !baseUrl) return;
-  
+  if (!fs.existsSync(filePath)) {
+    console.warn(`[build] Skipping manifest update; file not found: ${path.relative(distDir, filePath)}`);
+    return;
+  }
+
   const content = fs.readFileSync(filePath, 'utf8');
   const manifest = JSON.parse(content);
   
