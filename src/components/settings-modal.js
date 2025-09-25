@@ -173,6 +173,12 @@ class SettingsModal extends HTMLElement {
                 <button class="btn dev-net-btn" type="button" data-mode="online" aria-pressed="false">Restore Online</button>
               </div>
             </div>
+            <div class="row" style="align-items: center; gap: 12px;">
+              <div style="min-width: 120px;">Local State</div>
+              <div style="display:flex; gap:8px; flex-wrap: wrap; align-items: center;">
+                <button class="btn dev-clear-storage" type="button" aria-label="Clear local storage">Reset Local Storage</button>
+              </div>
+            </div>
           </div>
           ` : ''}
         </div>
@@ -195,6 +201,7 @@ class SettingsModal extends HTMLElement {
       seed14: this._shadow.querySelector('.dev-seed-14'),
       clearDays: this._shadow.querySelector('.dev-clear-days'),
       devNetButtons: Array.from(this._shadow.querySelectorAll('.dev-net-btn')),
+      clearStorage: this._shadow.querySelector('.dev-clear-storage'),
     };
   const chosen = mode || currentTheme;
     this._els.radios.forEach((r) => { r.checked = r.value === chosen; r.addEventListener('change', this._onThemeChange); });
@@ -217,6 +224,7 @@ class SettingsModal extends HTMLElement {
       this._els.seed7?.addEventListener('click', async () => { const { seedPreviousDays } = await import('../lib/days.js'); try { const keys = seedPreviousDays(7, { includeToday: false, overwrite: true }); this._populateDaysSelect(); toast(`Seeded ${keys.length} day(s)`, { type: 'success', duration: 1600 }); } catch(_) { toast('Seed failed', { type: 'error', duration: 1800 }); } });
       this._els.seed14?.addEventListener('click', async () => { const { seedPreviousDays } = await import('../lib/days.js'); try { const keys = seedPreviousDays(14, { includeToday: false, overwrite: true }); this._populateDaysSelect(); toast(`Seeded ${keys.length} day(s)`, { type: 'success', duration: 1600 }); } catch(_) { toast('Seed failed', { type: 'error', duration: 1800 }); } });
       this._els.clearDays?.addEventListener('click', () => { try { const { data, pid, entry } = _getActiveDaysEntry(true); entry.days = {}; data[pid] = entry; saveDaysData(data); this._populateDaysSelect(); toast('Cleared all days for profile', { type: 'warning', duration: 1600 }); } catch(_) { toast('Clear failed', { type: 'error', duration: 1800 }); } });
+      this._els.clearStorage?.addEventListener('click', () => { this._clearLocalStorage(); });
       if (Array.isArray(this._els.devNetButtons)) {
         this._els.devNetButtons.forEach((btn) => {
           if (!btn) return;
@@ -264,6 +272,21 @@ class SettingsModal extends HTMLElement {
     } catch (_) {
       if (!silent) toast('Network override failed', { type: 'error', duration: 2200 });
     }
+  }
+  async _clearLocalStorage() {
+    const btn = this._els?.clearStorage;
+    await this._withProcessing(btn, async () => {
+      const confirmMsg = 'This will erase all Drawer Count data stored in this browser, including profiles and history. Continue?';
+      const ok = typeof window !== 'undefined' ? window.confirm(confirmMsg) : true;
+      if (!ok) return;
+      try { localStorage.clear(); } catch (_) {}
+      try { sessionStorage.clear(); } catch (_) {}
+      try { setStoredDevNetMode(null); } catch (_) {}
+      try { window.__dcaDevNetMode = null; } catch (_) {}
+      toast('Local storage cleared. Reloading…', { type: 'warning', duration: 1800 });
+      await this._sleep(250);
+      try { location.reload(); } catch (_) {}
+    });
   }
   _onThemeChange(e) {
     const val = e.target?.value;

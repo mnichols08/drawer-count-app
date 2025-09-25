@@ -77,6 +77,7 @@ class NetworkStatus extends HTMLElement {
     } else {
       this._forcedMode = null;
     }
+    try { window.__dcaDevNetMode = this._forcedMode || null; } catch (_) {}
     const swOffline = data.offline === true;
     const browserOffline = !navigator.onLine;
     const effectiveOffline = this._forcedMode === 'offline' ? true : (swOffline || browserOffline);

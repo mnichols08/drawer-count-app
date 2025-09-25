@@ -55,6 +55,7 @@ function _coerceProfilesData(data) {
   base.activeId = (data && typeof data.activeId === 'string') ? data.activeId : DEFAULT_PROFILE_ID;
   base.updatedAt = Number(data && data.updatedAt ? data.updatedAt : 0) || 0;
   base.profiles = {};
+  base.deletedProfiles = {};
   const sourceProfiles = (data && typeof data === 'object' && data.profiles && typeof data.profiles === 'object') ? data.profiles : {};
   for (const [id, info] of Object.entries(sourceProfiles)) {
     if (!info || typeof info !== 'object') continue;
@@ -63,6 +64,13 @@ function _coerceProfilesData(data) {
     entry.updatedAt = Number(entry.updatedAt || 0) || 0;
     entry.prefs = (entry.prefs && typeof entry.prefs === 'object') ? _clone(entry.prefs) : {};
     base.profiles[id] = entry;
+  }
+  const sourceDeleted = (data && typeof data === 'object' && data.deletedProfiles && typeof data.deletedProfiles === 'object') ? data.deletedProfiles : {};
+  for (const [id, ts] of Object.entries(sourceDeleted)) {
+    const stamp = Number(ts) || 0;
+    if (stamp > 0 && id !== DEFAULT_PROFILE_ID) {
+      base.deletedProfiles[id] = stamp;
+    }
   }
   return base;
 }
@@ -124,26 +132,41 @@ function mergeProfilesPayload({ localRaw, remoteRaw } = {}) {
   const mergedExtras = {};
   if (remoteDataRaw && typeof remoteDataRaw === 'object') {
     for (const [key, value] of Object.entries(remoteDataRaw)) {
-      if (key === 'profiles' || key === 'activeId' || key === 'updatedAt') continue;
+      if (key === 'profiles' || key === 'activeId' || key === 'updatedAt' || key === 'deletedProfiles') continue;
       mergedExtras[key] = _clone(value);
     }
   }
   if (localDataRaw && typeof localDataRaw === 'object') {
     for (const [key, value] of Object.entries(localDataRaw)) {
-      if (key === 'profiles' || key === 'activeId' || key === 'updatedAt') continue;
+      if (key === 'profiles' || key === 'activeId' || key === 'updatedAt' || key === 'deletedProfiles') continue;
       mergedExtras[key] = _clone(value);
     }
   }
 
   const profileIds = new Set([
     ...Object.keys(remoteData.profiles || {}),
-    ...Object.keys(localData.profiles || {})
+    ...Object.keys(localData.profiles || {}),
+    ...Object.keys(remoteData.deletedProfiles || {}),
+    ...Object.keys(localData.deletedProfiles || {})
   ]);
 
   const mergedProfiles = {};
+  const mergedDeletedProfiles = {};
   let highestUpdated = Math.max(Number(localData.updatedAt || 0), Number(remoteData.updatedAt || 0));
   for (const id of Array.from(profileIds).sort()) {
+    const localDeleted = Number(localData.deletedProfiles?.[id] || 0) || 0;
+    const remoteDeleted = Number(remoteData.deletedProfiles?.[id] || 0) || 0;
+    const tombstone = Math.max(localDeleted, remoteDeleted);
     const merged = _mergeProfileEntry(localData.profiles[id], remoteData.profiles[id]);
+    const latestProfileUpdated = Math.max(
+      Number(localData.profiles?.[id]?.updatedAt || 0),
+      Number(remoteData.profiles?.[id]?.updatedAt || 0)
+    );
+    if (tombstone && tombstone >= latestProfileUpdated) {
+      mergedDeletedProfiles[id] = tombstone;
+      highestUpdated = Math.max(highestUpdated, tombstone);
+      continue;
+    }
     if (!merged) continue;
     mergedProfiles[id] = merged;
     highestUpdated = Math.max(highestUpdated, Number(merged.updatedAt || 0));
@@ -151,6 +174,7 @@ function mergeProfilesPayload({ localRaw, remoteRaw } = {}) {
 
   const ensured = _ensureDefaultProfile(mergedProfiles, highestUpdated);
   highestUpdated = Math.max(highestUpdated, ensured, 0);
+  if (mergedDeletedProfiles[DEFAULT_PROFILE_ID]) delete mergedDeletedProfiles[DEFAULT_PROFILE_ID];
 
   let activeId = localData.activeId;
   if (!activeId || !mergedProfiles[activeId]) {
@@ -166,6 +190,9 @@ function mergeProfilesPayload({ localRaw, remoteRaw } = {}) {
     activeId,
     updatedAt: highestUpdated
   };
+  if (Object.keys(mergedDeletedProfiles).length > 0) {
+    merged.deletedProfiles = mergedDeletedProfiles;
+  }
 
   const mergedRaw = _stableStringify(merged);
   const localComparable = (localDataRaw && typeof localDataRaw === 'object') ? localDataRaw : {};
@@ -183,9 +210,22 @@ function mergeProfilesPayload({ localRaw, remoteRaw } = {}) {
 }
 
 function _coerceDaysData(data) {
-  const result = {};
+  const result = { entries: {}, deletedProfiles: {} };
   if (!data || typeof data !== 'object') return result;
+  const entries = result.entries;
+  const deleted = result.deletedProfiles;
   for (const [profileId, entry] of Object.entries(data)) {
+    if (profileId === '__deletedProfiles') {
+      if (entry && typeof entry === 'object') {
+        for (const [id, stamp] of Object.entries(entry)) {
+          const ts = Number(stamp) || 0;
+          if (ts > 0 && id !== DEFAULT_PROFILE_ID) {
+            deleted[id] = ts;
+          }
+        }
+      }
+      continue;
+    }
     if (!entry || typeof entry !== 'object') continue;
     const cloneEntry = _clone(entry);
     const days = {};
@@ -198,7 +238,7 @@ function _coerceDaysData(data) {
       }
     }
     cloneEntry.days = days;
-    result[profileId] = cloneEntry;
+    entries[profileId] = cloneEntry;
   }
   return result;
 }
@@ -286,20 +326,38 @@ function _maxSavedAt(entry) {
 function mergeDaysPayload({ localRaw, remoteRaw } = {}) {
   const localDataRaw = _safeParse(localRaw);
   const remoteDataRaw = _safeParse(remoteRaw);
-  const localData = _coerceDaysData(localDataRaw);
-  const remoteData = _coerceDaysData(remoteDataRaw);
+  const { entries: localData, deletedProfiles: localDeleted } = _coerceDaysData(localDataRaw);
+  const { entries: remoteData, deletedProfiles: remoteDeleted } = _coerceDaysData(remoteDataRaw);
 
   const profileIds = new Set([
     ...Object.keys(remoteData || {}),
-    ...Object.keys(localData || {})
+    ...Object.keys(localData || {}),
+    ...Object.keys(localDeleted || {}),
+    ...Object.keys(remoteDeleted || {})
   ]);
 
-  const merged = {};
+  const mergedEntries = {};
+  const mergedDeleted = {};
   let highestSavedAt = 0;
   for (const id of Array.from(profileIds).sort()) {
-    const entry = _mergeDaysEntry(localData[id], remoteData[id]);
-    merged[id] = entry;
+    const localEntry = localData[id];
+    const remoteEntry = remoteData[id];
+    const tombstoneTs = Math.max(Number(localDeleted[id] || 0), Number(remoteDeleted[id] || 0));
+    const localMax = _maxSavedAt(localEntry);
+    const remoteMax = _maxSavedAt(remoteEntry);
+    if (tombstoneTs && tombstoneTs >= Math.max(localMax, remoteMax)) {
+      mergedDeleted[id] = tombstoneTs;
+      highestSavedAt = Math.max(highestSavedAt, tombstoneTs);
+      continue;
+    }
+    const entry = _mergeDaysEntry(localEntry, remoteEntry);
+    mergedEntries[id] = entry;
     highestSavedAt = Math.max(highestSavedAt, _maxSavedAt(entry));
+  }
+
+  const merged = { ...mergedEntries };
+  if (Object.keys(mergedDeleted).length > 0) {
+    merged.__deletedProfiles = mergedDeleted;
   }
 
   const mergedRaw = _stableStringify(merged);

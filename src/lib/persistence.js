@@ -14,7 +14,24 @@ export function loadProfilesData() {
 }
 
 export function saveProfilesData(data) {
-  try { localStorage.setItem(DRAWER_PROFILES_KEY, JSON.stringify(data || {})); try { _setLocalMeta(DRAWER_PROFILES_KEY, { updatedAt: Date.now() }); _scheduleSyncPush(DRAWER_PROFILES_KEY); } catch (_) {} return true; } catch(_) { return false; }
+  try {
+    if (data && typeof data === 'object' && data.deletedProfiles && typeof data.deletedProfiles === 'object') {
+      const deletions = data.deletedProfiles;
+      if (data.profiles && typeof data.profiles === 'object') {
+        for (const id of Object.keys(data.profiles)) {
+          if (Object.prototype.hasOwnProperty.call(deletions, id)) delete deletions[id];
+        }
+      }
+      for (const [id, stamp] of Object.entries({ ...deletions })) {
+        const ts = Number(stamp) || 0;
+        if (!(ts > 0) || id === 'default') delete deletions[id];
+      }
+      if (Object.keys(deletions).length === 0) delete data.deletedProfiles;
+    }
+    localStorage.setItem(DRAWER_PROFILES_KEY, JSON.stringify(data || {}));
+    try { _setLocalMeta(DRAWER_PROFILES_KEY, { updatedAt: Date.now() }); _scheduleSyncPush(DRAWER_PROFILES_KEY); } catch (_) {}
+    return true;
+  } catch(_) { return false; }
 }
 
 export function ensureProfilesInitialized() {
@@ -47,6 +64,7 @@ export function saveToActiveProfile() {
     const d = loadProfilesData(); const id = d.activeId || 'default';
     d.profiles = d.profiles || {}; d.profiles[id] = d.profiles[id] || { name: id, state: null };
     d.profiles[id].state = state; d.profiles[id].updatedAt = Date.now(); d.updatedAt = Date.now();
+    if (d.deletedProfiles && typeof d.deletedProfiles === 'object') delete d.deletedProfiles[id];
     saveProfilesData(d); return true;
   } catch(_) { return false; }
 }
@@ -71,7 +89,9 @@ export function createProfile(name) {
   const base = (name || 'Profile').toString().trim() || 'Profile';
   const slug = base.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'profile';
   let id = slug; let i = 2; while (d.profiles[id]) { id = `${slug}-${i++}`; }
-  d.profiles[id] = { name: base, state: null, updatedAt: Date.now(), prefs: {} }; d.activeId = id; d.updatedAt = Date.now(); saveProfilesData(d); return id;
+  d.profiles[id] = { name: base, state: null, updatedAt: Date.now(), prefs: {} }; d.activeId = id; d.updatedAt = Date.now();
+  if (d.deletedProfiles && typeof d.deletedProfiles === 'object') delete d.deletedProfiles[id];
+  saveProfilesData(d); return id;
 }
 
 export function populateProfilesSelect(headerEl) {
@@ -130,7 +150,25 @@ export function openImportDialog(headerEl) {
 
 // Days state
 export function loadDaysData() { try { const raw = localStorage.getItem(DRAWER_DAYS_KEY); if (!raw) return {}; const parsed = JSON.parse(raw); return (parsed && typeof parsed === 'object') ? parsed : {}; } catch(_) { return {}; } }
-export function saveDaysData(data) { try { localStorage.setItem(DRAWER_DAYS_KEY, JSON.stringify(data || {})); try { _setLocalMeta(DRAWER_DAYS_KEY, { updatedAt: Date.now() }); _scheduleSyncPush(DRAWER_DAYS_KEY); } catch(_) {} return true; } catch(_) { return false; } }
+export function saveDaysData(data) {
+  try {
+    if (data && typeof data === 'object' && data.__deletedProfiles && typeof data.__deletedProfiles === 'object') {
+      const deletions = data.__deletedProfiles;
+      for (const [id, stamp] of Object.entries({ ...deletions })) {
+        const ts = Number(stamp) || 0;
+        if (!(ts > 0) || id === 'default') delete deletions[id];
+      }
+      for (const key of Object.keys(data)) {
+        if (key === '__deletedProfiles') continue;
+        if (deletions[key]) delete deletions[key];
+      }
+      if (Object.keys(deletions).length === 0) delete data.__deletedProfiles;
+    }
+    localStorage.setItem(DRAWER_DAYS_KEY, JSON.stringify(data || {}));
+    try { _setLocalMeta(DRAWER_DAYS_KEY, { updatedAt: Date.now() }); _scheduleSyncPush(DRAWER_DAYS_KEY); } catch(_) {}
+    return true;
+  } catch(_) { return false; }
+}
 export function _saveDaysDataAndSync(data) { try { saveDaysData(data); } catch(_) {} }
 
 export function getTodayKey() { const d = new Date(); const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return `${y}-${m}-${day}`; }
@@ -159,6 +197,22 @@ export function saveDay(key) {
     entry.days = entry.days || {}; entry.days[key] = { state, savedAt: Date.now(), label: entry.days[key]?.label };
     entry.lastVisitedDate = key; data[pid] = entry; saveDaysData(data); return true;
   } catch(_) { return false; }
+}
+
+export function deleteProfileDays(profileId, timestamp = Date.now()) {
+  try {
+    if (!profileId || profileId === 'default') return;
+    const data = loadDaysData();
+    let changed = false;
+    if (data && typeof data === 'object' && Object.prototype.hasOwnProperty.call(data, profileId)) {
+      delete data[profileId];
+      changed = true;
+    }
+    data.__deletedProfiles = data.__deletedProfiles && typeof data.__deletedProfiles === 'object' ? data.__deletedProfiles : {};
+    const ts = Number(timestamp) || Date.now();
+    data.__deletedProfiles[profileId] = ts;
+    if (changed || ts) saveDaysData(data);
+  } catch(_) {}
 }
 
 export function restoreDay(key) { try { const { data, pid, entry } = _getActiveDaysEntry(false); const st = entry?.days?.[key]?.state; if (!st) return false; const comp = getDrawerComponent(); comp?.setState?.(st); entry.lastVisitedDate = key; data[pid] = entry; saveDaysData(data); return true; } catch(_) { return false; } }
