@@ -5,6 +5,8 @@
   "main": "src/index.html",
   "scripts": {
     "test": "cross-env DCA_SKIP_FULL_TEST=1 node tests/run-tests.js && npm run test:e2e",
+    "test:unit": "node tests/run-tests.js",
+    "test:unit:quick": "cross-env DCA_SKIP_FULL_TEST=1 node tests/run-tests.js",
     "test:e2e": "playwright test",
     "test:watch": "concurrently -n node,e2e -c blue,magenta \"chokidar \\\"tests/**/*.js\\\" \\\"scripts/**/*.js\\\" --ignore \\\"tests/e2e/**\\\" --ignore \\\"dist/**\\\" --ignore \\\"node_modules/**\\\" --ignore \\\"playwright-report/**\\\" --ignore \\\"test-results/**\\\" --initial --debounce 250 -c \\\"cross-env DCA_SKIP_FULL_TEST=1 node tests/run-tests.js\\\"\" \"chokidar \\\"src/**/*\\\" \\\"tests/e2e/**/*.{js,ts}\\\" playwright.config.js --ignore \\\"dist/**\\\" --ignore \\\"node_modules/**\\\" --ignore \\\"playwright-report/**\\\" --ignore \\\"test-results/**\\\" --initial --debounce 250 -c \\\"npm run test:e2e\\\"\"",
     "test:ui": "concurrently -n watch,ui -c blue,magenta \"npm run test:watch\" \"playwright test --ui\"",

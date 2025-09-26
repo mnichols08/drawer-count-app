@@ -38,5 +38,7 @@ jobs:
       - name: Build check
         run: npm run build
 
-      - name: Basic unit tests only (skip E2E)
-        run: cross-env DCA_SKIP_FULL_TEST=1 node tests/run-tests.js
+      - name: Basic unit tests only
+        run: node tests/run-tests.js
+        env:
+          DCA_SKIP_FULL_TEST: 1
