@@ -6,6 +6,7 @@
 - Added reusable caches for npm dependencies and Playwright browser binaries, trimming repeated install time across PRs and branch pushes.
 - Pinned the Playwright browser cache directory to the runner temp path, reusing downloads only on cache misses and adding lightweight diagnostics so CI logs confirm the binaries are present before tests run.
 - Hydrates MongoDB-related environment variables from either repository secrets or variables so CI can reach managed databases without leaking values in logs.
+- Supports selecting a GitHub Environment via the `DCA_ENVIRONMENT_NAME` repository variable (defaults to `ci`) so environment-scoped secrets flow into the test job.
 
 ## v0.3.11 - 2025-09-25
 ### Build & CI
