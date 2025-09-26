@@ -1,13 +1,24 @@
-name: Test Suite
+name: Test Suite (Disabled - Use CI workflow instead)
+
+# Disabled to reduce CI overhead - tests now run in ci.yml
+# on:
+#   push:
+#     branches: [ development ]
+#   pull_request:
+#     branches: [ main, development ]
 
 on:
-  push:
-    branches: [ main, development ]
-  pull_request:
-    branches: [ main, development ]
+  workflow_dispatch:
+    inputs:
+      force_run:
+        description: 'Force run this comprehensive test suite'
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   test:
+    if: github.event.inputs.force_run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     environment:
