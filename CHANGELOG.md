@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.3.12 - 2025-09-25
+### Build & CI
+- Adjusted the `Test Suite` workflow to force development mode whenever the `development` branch is involved, so CI runs the server from `src/` instead of failing on a missing `dist/` build.
+- Added reusable caches for npm dependencies and Playwright browser binaries, trimming repeated install time across PRs and branch pushes.
+
 ## v0.3.11 - 2025-09-25
 ### Build & CI
 - Hardened `scripts/build.js` to warn-and-continue when GitHub Pages rewrites target a missing HTML or manifest file, allowing the subsequent critical file validation to fail builds with the intended error message instead of crashing the rewrite step in CI.
