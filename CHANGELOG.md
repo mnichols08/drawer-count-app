@@ -6,6 +6,7 @@
 - Limited the `Test Suite` GitHub Actions workflow to Node.js 18 and 20 runners, avoiding unsupported optional dependency binaries on Node 22 while retaining coverage of active LTS versions.
 - Added an opt-out guard around `tests/scripts/package-scripts.test.js` so the suite skips automatically when `CI` is truthy (set `DCA_RUN_PACKAGE_SCRIPTS=1` to re-enable), keeping local coverage intact without blocking CI on environment-only failures.
 - Ensured Playwright browsers are provisioned in CI by running `npx playwright install --with-deps` before executing the E2E suite.
+- Captured Playwright HTML reports on every CI run (uploaded per Node version when available) and raised the workflow timeout to 60 minutes to match typical cross-browser setup guidance.
 
 ## v0.3.10 - 2025-09-25
 ### Developer Experience
