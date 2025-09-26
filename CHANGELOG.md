@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.3.17 - 2025-09-26
+### Build & CI
+- **BREAKING**: Simplified GitHub Actions workflows for solo development efficiency
+- Removed all test workflows (`test.yml`, `ci.yml`, `quick-ci.yml`) that were blocking deployments
+- Removed fast deploy workflow and skip-CI scripts - no longer needed
+- Kept only `deploy.yml` for GitHub Pages deployment and `labeler.yml` for PR management
+- Tests now run locally only, eliminating CI friction and reducing GitHub Actions resource usage by ~90%
+- Updated deployment documentation to reflect streamlined push-to-deploy workflow
+- Added `test:unit` and `test:unit:quick` npm scripts for better local testing granularity
+
+### Developer Experience
+- Deployment is now instant: test locally → push to main → automatic deployment
+- No more test failures blocking production deployments
+- Significantly reduced GitHub Actions minutes consumption
+
 ## v0.3.12 - 2025-09-25
 ### Build & CI
 - Adjusted the `Test Suite` workflow to force development mode whenever the `development` branch is involved, so CI runs the server from `src/` instead of failing on a missing `dist/` build.

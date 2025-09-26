@@ -1,13 +1,5 @@
 // E2E: Verify dev seeding produces balanced days and offline behavior works
 const { test, expect } = require('@playwright/test');
-const { SEED_COUNT, INCLUDE_TODAY } = require('./config');
-
-// Initial navigation for Playwright UI preview to attach
-test.beforeEach(async ({ page }) => {
-  await page.goto('/');
-  await page.waitForLoadState('networkidle');
-  await expect(page.locator('body')).toBeVisible();
-});
 
 async function collectConsoleErrors(page) {
   const messages = [];
@@ -21,6 +13,14 @@ async function collectConsoleErrors(page) {
   });
   return messages;
 }
+const { SEED_COUNT, INCLUDE_TODAY } = require('./config');
+
+// Initial navigation for Playwright UI preview to attach
+test.beforeEach(async ({ page }) => {
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+  await expect(page.locator('body')).toBeVisible();
+});
 
 async function gotoHome(page) {
   await page.goto('/');
