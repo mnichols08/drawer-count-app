@@ -4,6 +4,7 @@
 ### Build & CI
 - Adjusted the `Test Suite` workflow to force development mode whenever the `development` branch is involved, so CI runs the server from `src/` instead of failing on a missing `dist/` build.
 - Added reusable caches for npm dependencies and Playwright browser binaries, trimming repeated install time across PRs and branch pushes.
+- Pinned the Playwright browser cache directory to the runner temp path, reusing downloads only on cache misses and adding lightweight diagnostics so CI logs confirm the binaries are present before tests run.
 
 ## v0.3.11 - 2025-09-25
 ### Build & CI

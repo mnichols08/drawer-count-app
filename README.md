@@ -239,7 +239,7 @@ To enable GitHub Pages for your repository:
 
 - The `Test Suite` workflow runs on Node.js 18 and 20, mirroring the officially supported runtime targets.
 - When a run is triggered from or targeting the `development` branch, the workflow exports `NODE_ENV=development` and `DCA_DEV=true` so the Express server serves assets directly from `src/` without requiring a production build.
-- npm dependencies are cached automatically through `actions/setup-node`, and Playwright browser binaries are cached between runs to reduce install time.
+- npm dependencies are cached automatically through `actions/setup-node`, and Playwright browser binaries live under a pinned temp directory (`$RUNNER_TEMP/ms-playwright`) that is cached between runs to reduce install time.
 - See `.github/workflows/test.yml` for the latest configuration and reusable cache keys.
 
 ## Using the app
