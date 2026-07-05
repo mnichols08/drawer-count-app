@@ -1,5 +1,6 @@
 // Networking and online sync helpers
 import { DRAWER_PROFILES_KEY, DRAWER_DAYS_KEY } from './persistence.js';
+import { mergeProfilesPayload, mergeDaysPayload } from './sync-merger.mjs';
 
 export function getApiBase() {
   try {
@@ -146,28 +147,74 @@ export async function _syncKeyOnce(key) {
     const localRaw = localStorage.getItem(key);
     const localMeta = _getLocalMeta(key) || { updatedAt: 0 };
     const remote = await _fetchRemoteKV(key);
-    if (!remote.ok) return false;
-    if (remote.missing) {
-      if (localRaw != null) {
-        const push = await _pushRemoteKV(key, localRaw, localMeta.updatedAt || Date.now());
-        if (push.ok) _setLocalMeta(key, { updatedAt: push.updatedAt });
+
+    const sanitizeLocalOnly = () => {
+      if (key !== DRAWER_PROFILES_KEY) return;
+      try {
+        const result = mergeProfilesPayload({ localRaw, remoteRaw: null });
+        const currentMeta = Number(localMeta?.updatedAt || 0) || 0;
+        if (result.localChanged) {
+          localStorage.setItem(key, result.mergedRaw);
+          const metaUpdated = Math.max(result.mergedUpdatedAt || 0, Date.now());
+          _setLocalMeta(key, { updatedAt: metaUpdated });
+        } else if (!currentMeta && result.mergedUpdatedAt) {
+          _setLocalMeta(key, { updatedAt: result.mergedUpdatedAt });
+        }
+      } catch (_) {}
+    };
+
+    if (!remote.ok) {
+      sanitizeLocalOnly();
+      return false;
+    }
+
+    const remoteRaw = remote.missing ? null : remote.value;
+    const remoteUpdatedAt = Number(remote.updatedAt || 0) || 0;
+
+    let mergeResult = null;
+    if (key === DRAWER_PROFILES_KEY) {
+      mergeResult = mergeProfilesPayload({ localRaw, remoteRaw });
+    } else if (key === DRAWER_DAYS_KEY) {
+      mergeResult = mergeDaysPayload({ localRaw, remoteRaw });
+    }
+
+    if (!mergeResult) {
+      if (remote.missing) {
+        if (localRaw != null) {
+          const push = await _pushRemoteKV(key, localRaw, Math.max(Number(localMeta.updatedAt || 0), Date.now()));
+          if (push.ok) _setLocalMeta(key, { updatedAt: Number(push.updatedAt || 0) });
+        }
+      } else if (localRaw == null && remoteRaw != null) {
+        localStorage.setItem(key, remoteRaw);
+        _setLocalMeta(key, { updatedAt: remoteUpdatedAt });
       }
       return true;
     }
-    const rAt = Number(remote.updatedAt || 0);
-    const lAt = Number(localMeta.updatedAt || 0);
-    if (localRaw == null) {
-      localStorage.setItem(key, remote.value);
-      _setLocalMeta(key, { updatedAt: rAt });
-      return true;
+
+    const { mergedRaw, mergedUpdatedAt, localChanged, remoteChanged } = mergeResult;
+    const hadRemoteMissing = remote.missing === true;
+    const priorMeta = Number(localMeta.updatedAt || 0) || 0;
+    let nextMeta = Math.max(priorMeta, remoteUpdatedAt, mergedUpdatedAt || 0);
+
+    const shouldWriteLocal = localChanged || (hadRemoteMissing && localRaw == null);
+    if (shouldWriteLocal) {
+      localStorage.setItem(key, mergedRaw);
     }
-    if (rAt > lAt) {
-      localStorage.setItem(key, remote.value);
-      _setLocalMeta(key, { updatedAt: rAt });
-    } else if (lAt > rAt) {
-      const push = await _pushRemoteKV(key, localRaw, lAt);
-      if (push.ok) _setLocalMeta(key, { updatedAt: push.updatedAt });
+
+    let pushed = false;
+    if (remoteChanged || hadRemoteMissing) {
+      const push = await _pushRemoteKV(key, mergedRaw, Math.max(Date.now(), mergedUpdatedAt || 0, nextMeta));
+      if (push.ok) {
+        nextMeta = Math.max(nextMeta, Number(push.updatedAt || 0));
+        pushed = true;
+      }
     }
+
+    const changed = shouldWriteLocal || remoteChanged || hadRemoteMissing || pushed;
+    if (changed) {
+      nextMeta = Math.max(nextMeta, mergedUpdatedAt || 0, Date.now());
+    }
+    _setLocalMeta(key, { updatedAt: nextMeta });
     return true;
   } catch(_) { return false; }
 }

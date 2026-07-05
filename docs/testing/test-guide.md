@@ -27,6 +27,17 @@ Tests use **Node.js built-in test runner** (Node 18+), which means:
 npm test
 ```
 
+### Run Playwright E2E Tests
+```bash
+npm run test:e2e
+```
+
+### Watch Modes
+```bash
+npm run test:watch    # Watch Node + Playwright suites together (headless)
+npm run test:ui       # Launch Playwright UI alongside watch mode
+```
+
 ### Run Individual Test Files
 ```bash
 # Test build script
@@ -44,7 +55,7 @@ node --test tests/scripts/optimize-images.test.js
 # Test server functionality
 node --test tests/scripts/server.test.js
 
-# Test package.json scripts
+# Test package.json scripts (already included in `npm test`)
 node --test tests/scripts/package-scripts.test.js
 ```
 
@@ -85,6 +96,7 @@ describe('Script Name', () => {
 - ✅ Handles custom domain configuration
 - ✅ Validates critical files exist
 - ✅ Cleans existing dist before building
+- ✅ Verifies manifest-referenced favicon assets exist and contain valid SVG markup
 - ✅ Error handling for missing source files
 
 ### 2. Version Bump Tests (`bump-sw-cache.test.js`)
@@ -122,12 +134,13 @@ describe('Script Name', () => {
 - ✅ Graceful error handling
 
 ### 6. Package Scripts Tests (`package-scripts.test.js`)
-- ✅ All defined scripts can be executed
+- ✅ All defined scripts can be executed (including consolidated test commands)
 - ✅ Build process creates expected outputs
 - ✅ Clean script removes artifacts
 - ✅ Version bump scripts work correctly
 - ✅ Environment-specific script behavior
 - ✅ Script dependency validation
+- 🛈 This suite runs automatically as part of `npm test`; run it directly for focused debugging.
 
 ## Test Utilities
 

@@ -6,24 +6,20 @@ This section documents all the build and utility scripts available in the Drawer
 
 ### Development Scripts
 - `npm run dev` - Start development server with hot reload
-- `npm run start:dev` - Start server in development mode
 - `npm test` - Run the complete test suite
 - `npm run clean` - Clean build artifacts
 
 ### Production Scripts
 - `npm start` - Start production server
 - `npm run build` - Build for production deployment
-- `npm run build:prod` - Build with image optimization
+- `npm run predeploy` - Optimize assets and build for deployment
 
 ### Asset Management
 - `npm run icons` - Generate all icon formats from SVG
 - `npm run optimize-images` - Optimize PNG images and generate WebP
 
 ### Version Management
-- `npm run bump-sw` - Bump cache version (dry run)
-- `npm run release:patch` - Create patch release
-- `npm run release:minor` - Create minor release
-- `npm run release:major` - Create major release
+- `npm run bump-sw` - Bump cache version (supports `--dry`, `--push`, etc.)
 
 ### Deployment
 - `npm run predeploy` - Pre-deployment preparation
@@ -48,17 +44,16 @@ npm run dev              # Start development
 npm test                 # Run tests
 npm run build           # Build for production
 
-# Release workflow  
-npm run bump-sw -- --dry # Preview version bump
-npm run release:patch   # Create patch release
-npm run deploy          # Deploy to hosting
+# Deployment workflow  
+npm run bump-sw -- --dry # Preview service worker cache bump
+npm run predeploy        # Optimize assets + build
+npm run deploy           # Deploy to hosting
 ```
 
 ### Script Dependencies
 ```
-build:prod → optimize-images → build
-release:* → bump-sw → git operations
-predeploy → build:prod
+predeploy → optimize-images → build
+bump-sw → service worker cache + version updates
 ```
 
 ## 🔧 Script Configuration
@@ -89,7 +84,7 @@ When adding new scripts to the project:
 
 ### Script Naming Conventions
 - Use kebab-case for script names (`bump-sw`, not `bumpSW`)
-- Group related scripts with prefixes (`release:patch`, `test:basic`)
+- Group related scripts with prefixes (`test:basic`, `lint:md`)
 - Use descriptive names that indicate purpose
 - Keep names concise but clear
 

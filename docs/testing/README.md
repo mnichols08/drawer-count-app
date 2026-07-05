@@ -31,16 +31,23 @@ The Drawer Count App has a comprehensive test suite that validates all scripts a
 
 ### Running Tests
 ```bash
-# Run all tests with custom runner
+# Run full suite (Node + Playwright)
 npm test
 
-# Run individual test categories
-npm run test:setup      # Environment validation
-npm run test:basic      # Core functionality tests
+npm run test:e2e
 
-# Use Node.js test runner directly
-node --test tests/      # All test files
-node --test tests/setup.test.js  # Specific test file
+# Watch both suites together (Node + Playwright)
+npm run test:watch
+
+# Playwright UI alongside watch mode
+npm run test:ui
+```
+
+You can also invoke the Node.js test runner directly for focused execution:
+
+```bash
+node --test tests/                          # All Node-based test files
+node --test tests/scripts/build.test.js     # Specific Node test file
 ```
 
 ### Test Results
@@ -48,14 +55,17 @@ node --test tests/setup.test.js  # Specific test file
 🧪 Running comprehensive script tests...
 ✅ tests/setup.test.js - PASSED
 ✅ tests/scripts/basic-tests.test.js - PASSED
+✅ tests/scripts/package-scripts.test.js - PASSED
 
 📊 Test Summary:
-Total Tests: 19
-Passed: 19
+Total Tests: 32
+Passed: 32
 Failed: 0
 
 🎉 All tests passed!
 ```
+
+After the Node-based suite finishes, Playwright executes the browser tests and prints its own summary (for example, `Running 6 tests using 1 worker`).
 
 ## 📁 Test Structure
 
@@ -70,7 +80,7 @@ tests/
     ├── generate-icons.test.js # Advanced icon testing (reference)
     ├── optimize-images.test.js # Advanced image testing (reference)
     ├── server.test.js         # Advanced server testing (reference)
-    └── package-scripts.test.js # Advanced script testing (reference)
+    └── package-scripts.test.js # npm scripts validation (runs with npm test)
 ```
 
 ## 🔧 Test Framework Details
@@ -143,6 +153,30 @@ The project includes a comprehensive CI/CD pipeline:
 - [Test Guide](test-guide.md) - Detailed guide for running and writing tests
 - [Test Coverage](test-coverage.md) - Complete coverage analysis
 - [Advanced Testing](../tests/README.md) - Original comprehensive test documentation
+ - [E2E Tests](../../tests/e2e/README.md) - Playwright E2E usage
+
+## 🌐 End-to-End (E2E) Browser Tests
+
+The project includes Playwright-based E2E tests that exercise the app in a real browser and validate:
+- Drawer math correctness and UI stability
+- Deterministic development seeding with balanced past days
+- Offline behavior through the service worker
+- Absence of console and page errors during typical flows
+
+Quick start:
+```bash
+npm run e2e:install  # one-time install of Playwright browsers
+npm run test:e2e     # run E2E suite
+npm run test:ui       # interactive Playwright UI + watch mode
+```
+
+Configuration:
+- Seeding params are controlled via `tests/e2e/config.js` and can be overridden at runtime:
+    - `SEED_COUNT=10 INCLUDE_TODAY=true npm run test:e2e`
+
+Artifacts & cleanup:
+- E2E artifacts (`playwright-report/`, `test-results/`) are git-ignored.
+- Use `npm run clean:e2e` to remove artifacts, or `npm run clean:all` to also clear `dist/`.
 
 ## 🤝 Contributing to Tests
 

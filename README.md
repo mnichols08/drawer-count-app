@@ -117,13 +117,12 @@ The app supports both development and production builds:
 ### Development
 ```bash
 npm run dev          # Development with auto-reload (serves from /src)
-npm run start:dev    # Development without auto-reload (serves from /src)
 ```
 
 ### Production Build
 ```bash
 npm run build        # Build /dist folder from /src
-npm run build:prod   # Build with image optimization
+npm run predeploy    # Optimize assets, then build /dist
 npm start            # Production mode (serves from /dist)
 ```
 
@@ -132,43 +131,85 @@ The build process:
 2. Copies all files from `/src` to `/dist`
 3. Validates that critical files exist
 4. Creates a production-ready distribution
+5. Logs a warning (instead of crashing) if GitHub Pages path rewrites skip a missing HTML/manifest file, so the subsequent critical-file check surfaces the build failure cleanly in CI.
 
 ### Available Scripts
 ```bash
 # Development
 npm run dev          # Development server with auto-reload (nodemon)
-npm run start:dev    # Development server without auto-reload
 
 # Production  
 npm start            # Production server (NODE_ENV=production)
 npm run build        # Build /dist folder from /src
-npm run build:prod   # Build with image optimization
+npm run predeploy    # Optimize assets, then build /dist
 
 # Assets
 npm run icons        # Generate icon set from favicon.svg
 npm run optimize-images  # Optimize PNGs and generate WebP variants
 
 # Release Management
-npm run bump-sw      # Bump service worker cache version
-npm run release:patch    # Patch version bump + SW cache + push
-npm run release:minor    # Minor version bump + SW cache + push
-npm run release:major    # Major version bump + SW cache + push
+# Use flags for publish flow (e.g., npm run bump-sw -- --minor --push)
+npm run bump-sw      # Bump service worker cache version / SW assets
 
 # Deployment
 npm run predeploy    # Full production build with optimizations
+npm run deploy       # Deploy (shows instructions)
 npm run clean        # Remove /dist folder
 
 # Linting
 npm run lint         # Run JS + Markdown linters
 npm run lint:js      # ESLint (flat config)
 npm run lint:md      # markdownlint (relaxed rules)
+
+# Testing
+npm test              # Run Node + Playwright suites
+npm run test:e2e      # Run Playwright E2E suite
+npm run test:watch    # Watch Node + Playwright suites
+npm run test:ui       # Playwright UI alongside watch mode
+
+# End-to-End (E2E) Tests
+npm run e2e:install  # One-time: install Playwright browsers
+npm run test:e2e     # Run E2E tests (headless)
+npm run test:watch   # Headless watch mode for Node + Playwright
+npm run test:ui      # Launch Playwright UI with watch mode
+
+# Housekeeping
+npm run clean:e2e    # Remove Playwright artifacts (playwright-report/, test-results/)
+npm run clean:all    # Remove dist/ and Playwright artifacts
 ```
 
 The server automatically serves:
-- `/src` folder in development mode
-- `/dist` folder in production mode (NODE_ENV=production)
+- `/src` folder in development mode (`npm run dev`)
+- `/dist` folder in production mode (`npm start` with NODE_ENV=production)
 
-Deploy the `/dist` folder to your hosting provider after running `npm run build:prod`.
+Deploy the `/dist` folder to your hosting provider after running `npm run predeploy`.
+
+### E2E Testing
+
+This project includes Playwright-based E2E tests that drive the app in a real browser.
+
+Basics:
+- One-time: `npm run e2e:install`
+- Run: `npm run test:e2e`
+- Watch: `npm run test:watch`
+- UI mode: `npm run test:ui`
+
+Focus on a single scenario by appending the spec filename, for example `npm run test:e2e -- profile-deletion-prunes.spec.js`.
+
+Current Playwright coverage highlights:
+- `drawer-balance.spec.js` checks math accuracy and asserts the page stays free of console errors.
+- `seeding-offline.spec.js` seeds deterministic history, restores past days, and verifies baseline offline behavior.
+- `profile-deletion-prunes.spec.js` exercises offline profile deletion, ensures day-history pruning, and confirms tombstones sync once connectivity returns.
+
+Seeding configuration used by E2E:
+- Tests seed recent days with balanced values for determinism.
+- You can override defaults via env:
+	- `SEED_COUNT=10 INCLUDE_TODAY=true npm run test:e2e`
+	- Backed by `tests/e2e/config.js`.
+
+Artifacts and cleanup:
+- Test artifacts live in `playwright-report/` and `test-results/` and are git-ignored.
+- Use `npm run clean:e2e` to remove artifacts, or `npm run clean:all` to also clear `dist/`.
 
 ### GitHub Pages Deployment
 
@@ -185,7 +226,7 @@ This repository includes a GitHub Actions workflow that automatically builds and
 
 The GitHub Actions workflow:
 - Installs dependencies
-- Runs `npm run build:prod` (includes image optimization)
+- Runs `npm run predeploy` (includes image optimization)
 - Deploys the `/dist` folder to GitHub Pages
 - Handles path updates automatically for GitHub Pages environment
 
@@ -193,6 +234,15 @@ To enable GitHub Pages for your repository:
 1. Go to Repository Settings → Pages
 2. Set Source to "GitHub Actions"
 3. The workflow will handle the rest automatically
+
+### Continuous Integration
+
+- The `Test Suite` workflow runs on Node.js 18 and 20, mirroring the officially supported runtime targets.
+- When a run is triggered from or targeting the `development` branch, the workflow exports `NODE_ENV=development` and `DCA_DEV=true` so the Express server serves assets directly from `src/` without requiring a production build.
+- npm dependencies are cached automatically through `actions/setup-node`, and Playwright browser binaries live under a pinned temp directory (`$RUNNER_TEMP/ms-playwright`) that is cached between runs to reduce install time.
+- Managed database credentials (`MONGODB_URI`, optional TLS flags) are pulled from GitHub Actions secrets or variables—add them under **Settings → Secrets and variables → Actions** and the workflow exports them before tests start.
+- If you store credentials in a GitHub Environment, set the repository variable `DCA_ENVIRONMENT_NAME` to that environment's name (default is `ci`) so the job can hydrate the right secrets.
+- See `.github/workflows/test.yml` for the latest configuration and reusable cache keys.
 
 ## Using the app
 

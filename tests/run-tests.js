@@ -24,12 +24,25 @@ function log(message, color = 'reset') {
 }
 
 async function runTests() {
-  log('🧪 Running comprehensive script tests...', 'blue');
+  // Check if we should skip full test suite
+  const skipFullTest = process.env.DCA_SKIP_FULL_TEST === '1';
+  
+  if (skipFullTest) {
+    log('⚡ Running quick test suite (DCA_SKIP_FULL_TEST=1)...', 'yellow');
+  } else {
+    log('🧪 Running comprehensive script tests...', 'blue');
+  }
   log('========================================', 'blue');
 
   const testFiles = [
     'tests/setup.test.js',
-    'tests/scripts/basic-tests.test.js'
+    'tests/scripts/build.test.js',
+    'tests/scripts/basic-tests.test.js',
+    // Skip heavy tests when DCA_SKIP_FULL_TEST=1
+    ...(process.env.DCA_SKIP_FULL_TEST === '1' ? [] : [
+      'tests/scripts/sync-merge.test.js',
+      'tests/scripts/package-scripts.test.js'
+    ])
   ];
 
   let totalTests = 0;

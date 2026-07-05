@@ -1,12 +1,8 @@
-import { test, describe, beforeEach, afterEach } from 'node:test';
-import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { spawn } from 'node:child_process';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const { test, describe, beforeEach, afterEach } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { spawn } = require('node:child_process');
 const projectRoot = path.resolve(__dirname, '../..');
 const buildScript = path.join(projectRoot, 'scripts', 'build.js');
 const srcDir = path.join(projectRoot, 'src');
@@ -84,18 +80,29 @@ describe('build.js script', () => {
   });
 
   test('should update paths for GitHub Pages deployment', async () => {
-    const result = await runBuildScript({
-      GITHUB_ACTIONS: 'true',
-      GITHUB_REPOSITORY: 'testuser/test-repo'
-    });
-    
-    assert.equal(result.code, 0);
-    
-    const indexPath = path.join(distDir, 'index.html');
-    const indexContent = fs.readFileSync(indexPath, 'utf8');
-    
-    // Check that paths were updated for GitHub Pages
-    assert.ok(indexContent.includes('/test-repo/'), 'Should contain base URL for GitHub Pages');
+    const indexPath = path.join(srcDir, 'index.html');
+    const originalIndexContent = fs.readFileSync(indexPath, 'utf8');
+
+    // Simulate a repository without a custom domain so build script rewrites paths
+    const sanitizedIndexContent = originalIndexContent.replace(/drawercounter\.journeytocode\.io/g, 'example.com');
+    fs.writeFileSync(indexPath, sanitizedIndexContent);
+
+    try {
+      const result = await runBuildScript({
+        GITHUB_ACTIONS: 'true',
+        GITHUB_REPOSITORY: 'testuser/test-repo'
+      });
+      
+      assert.equal(result.code, 0);
+      
+      const distIndexPath = path.join(distDir, 'index.html');
+      const indexContent = fs.readFileSync(distIndexPath, 'utf8');
+      
+      // Check that paths were updated for GitHub Pages
+      assert.ok(indexContent.includes('/test-repo/'), 'Should contain base URL for GitHub Pages');
+    } finally {
+      fs.writeFileSync(indexPath, originalIndexContent);
+    }
   });
 
   test('should not modify paths for root deployment', async () => {
@@ -214,5 +221,30 @@ describe('build.js script', () => {
     assert.ok(result.stdout.includes('[build] Cleaning dist directory'), 'Should log cleaning message');
     assert.ok(result.stdout.includes('[build] Copying src/ to dist/'), 'Should log copying message');
     assert.ok(result.stdout.includes('[build] Build complete!'), 'Should log completion message');
+  });
+
+  test('should include favicon asset referenced by manifest', async () => {
+    const result = await runBuildScript();
+
+    assert.equal(result.code, 0, `Build script failed with stderr: ${result.stderr}`);
+
+    const faviconPath = path.join(distDir, 'icons', 'favicon.svg');
+    assert.ok(fs.existsSync(faviconPath), 'favicon.svg should exist in dist/icons');
+
+    const faviconStat = fs.statSync(faviconPath);
+    assert.ok(faviconStat.size > 0, 'favicon.svg should not be empty');
+
+    const faviconContent = fs.readFileSync(faviconPath, 'utf8');
+    assert.ok(/<svg[\s>]/i.test(faviconContent), 'favicon.svg should contain SVG markup');
+
+    const manifestPath = path.join(distDir, 'manifest.webmanifest');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    assert.ok(Array.isArray(manifest.icons), 'manifest.icons should be an array');
+    const faviconIcon = manifest.icons.find((icon = {}) => {
+      const src = String(icon.src || '');
+      return src.endsWith('icons/favicon.svg');
+    });
+
+    assert.ok(faviconIcon, 'manifest should reference icons/favicon.svg');
   });
 });

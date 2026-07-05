@@ -2,3 +2,7 @@ node_modules/
 .env
 .vscode/
 dist/
+playwright-report/
+test-results/
+coverage/
+*.log

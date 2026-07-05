@@ -144,25 +144,23 @@ async function startServer(env = {}, port = 3001) {
 # Install dependencies
 npm install
 
-# Run all tests
+# Run all tests (Node + Playwright)
 npm test
 
-# Run specific test categories
-npm run test:build      # Build script tests
-npm run test:bump       # Version bump tests
-npm run test:icons      # Icon generation tests
-npm run test:images     # Image optimization tests
-npm run test:server     # Server functionality tests
-npm run test:scripts    # Package script tests
+# Run Playwright-only suite
+npm run test:e2e
 ```
 
 ### Advanced Usage
 ```bash
-# Watch mode (Node 19+)
+# Watch both suites (Node + Playwright)
 npm run test:watch
 
+# Playwright UI with watch mode
+npm run test:ui
+
 # Coverage report (Node 20+)
-npm run test:coverage
+node --test --experimental-test-coverage tests/
 
 # Individual test files
 node --test tests/scripts/build.test.js

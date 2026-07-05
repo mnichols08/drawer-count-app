@@ -357,6 +357,11 @@ app.use(express.static(rootDir, {
 	extensions: ['html'],
 	index: 'index.html',
 	setHeaders: (res, filePath) => {
+		if (isDev) {
+			// In development, always disable caching so tests/dev picks up latest files
+			res.setHeader('Cache-Control', 'no-store, max-age=0');
+			return;
+		}
 		if (/\.(?:js|css|png|jpg|jpeg|webp|svg|ico|woff2?)$/i.test(filePath)) {
 			res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
 		} else if (/\.(?:xml|webmanifest)$/i.test(filePath)) {
@@ -379,7 +384,18 @@ app.listen(PORT, () => {
 });
 
 process.on('SIGINT', async () => {
+	console.log('\nReceived SIGINT, shutting down gracefully...');
 	try { await mongoClient?.close(); } catch (_) {}
 	process.exit(0);
+});
+
+process.on('uncaughtException', (err) => {
+	console.error('Uncaught Exception:', err);
+	process.exit(1);
+});
+
+process.on('unhandledRejection', (err) => {
+	console.error('Unhandled Rejection:', err);
+	process.exit(1);
 });
 

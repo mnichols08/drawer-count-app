@@ -36,7 +36,7 @@ The Drawer Count App supports multiple deployment strategies:
 
 ### Manual Build & Deploy
 ```bash
-npm run build:prod    # Build with optimization
+npm run predeploy    # Optimize assets and build
 # Upload dist/ folder to your hosting provider
 ```
 
@@ -52,8 +52,7 @@ npm run build:prod    # Build with optimization
 ### Build Commands
 ```bash
 npm run build        # Basic production build
-npm run build:prod   # Build with image optimization
-npm run predeploy    # Pre-deployment preparation
+npm run predeploy    # Optimize assets, then build
 npm run deploy       # Deploy (shows instructions)
 ```
 
@@ -61,9 +60,9 @@ npm run deploy       # Deploy (shows instructions)
 
 ### Pre-Deployment
 - [ ] Run tests: `npm test`
-- [ ] Build successfully: `npm run build:prod`
+- [ ] Build successfully: `npm run predeploy`
 - [ ] Test production build locally: `npm start`
-- [ ] Update version: `npm run release:patch`
+- [ ] Update version: `npm run bump-sw`
 - [ ] Check all assets load correctly
 
 ### Post-Deployment
@@ -105,7 +104,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
       - run: npm ci
-      - run: npm run build:prod
+      - run: npm run predeploy
       - uses: actions/deploy-pages@v2
 ```
 
@@ -141,7 +140,7 @@ npm start           # Test production build
 
 ### Production
 ```bash
-npm run build:prod   # Optimized production build
+npm run predeploy   # Optimized production build
 # Deploy to production environment
 # Configure production API endpoints
 ```

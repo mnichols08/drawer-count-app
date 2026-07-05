@@ -1,7 +1,7 @@
 import { toggleTheme, getPreferredTheme, applyTheme, getProfileThemeMode } from '../lib/theme.js';
 import { toast } from '../lib/toast.js';
 import { ensureProfilesInitialized, populateProfilesSelect, updateLockButtonUI, applyReadOnlyByActiveDate, ensureDayResetIfNeeded } from '../lib/persistence.js';
-import { getTodayKey, setActiveViewDateKey, restoreDay, getActiveProfileId, setActiveProfile, saveToActiveProfile, loadProfilesData, saveProfilesData, createProfile, restoreActiveProfile } from '../lib/persistence.js';
+import { getTodayKey, setActiveViewDateKey, restoreDay, getActiveProfileId, setActiveProfile, saveToActiveProfile, loadProfilesData, saveProfilesData, createProfile, restoreActiveProfile, deleteProfileDays } from '../lib/persistence.js';
 import { initProfilesFromRemoteIfAvailable } from '../lib/sync.js';
 import { getHelpModal } from './help-modal.js';
 import { getSettingsModal } from './settings-modal.js';
@@ -244,9 +244,14 @@ class AppHeader extends HTMLElement {
       const ok = await modal.open(name); 
       if (!ok) return; 
       delete data.profiles[active]; 
+  data.deletedProfiles = data.deletedProfiles && typeof data.deletedProfiles === 'object' ? data.deletedProfiles : {}; 
+  const tombstone = Date.now();
+  data.deletedProfiles[active] = tombstone; 
       const nextId = ids.find((x)=>x!==active) || 'default'; 
       data.activeId = nextId; 
+  data.updatedAt = tombstone; 
       saveProfilesData(data); 
+  deleteProfileDays(active, tombstone);
       restoreActiveProfile(); 
       populateProfilesSelect(this); 
       applyReadOnlyByActiveDate(this); 
