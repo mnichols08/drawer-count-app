@@ -4,7 +4,7 @@
 import './lib/theme.js';
 import './lib/toast.js';
 import './lib/persistence.js';
-import './lib/sync.js';
+import { initOnlineSync } from './lib/sync.js';
 
 // Import persistence functions for initialization
 import { getTodayKey, setActiveViewDateKey, getActiveViewDateKey } from './lib/persistence.js';
@@ -31,6 +31,7 @@ import { getOnboardingTour } from './components/onboarding-tour.js';
 
 // Bootstrap
 document.addEventListener('DOMContentLoaded', () => {
+  try { initOnlineSync(); } catch (_) {}
   // Reset active view date to today on fresh app loads to prevent random day selection
   try {
     const today = getTodayKey();

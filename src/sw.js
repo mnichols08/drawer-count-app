@@ -1,5 +1,5 @@
 /* Drawer Count Service Worker */
-const CACHE_VERSION = 'v0.3.7';
+const CACHE_VERSION = 'v0.3.8';
 const PRECACHE = `precache-${CACHE_VERSION}`;
 const RUNTIME = `runtime-${CACHE_VERSION}`;
 
@@ -12,6 +12,8 @@ const RAW_PRECACHE_URLS = [
   'manifest.webmanifest',
   'style.css',
   'main.js',
+  'lib/daily-session.mjs',
+  'lib/sync-meta.mjs',
   'components/drawer-count.js',
   'sw-register.js',
   'icons/favicon.svg',

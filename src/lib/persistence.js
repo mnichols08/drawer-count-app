@@ -1,6 +1,14 @@
 // Shared persistence helpers that components import
+import { getDayRecordStatus, getLocalDateKey } from './daily-session.mjs';
+
 export const DRAWER_PROFILES_KEY = 'drawer-profiles-v1';
 export const DRAWER_DAYS_KEY = 'drawer-days-v1';
+
+function scheduleCloudSync(key) {
+  try {
+    import('./sync.js').then(({ markLocalChange }) => markLocalChange(key)).catch(() => {});
+  } catch(_) {}
+}
 
 export function getDrawerComponent() { try { return document.querySelector('drawer-count'); } catch(_) { return null; } }
 
@@ -14,7 +22,7 @@ export function loadProfilesData() {
 }
 
 export function saveProfilesData(data) {
-  try { localStorage.setItem(DRAWER_PROFILES_KEY, JSON.stringify(data || {})); try { _setLocalMeta(DRAWER_PROFILES_KEY, { updatedAt: Date.now() }); _scheduleSyncPush(DRAWER_PROFILES_KEY); } catch (_) {} return true; } catch(_) { return false; }
+  try { localStorage.setItem(DRAWER_PROFILES_KEY, JSON.stringify(data || {})); scheduleCloudSync(DRAWER_PROFILES_KEY); return true; } catch(_) { return false; }
 }
 
 export function ensureProfilesInitialized() {
@@ -125,10 +133,10 @@ export function openImportDialog(headerEl) {
 
 // Days state
 export function loadDaysData() { try { const raw = localStorage.getItem(DRAWER_DAYS_KEY); if (!raw) return {}; const parsed = JSON.parse(raw); return (parsed && typeof parsed === 'object') ? parsed : {}; } catch(_) { return {}; } }
-export function saveDaysData(data) { try { localStorage.setItem(DRAWER_DAYS_KEY, JSON.stringify(data || {})); try { _setLocalMeta(DRAWER_DAYS_KEY, { updatedAt: Date.now() }); _scheduleSyncPush(DRAWER_DAYS_KEY); } catch(_) {} return true; } catch(_) { return false; } }
+export function saveDaysData(data) { try { localStorage.setItem(DRAWER_DAYS_KEY, JSON.stringify(data || {})); scheduleCloudSync(DRAWER_DAYS_KEY); return true; } catch(_) { return false; } }
 export function _saveDaysDataAndSync(data) { try { saveDaysData(data); } catch(_) {} }
 
-export function getTodayKey() { const d = new Date(); const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return `${y}-${m}-${day}`; }
+export function getTodayKey() { return getLocalDateKey(); }
 
 export function _getActiveDaysEntry(createIfMissing = true) {
   const data = loadDaysData(); const pid = getActiveProfileId();
@@ -145,13 +153,32 @@ export function listSavedDaysForActiveProfile() {
   } catch(_) { return []; }
 }
 
-export function saveSpecificDay(key) { return saveDay(key); }
+export function saveSpecificDay(key) { return saveDay(key, { status: 'completed' }); }
+export function saveDayDraft(key) { return saveDay(key, { status: 'draft' }); }
 
-export function saveDay(key) {
+export function getDayStatus(key) {
+  try {
+    const { entry } = _getActiveDaysEntry(false);
+    return getDayRecordStatus(entry?.days?.[key]);
+  } catch(_) { return 'missing'; }
+}
+
+export function isDayCompleted(key) { return getDayStatus(key) === 'completed'; }
+
+export function saveDay(key, { status = 'completed' } = {}) {
   try {
     const { data, pid, entry } = _getActiveDaysEntry(true);
     const comp = getDrawerComponent(); const state = comp?.getState?.(); if (!state) return false;
-    entry.days = entry.days || {}; entry.days[key] = { state, savedAt: Date.now(), label: entry.days[key]?.label };
+    const now = Date.now();
+    const previous = entry.days?.[key];
+    entry.days = entry.days || {};
+    entry.days[key] = {
+      state,
+      savedAt: now,
+      label: previous?.label,
+      status,
+      ...(status === 'completed' ? { completedAt: now } : {})
+    };
     entry.lastVisitedDate = key; data[pid] = entry; saveDaysData(data); return true;
   } catch(_) { return false; }
 }

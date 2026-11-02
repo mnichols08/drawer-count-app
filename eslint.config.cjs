@@ -19,7 +19,7 @@ module.exports = [
   },
   // Browser code (ESM)
   {
-    files: ["src/**/*.js"],
+    files: ["src/**/*.js", "src/**/*.mjs"],
     languageOptions: {
       ecmaVersion: 2021,
       sourceType: "module",

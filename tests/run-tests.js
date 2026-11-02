@@ -30,7 +30,9 @@ async function runTests() {
   const testFiles = [
     'tests/setup.test.js',
     'tests/scripts/basic-tests.test.js',
-    'tests/functions/api.test.mjs'
+    'tests/functions/api.test.mjs',
+    'tests/lib/daily-session.test.mjs',
+    'tests/lib/sync-meta.test.mjs'
   ];
 
   let totalTests = 0;

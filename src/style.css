@@ -399,7 +399,17 @@ main.container > .card {
   gap: 0.75rem;
   margin-bottom: 0.5rem;
 }
+.count-panel .panel-heading { min-width: 0; }
 .count-panel .panel-title { font-weight: 600; }
+.count-panel .save-status {
+  margin-top: 0.15rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+.count-panel .save-status[data-state="saving"],
+.count-panel .save-status[data-state="syncing"] { color: var(--accent); }
+.count-panel .save-status[data-state="error"] { color: #d97706; }
 .count-panel .panel-actions { display: inline-flex; gap: 0.5rem; }
 .count-panel .panel-actions button {
   padding: 0.4rem 0.65rem;

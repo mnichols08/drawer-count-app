@@ -1,5 +1,31 @@
 // Networking and online sync helpers
 import { DRAWER_PROFILES_KEY, DRAWER_DAYS_KEY } from './persistence.js';
+import { canApplyRemoteSync, hasMeaningfulLocalSyncData, migrateLegacySyncMeta } from './sync-meta.mjs';
+
+export const SYNC_STATUS_EVENT = 'dca-sync-status';
+
+function announceSyncStatus(key, status, error = '', meta = {}) {
+  try {
+    window.dispatchEvent(new CustomEvent(SYNC_STATUS_EVENT, {
+      detail: { key, status, error, at: Date.now(), ...meta }
+    }));
+  } catch(_) {}
+}
+
+function acknowledgeLocalPush(key, snapshot, remoteUpdatedAt) {
+  const current = _getLocalMeta(key) || { updatedAt: 0, dirty: false, revision: 0 };
+  if (current.revision !== snapshot.revision || current.updatedAt !== snapshot.updatedAt) return false;
+  _setLocalMeta(key, { ...current, updatedAt: remoteUpdatedAt, dirty: false });
+  return true;
+}
+
+function applyRemoteIfLocalUnchanged(key, snapshot, value, remoteUpdatedAt) {
+  const current = _getLocalMeta(key) || { updatedAt: 0, dirty: false, revision: 0 };
+  if (current.revision !== snapshot.revision || current.updatedAt !== snapshot.updatedAt) return false;
+  localStorage.setItem(key, value);
+  _setLocalMeta(key, { ...current, updatedAt: remoteUpdatedAt, dirty: false });
+  return true;
+}
 
 export function getApiBase() {
   try {
@@ -64,32 +90,51 @@ export async function _pushRemoteKV(key, rawValue, updatedAt) {
 export async function _syncKeyOnce(key) {
   try {
     const localRaw = localStorage.getItem(key);
-    const localMeta = _getLocalMeta(key) || { updatedAt: 0 };
+    const localMeta = _getLocalMeta(key) || { updatedAt: 0, dirty: false, revision: 0 };
+    const localStatus = { localUpdatedAt: Number(localMeta.updatedAt || 0), revision: Number(localMeta.revision || 0) };
+    announceSyncStatus(key, 'syncing', '', localStatus);
     const remote = await _fetchRemoteKV(key);
-    if (!remote.ok) return false;
+    if (!remote.ok) {
+      announceSyncStatus(key, 'error', remote.error || 'Sync unavailable', localStatus);
+      return false;
+    }
     if (remote.missing) {
+      let currentSnapshot = true;
       if (localRaw != null) {
         const push = await _pushRemoteKV(key, localRaw, localMeta.updatedAt || Date.now());
-        if (push.ok) _setLocalMeta(key, { updatedAt: push.updatedAt });
+        if (!push.ok) {
+          announceSyncStatus(key, 'error', push.error || 'Sync unavailable', localStatus);
+          return false;
+        }
+        currentSnapshot = acknowledgeLocalPush(key, localMeta, push.updatedAt);
       }
+      announceSyncStatus(key, currentSnapshot ? 'synced' : 'stale', '', localStatus);
       return true;
     }
     const rAt = Number(remote.updatedAt || 0);
     const lAt = Number(localMeta.updatedAt || 0);
     if (localRaw == null) {
-      localStorage.setItem(key, remote.value);
-      _setLocalMeta(key, { updatedAt: rAt });
+      const currentSnapshot = applyRemoteIfLocalUnchanged(key, localMeta, remote.value, rAt);
+      announceSyncStatus(key, currentSnapshot ? 'synced' : 'stale', '', localStatus);
       return true;
     }
-    if (rAt > lAt) {
-      localStorage.setItem(key, remote.value);
-      _setLocalMeta(key, { updatedAt: rAt });
-    } else if (lAt > rAt) {
+    let currentSnapshot = true;
+    if (canApplyRemoteSync(localMeta, rAt)) {
+      currentSnapshot = applyRemoteIfLocalUnchanged(key, localMeta, remote.value, rAt);
+    } else if (localMeta.dirty || lAt > rAt) {
       const push = await _pushRemoteKV(key, localRaw, lAt);
-      if (push.ok) _setLocalMeta(key, { updatedAt: push.updatedAt });
+      if (!push.ok) {
+        announceSyncStatus(key, 'error', push.error || 'Sync unavailable', localStatus);
+        return false;
+      }
+      currentSnapshot = acknowledgeLocalPush(key, localMeta, push.updatedAt);
     }
+    announceSyncStatus(key, currentSnapshot ? 'synced' : 'stale', '', localStatus);
     return true;
-  } catch(_) { return false; }
+  } catch(error) {
+    announceSyncStatus(key, 'error', String(error));
+    return false;
+  }
 }
 
 export async function _syncAllKeys() {
@@ -106,9 +151,27 @@ export function _scheduleSyncPush(key) {
   } catch(_) {}
 }
 
+export function markLocalChange(key) {
+  const previous = _getLocalMeta(key) || {};
+  const updatedAt = Math.max(Date.now(), Number(previous.updatedAt || 0) + 1);
+  const revision = Number(previous.revision || 0) + 1;
+  _setLocalMeta(key, { ...previous, updatedAt, dirty: true, revision });
+  announceSyncStatus(key, 'queued', '', { localUpdatedAt: updatedAt, revision });
+  _scheduleSyncPush(key);
+}
+
+function initializeSyncMeta(key) {
+  const previous = _getLocalMeta(key);
+  const localRaw = localStorage.getItem(key);
+  const kind = key === DRAWER_PROFILES_KEY ? 'profiles' : 'days';
+  const hasLocalData = hasMeaningfulLocalSyncData(kind, localRaw);
+  const next = migrateLegacySyncMeta(previous, { hasLocalData });
+  if (next !== previous) _setLocalMeta(key, next);
+}
+
 export function initOnlineSync() {
   try {
-    for (const k of [DRAWER_PROFILES_KEY, DRAWER_DAYS_KEY]) { if (!_getLocalMeta(k)) _setLocalMeta(k, { updatedAt: 0 }); }
+    for (const k of [DRAWER_PROFILES_KEY, DRAWER_DAYS_KEY]) initializeSyncMeta(k);
     _syncAllKeys();
     window.addEventListener('online', () => { _syncAllKeys(); });
   } catch(_) { /* ignore */ }
@@ -126,7 +189,7 @@ export async function initProfilesFromRemoteIfAvailable() {
       const parsed = localRaw ? JSON.parse(localRaw) : null;
       hasLocalProfiles = !!(parsed && typeof parsed === 'object' && parsed.profiles && Object.keys(parsed.profiles).length > 0);
     } catch(_) { hasLocalProfiles = false; }
-    const localMeta = _getLocalMeta(DRAWER_PROFILES_KEY) || { updatedAt: 0 };
+    const localMeta = _getLocalMeta(DRAWER_PROFILES_KEY) || { updatedAt: 0, dirty: false, revision: 0 };
 
     // Try primary key first
     const candidateKeys = [ DRAWER_PROFILES_KEY, 'drawer-profiles', 'drawer_profiles', 'profiles', 'drawer-profiles-v0' ];
@@ -147,19 +210,18 @@ export async function initProfilesFromRemoteIfAvailable() {
     if (!best || !best.ok || best.missing || !best.value) return;
 
     const rAt = Number(best.updatedAt || 0);
-    const lAt = Number(localMeta.updatedAt || 0);
 
     // If we have no local profiles, seed from remote
     if (!hasLocalProfiles) {
-      localStorage.setItem(DRAWER_PROFILES_KEY, best.value);
-      _setLocalMeta(DRAWER_PROFILES_KEY, { updatedAt: rAt || Date.now() });
+      if (canApplyRemoteSync(localMeta, rAt, { requireNewer: false })) {
+        applyRemoteIfLocalUnchanged(DRAWER_PROFILES_KEY, localMeta, best.value, rAt || Date.now());
+      }
       return;
     }
 
     // If remote is newer than local, update; otherwise keep local
-    if (rAt > lAt) {
-      localStorage.setItem(DRAWER_PROFILES_KEY, best.value);
-      _setLocalMeta(DRAWER_PROFILES_KEY, { updatedAt: rAt });
+    if (canApplyRemoteSync(localMeta, rAt)) {
+      applyRemoteIfLocalUnchanged(DRAWER_PROFILES_KEY, localMeta, best.value, rAt);
     }
   } catch(_) { /* ignore */ }
 }
