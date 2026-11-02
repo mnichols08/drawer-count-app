@@ -1,5 +1,5 @@
 /* Drawer Count Service Worker */
-const CACHE_VERSION = 'v0.3.12';
+const CACHE_VERSION = 'v0.3.13';
 const PRECACHE = `precache-${CACHE_VERSION}`;
 const RUNTIME = `runtime-${CACHE_VERSION}`;
 
@@ -38,12 +38,14 @@ const RAW_PRECACHE_URLS = [
   'images/vw-atlas-southern-bg.png',
   'images/ram-2500-southern-bg.png',
   'images/delbies-daycare-geriatrics-bg.png',
+  'images/delbies-crew-bg.png',
   'images/crownvic-southern-bg.webp',
   'images/eclipse-challenge-southern-bg.webp',
   'images/vw-southern-bg.webp',
   'images/vw-atlas-southern-bg.webp',
   'images/ram-2500-southern-bg.webp',
   'images/delbies-daycare-geriatrics-bg.webp',
+  'images/delbies-crew-bg.webp',
   'favicon.ico',
   'browserconfig.xml'
 ];
