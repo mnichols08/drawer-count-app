@@ -1,7 +1,7 @@
 /**
  * ESLint flat config for ESLint v9+
  * - Browser ESM for `src/`
- * - Node (CJS) for `scripts/` and `server.js`
+ * - Node for scripts, Netlify Functions, and tests
  * - Tests relaxed
  */
 
@@ -42,9 +42,9 @@ module.exports = [
       ]
     }
   },
-  // Node scripts and server (CJS)
+  // Node scripts (CJS)
   {
-    files: ["scripts/**/*.js", "server.js", "tests/**/*.js"],
+    files: ["scripts/**/*.js", "tests/**/*.js"],
     languageOptions: {
       ecmaVersion: 2021,
       sourceType: "script",
@@ -65,6 +65,21 @@ module.exports = [
           destructuredArrayIgnorePattern: "^_"
         }
       ]
+    }
+  },
+  // Netlify Functions and ESM tests
+  {
+    files: ["netlify/functions/**/*.mjs", "tests/**/*.mjs"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "module",
+      globals: {
+        ...globals.node
+      }
+    },
+    rules: {
+      "no-console": "off",
+      "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }]
     }
   },
   // Tests (ESM imports)

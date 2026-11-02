@@ -260,7 +260,6 @@ describe('package.json scripts', () => {
       'test',
       'dev',
       'start',
-      'start:dev',
       'build',
       'build:prod',
       'icons',
@@ -281,51 +280,6 @@ describe('package.json scripts', () => {
     for (const script of expectedScripts) {
       assert.ok(packageJson.scripts[script], `Script '${script}' should be defined`);
     }
-  });
-
-  test('start:dev script should be able to start server', async (t) => {
-    // Test that the script can start (we'll kill it quickly)
-    let child;
-    try {
-      child = spawn(npmCmd, ['run', 'start:dev'], {
-        cwd: projectRoot,
-        stdio: 'pipe',
-        env: { ...process.env, PORT: '3999' }
-      });
-    } catch {
-      const cmd = getScriptCommand('start:dev');
-      child = spawn(cmd, {
-        cwd: projectRoot,
-        stdio: 'pipe',
-        shell: true,
-        env: { ...process.env, PORT: '3999' }
-      });
-    }
-
-    let started = false;
-    let stdout = '';
-
-    const timeout = setTimeout(() => {
-      if (!started) {
-        child.kill();
-      }
-    }, 5000);
-
-    child.stdout.on('data', (data) => {
-      stdout += data.toString();
-      if (stdout.includes('listening') || stdout.includes('server')) {
-        started = true;
-        child.kill();
-        clearTimeout(timeout);
-      }
-    });
-
-    await new Promise((resolve) => {
-      child.on('close', resolve);
-    });
-
-    // Should either start successfully or fail gracefully
-    assert.ok(started || stdout.length > 0, 'start:dev script should attempt to start server');
   });
 
   test('bump-sw variations should work', async () => {
@@ -354,19 +308,14 @@ describe('package.json scripts', () => {
     assert.ok(Object.keys(packageJson.scripts).length > 0, 'Should have multiple scripts defined');
   });
 
-  test('environment-specific scripts should handle NODE_ENV', async () => {
-    // Test that start script references production mode
+  test('start script should use the Netlify development environment', async () => {
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    
-    assert.ok(packageJson.scripts.start.includes('NODE_ENV=production') || 
-             packageJson.scripts.start.includes('cross-env'), 
-             'Start script should handle production environment');
+    assert.equal(packageJson.scripts.start, 'npm run dev');
   });
 
-  test('dev script should use nodemon', async () => {
+  test('dev script should use Netlify Dev', async () => {
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    
-    assert.ok(packageJson.scripts.dev.includes('nodemon'), 
-              'Dev script should use nodemon for development');
+    assert.ok(packageJson.scripts.dev.includes('netlify-cli') && packageJson.scripts.dev.includes('dev'),
+              'Dev script should run Netlify Dev');
   });
 });

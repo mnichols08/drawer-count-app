@@ -155,7 +155,7 @@ if (!content.includes('drawercounter.journeytocode.io')) {
 [build] Copying src/ to dist/...
 [build] Build complete! Distribution files are in /dist
 [build] You can now deploy the dist/ folder to your hosting provider.
-[build] To test production build locally, run: npm start
+[build] To test the site and functions locally, run: npm run dev
 ```
 
 ### GitHub Pages Output
@@ -237,7 +237,7 @@ npm run deploy           # Finally deploy
 ### Local Testing
 ```bash
 npm run build           # Build
-npm start              # Test production build locally
+npm run dev            # Test the site and functions locally
 ```
 
 ## 📈 Performance

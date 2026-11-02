@@ -137,8 +137,8 @@ describe('Other Scripts Tests', () => {
     assert.ok(fs.existsSync(optimizeScript), 'Optimize images script should exist');
   });
 
-  test('server.js should exist', () => {
-    const serverPath = path.join(projectRoot, 'server.js');
-    assert.ok(fs.existsSync(serverPath), 'Server script should exist');
+  test('Netlify sync function should exist', () => {
+    const functionPath = path.join(projectRoot, 'netlify', 'functions', 'api.mjs');
+    assert.ok(fs.existsSync(functionPath), 'Netlify sync function should exist');
   });
 });

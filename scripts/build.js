@@ -131,5 +131,5 @@ for (const file of criticalFiles) {
 console.log('[build] Build complete! Distribution files are in /dist');
 console.log('[build] You can now deploy the dist/ folder to your hosting provider.');
 if (!isGitHubPages) {
-  console.log('[build] To test production build locally, run: npm start');
+  console.log('[build] To test the site and functions locally, run: npm run dev');
 }

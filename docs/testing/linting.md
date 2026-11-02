@@ -26,8 +26,9 @@ npm run lint
 ESLint v9 flat config lives in `eslint.config.cjs` and applies tailored environments and parser options to different parts of the repo:
 
 - `src/**`: Browser + ESM modules
-- `scripts/**` and `server.js`: Node.js + CommonJS
-- `tests/**`: ESM-friendly config
+- `scripts/**`: Node.js + CommonJS
+- `netlify/functions/**` and ESM tests: Node.js + ESM
+- other `tests/**`: Node.js test files
 
 Key rules and conventions:
 - `no-unused-vars` is enabled and tuned to ignore names that start with an underscore. This allows us to:

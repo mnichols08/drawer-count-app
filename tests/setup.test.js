@@ -12,7 +12,7 @@ describe('Test Suite Setup', () => {
       'tests/scripts/bump-sw-cache.test.js',
       'tests/scripts/generate-icons.test.js',
       'tests/scripts/optimize-images.test.js',
-      'tests/scripts/server.test.js',
+      'tests/functions/api.test.mjs',
       'tests/scripts/package-scripts.test.js'
     ];
 
@@ -28,7 +28,7 @@ describe('Test Suite Setup', () => {
       'scripts/bump-sw-cache.js',
       'scripts/generate-icons.js',
       'scripts/optimize-images.js',
-      'server.js'
+      'netlify/functions/api.mjs'
     ];
 
     for (const scriptFile of scriptFiles) {
@@ -49,7 +49,9 @@ describe('Test Suite Setup', () => {
   test('project structure should be valid', () => {
     const requiredDirs = [
       'src',
-      'scripts'
+      'scripts',
+      'netlify/functions',
+      'supabase/migrations'
     ];
 
     for (const dir of requiredDirs) {
@@ -59,7 +61,7 @@ describe('Test Suite Setup', () => {
 
     const requiredFiles = [
       'package.json',
-      'server.js'
+      'netlify.toml'
     ];
 
     for (const file of requiredFiles) {

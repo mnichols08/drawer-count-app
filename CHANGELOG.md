@@ -1,4 +1,22 @@
 # Changelog
+## Unreleased
+
+### Backend & Deployment
+
+- Replaced the Render/Express/MongoDB backend with a same-origin Netlify Function
+  backed by Supabase Postgres.
+- Added Netlify build, routing, security-header, and Node runtime configuration.
+- Added the Supabase table migration while keeping elevated credentials entirely
+  in the server-side Function environment.
+- Removed Render-specific client fallbacks, legacy server dependencies, and the
+  retired Express server.
+
+### Tests & Documentation
+
+- Added contract tests for health checks, reads, upserts, validation, and upstream
+  failure handling in the sync Function.
+- Updated setup, deployment, testing, and script documentation for the new stack.
+
 ## v0.3.7 - 2025-09-24
 ### Assets & UI
 - Updated the base background image URI to point to the new optimized asset location for improved load performance and reliability.
