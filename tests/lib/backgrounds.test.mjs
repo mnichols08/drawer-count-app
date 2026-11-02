@@ -21,7 +21,8 @@ test('background catalog includes original and Southern variants', () => {
     'eclipse-challenge-southern-bg',
     'vw-southern-bg',
     'vw-atlas-southern-bg',
-    'ram-2500-southern-bg'
+    'ram-2500-southern-bg',
+    'delbies-daycare-geriatrics-bg'
   ]);
 });
 

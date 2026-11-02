@@ -22,6 +22,7 @@ const TARGET_FILES = [
   'vw-southern-bg.png',
   'vw-atlas-southern-bg.png',
   'ram-2500-southern-bg.png',
+  'delbies-daycare-geriatrics-bg.png',
 ];
 
 async function optimizePng(pngPath) {
