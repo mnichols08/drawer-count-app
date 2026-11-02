@@ -19,7 +19,8 @@ test('background catalog includes original and Southern variants', () => {
     'vw-bg',
     'crownvic-southern-bg',
     'eclipse-challenge-southern-bg',
-    'vw-southern-bg'
+    'vw-southern-bg',
+    'vw-atlas-southern-bg'
   ]);
 });
 

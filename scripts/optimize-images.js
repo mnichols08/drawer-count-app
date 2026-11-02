@@ -20,6 +20,7 @@ const TARGET_FILES = [
   'crownvic-southern-bg.png',
   'eclipse-challenge-southern-bg.png',
   'vw-southern-bg.png',
+  'vw-atlas-southern-bg.png',
 ];
 
 async function optimizePng(pngPath) {
