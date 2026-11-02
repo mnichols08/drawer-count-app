@@ -1,4 +1,4 @@
-import { getPreferredTheme, applyTheme, getProfileThemeMode, setProfileThemeMode } from '../lib/theme.js';
+import { applyTheme, getBackgroundOptions, getPreferredTheme, getProfileBackgroundChoice, getProfileThemeMode, setProfileBackgroundChoice, setProfileThemeMode } from '../lib/theme.js';
 import { toast } from '../lib/toast.js';
 import { saveToActiveProfile, restoreActiveProfile, exportProfilesToFile, openImportDialog } from '../lib/persistence.js';
 import { listSavedDaysForActiveProfile, _getActiveDaysEntry, getTodayKey, setDayLabel, setActiveViewDateKey, restoreDay, deleteDay } from '../lib/persistence.js';
@@ -11,6 +11,7 @@ class SettingsModal extends HTMLElement {
     this._shadow = this.attachShadow({ mode: 'open' });
     this._onKeyDown = this._onKeyDown.bind(this);
     this._onThemeChange = this._onThemeChange.bind(this);
+    this._onBackgroundChange = this._onBackgroundChange.bind(this);
     this._onExport = this._onExport.bind(this);
     this._onImport = this._onImport.bind(this);
     this._onDayLoad = this._onDayLoad.bind(this);
@@ -23,6 +24,8 @@ class SettingsModal extends HTMLElement {
   _render() {
   const currentTheme = document.documentElement.getAttribute('data-theme') || getPreferredTheme();
   const mode = getProfileThemeMode();
+    const backgroundChoice = getProfileBackgroundChoice();
+    const backgroundOptions = getBackgroundOptions();
     const devMode = (() => { try { return !!window.DCA_DEV; } catch(_) { return false; } })();
     this._shadow.innerHTML = `
       <style>
@@ -37,7 +40,7 @@ class SettingsModal extends HTMLElement {
         .btn:active { transform: translateY(1px); }
         .btn:focus { outline: 2px solid var(--accent, #5aa0ff); outline-offset: 2px; }
         .btn[disabled] { opacity: .7; cursor: not-allowed; }
-        .day-label, .day-select { background: var(--input-bg-color, #0f1730); color: var(--input-fg-color, var(--fg)); border: 1px solid var(--border, #2a345a); border-radius: 10px; padding: 0.6rem 0.75rem; min-height: 44px; font-size: 16px; }
+        .day-label, .day-select, .background-select { background: var(--input-bg-color, #0f1730); color: var(--input-fg-color, var(--fg)); border: 1px solid var(--border, #2a345a); border-radius: 10px; padding: 0.6rem 0.75rem; min-height: 44px; font-size: 16px; }
         .btn.processing { position: relative; }
         .btn .dots { display: inline-block; width: 1.5em; text-align: left; }
         @keyframes dca-ellipsis { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } 100% { content: ''; } }
@@ -57,6 +60,13 @@ class SettingsModal extends HTMLElement {
                 <label><input type="radio" name="theme" value="light"> <span>Light</span></label>
                 <label><input type="radio" name="theme" value="dark"> <span>Dark</span></label>
               </div>
+            </div>
+            <div class="row">
+              <label for="background-choice">Background</label>
+              <select id="background-choice" class="background-select" aria-label="Background artwork">
+                <option value="random">Random each visit</option>
+                ${backgroundOptions.map(({ id, label }) => `<option value="${id}">${label}</option>`).join('')}
+              </select>
             </div>
           </div>
           <div class="section">
@@ -110,6 +120,7 @@ class SettingsModal extends HTMLElement {
     this._els = {
       modal: this._shadow.querySelector('app-modal'),
       radios: Array.from(this._shadow.querySelectorAll('input[name="theme"]')),
+      backgroundSelect: this._shadow.querySelector('.background-select'),
       exportBtn: this._shadow.querySelector('.export-btn'),
       importBtn: this._shadow.querySelector('.import-btn'),
       saveBtn: this._shadow.querySelector('.save-btn'),
@@ -126,6 +137,10 @@ class SettingsModal extends HTMLElement {
     };
   const chosen = mode || currentTheme;
     this._els.radios.forEach((r) => { r.checked = r.value === chosen; r.addEventListener('change', this._onThemeChange); });
+    if (this._els.backgroundSelect) {
+      this._els.backgroundSelect.value = backgroundChoice;
+      this._els.backgroundSelect.addEventListener('change', this._onBackgroundChange);
+    }
     this._els.modal?.addEventListener('modal-close', () => this.close());
     this._els.exportBtn?.addEventListener('click', this._onExport);
     this._els.importBtn?.addEventListener('click', this._onImport);
@@ -150,7 +165,7 @@ class SettingsModal extends HTMLElement {
     if (this._els.dayLoadBtn) this._els.dayLoadBtn.disabled = !this._els.daySelect?.value;
     if (this._els.dayDeleteBtn) this._els.dayDeleteBtn.disabled = !this._els.daySelect?.value;
   }
-  open() { this.setAttribute('open', ''); try { this._populateDaysSelect(); } catch(_) {} this._els?.modal?.show(); }
+  open() { this.setAttribute('open', ''); try { this._populateDaysSelect(); if (this._els?.backgroundSelect) this._els.backgroundSelect.value = getProfileBackgroundChoice(); } catch(_) {} this._els?.modal?.show(); }
   close() { this._els?.modal?.hide('programmatic'); this.removeAttribute('open'); }
   _onKeyDown(e) { if (e.key === 'Escape') this.close(); }
   _onThemeChange(e) {
@@ -159,6 +174,20 @@ class SettingsModal extends HTMLElement {
       if (val === 'system') { setProfileThemeMode('system'); applyTheme('system', false); toast('Theme: System', { type:'info', duration: 1200}); }
       else if (val === 'light' || val === 'dark') { setProfileThemeMode(val); applyTheme(val, false); toast(`Theme: ${val[0].toUpperCase()}${val.slice(1)}`, { type:'info', duration: 1200}); }
     } catch (_) { /* ignore */ }
+  }
+  _onBackgroundChange(e) {
+    const choice = e.target?.value;
+    try {
+      if (!setProfileBackgroundChoice(choice)) throw new Error('Background preference was not saved');
+      applyTheme(getProfileThemeMode(), false);
+      const label = choice === 'random'
+        ? 'Random each visit'
+        : getBackgroundOptions().find(({ id }) => id === choice)?.label || 'Selected background';
+      toast(`Background: ${label}`, { type: 'info', duration: 1600 });
+    } catch(_) {
+      if (e.target) e.target.value = getProfileBackgroundChoice();
+      toast('Could not update background', { type: 'error', duration: 1800 });
+    }
   }
   async _onExport() { const btn = this._els?.exportBtn; await this._withProcessing(btn, async () => { try { exportProfilesToFile(); } catch(_) { toast('Export failed', { type: 'error', duration: 2500 }); } await this._sleep(350); }); }
   async _onImport() { const btn = this._els?.importBtn; await this._withProcessing(btn, async () => { try { const header = document.querySelector('app-header'); openImportDialog(header); } catch(_) { toast('Import failed to start', { type: 'error', duration: 2500 }); } await this._sleep(600); }); }

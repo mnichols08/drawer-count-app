@@ -1,6 +1,8 @@
 // Theme utilities shared by components (now per-profile)
+import { getProfilePrefs, loadProfilesData, saveProfilesData, setProfilePrefs } from './persistence.js';
+import { BACKGROUND_OPTIONS, chooseBackgroundId, normalizeBackgroundChoice } from './backgrounds.mjs';
+
 export const THEME_KEY = 'theme'; // legacy global key; kept for one-time migration
-import { loadProfilesData, saveProfilesData } from './persistence.js';
 
 // Read the active profile's theme mode: 'system' | 'light' | 'dark'
 export function getProfileThemeMode() {
@@ -69,16 +71,22 @@ export function toggleTheme() {
 }
 
 // Background image helpers (kept here so header/components can reference)
-const BG_IMAGES = [
-  '1g-eclipse-bg',
-  'crownvic-bg',
-  'eclipse-challenge-bg',
-  'vw-bg',
-];
 const BG_IMAGE_BASE = './images/';
 let CURRENT_BG_URL = null;
+let CURRENT_BG_CONTEXT = null;
 let SUPPORTS_WEBP = null;
 let BG_LAYER_EL = null;
+
+export function getProfileBackgroundChoice() {
+  try { return normalizeBackgroundChoice(getProfilePrefs()?.background); } catch(_) { return 'random'; }
+}
+
+export function setProfileBackgroundChoice(choice) {
+  const normalized = normalizeBackgroundChoice(choice);
+  try { return setProfilePrefs({ background: normalized }); } catch(_) { return false; }
+}
+
+export function getBackgroundOptions() { return BACKGROUND_OPTIONS; }
 
 function detectWebpSupport() {
   if (SUPPORTS_WEBP !== null) return SUPPORTS_WEBP;
@@ -93,11 +101,9 @@ function detectWebpSupport() {
   return SUPPORTS_WEBP;
 }
 
-function pickRandomBackgroundUrl() {
+function pickBackgroundUrl(choice) {
   try {
-    const list = Array.isArray(BG_IMAGES) && BG_IMAGES.length ? BG_IMAGES : ['1g-eclipse-bg.png'];
-    const idx = Math.floor(Math.random() * list.length);
-    const base = list[idx] || list[0];
+    const base = chooseBackgroundId(choice);
     const useWebp = detectWebpSupport();
     return `${BG_IMAGE_BASE}${base}${useWebp ? '.webp' : '.png'}`;
   } catch (_) {
@@ -108,7 +114,14 @@ function pickRandomBackgroundUrl() {
 
 export function updateBodyBackground(theme) {
   const t = theme === 'light' ? 'light' : 'dark';
-  if (!CURRENT_BG_URL) CURRENT_BG_URL = pickRandomBackgroundUrl();
+  const data = loadProfilesData();
+  const profileId = data.activeId || 'default';
+  const choice = getProfileBackgroundChoice();
+  const context = `${profileId}:${choice}`;
+  if (!CURRENT_BG_URL || CURRENT_BG_CONTEXT !== context) {
+    CURRENT_BG_URL = pickBackgroundUrl(choice);
+    CURRENT_BG_CONTEXT = context;
+  }
   const overlay = t === 'light'
     ? 'linear-gradient(rgba(255,255,255,0.7), rgba(255,255,255,0.7))'
     : 'linear-gradient(rgba(7, 10, 26, 0.50), rgba(7, 10, 26, 0.50))';

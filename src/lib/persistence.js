@@ -63,7 +63,7 @@ export function getProfilePrefs() {
   try { const d = loadProfilesData(); const id = d.activeId || 'default'; const p = d.profiles?.[id] || {}; return p.prefs || {}; } catch(_) { return {}; }
 }
 export function setProfilePrefs(next) {
-  try { const d = loadProfilesData(); const id = d.activeId || 'default'; d.profiles = d.profiles || {}; d.profiles[id] = d.profiles[id] || { name: id, state: null, updatedAt: Date.now() }; d.profiles[id].prefs = { ...(d.profiles[id].prefs||{}), ...(next||{}) }; d.profiles[id].updatedAt = Date.now(); d.updatedAt = Date.now(); saveProfilesData(d); return true; } catch(_) { return false; }
+  try { const d = loadProfilesData(); const id = d.activeId || 'default'; d.profiles = d.profiles || {}; d.profiles[id] = d.profiles[id] || { name: id, state: null, updatedAt: Date.now() }; d.profiles[id].prefs = { ...(d.profiles[id].prefs||{}), ...(next||{}) }; d.profiles[id].updatedAt = Date.now(); d.updatedAt = Date.now(); return saveProfilesData(d); } catch(_) { return false; }
 }
 
 // Expose preference helpers for lazy access in components

@@ -1,5 +1,5 @@
 /* Drawer Count Service Worker */
-const CACHE_VERSION = 'v0.3.8';
+const CACHE_VERSION = 'v0.3.9';
 const PRECACHE = `precache-${CACHE_VERSION}`;
 const RUNTIME = `runtime-${CACHE_VERSION}`;
 
@@ -14,6 +14,7 @@ const RAW_PRECACHE_URLS = [
   'main.js',
   'lib/daily-session.mjs',
   'lib/sync-meta.mjs',
+  'lib/backgrounds.mjs',
   'components/drawer-count.js',
   'sw-register.js',
   'icons/favicon.svg',
@@ -31,6 +32,12 @@ const RAW_PRECACHE_URLS = [
   'images/crownvic-bg.webp',
   'images/eclipse-challenge-bg.webp',
   'images/vw-bg.webp',
+  'images/crownvic-southern-bg.png',
+  'images/eclipse-challenge-southern-bg.png',
+  'images/vw-southern-bg.png',
+  'images/crownvic-southern-bg.webp',
+  'images/eclipse-challenge-southern-bg.webp',
+  'images/vw-southern-bg.webp',
   'favicon.ico',
   'browserconfig.xml'
 ];

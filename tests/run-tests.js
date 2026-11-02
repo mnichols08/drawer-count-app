@@ -32,7 +32,8 @@ async function runTests() {
     'tests/scripts/basic-tests.test.js',
     'tests/functions/api.test.mjs',
     'tests/lib/daily-session.test.mjs',
-    'tests/lib/sync-meta.test.mjs'
+    'tests/lib/sync-meta.test.mjs',
+    'tests/lib/backgrounds.test.mjs'
   ];
 
   let totalTests = 0;
