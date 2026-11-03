@@ -1,5 +1,5 @@
 import { getOnboardingTour } from "./onboarding-tour.js";
-import './app-modal.js';
+import "./app-modal.js";
 
 class HelpModal extends HTMLElement {
   constructor() {
@@ -36,15 +36,23 @@ class HelpModal extends HTMLElement {
       </app-modal>
     `;
     this._els = {
-      modal: this._shadow.querySelector('app-modal'),
-      walkthrough: this._shadow.querySelector('.walkthrough')
+      modal: this._shadow.querySelector("app-modal"),
+      walkthrough: this._shadow.querySelector(".walkthrough"),
     };
-    this._els.modal?.addEventListener('modal-close', () => this.close());
-    this._els.walkthrough?.addEventListener('click', (_e) => {
-      try { _e?.preventDefault?.(); } catch (_) {}
-      try { this.close(); } catch (_) {}
+    this._els.modal?.addEventListener("modal-close", () => this.close());
+    this._els.walkthrough?.addEventListener("click", (_e) => {
       try {
-        setTimeout(() => { try { getOnboardingTour().open(0); } catch (_) {} }, 120);
+        _e?.preventDefault?.();
+      } catch (_) {}
+      try {
+        this.close();
+      } catch (_) {}
+      try {
+        setTimeout(() => {
+          try {
+            getOnboardingTour().open(0);
+          } catch (_) {}
+        }, 120);
       } catch (_) {}
     });
     window.addEventListener("keydown", this._onKeyDown);
@@ -52,8 +60,14 @@ class HelpModal extends HTMLElement {
   disconnectedCallback() {
     window.removeEventListener("keydown", this._onKeyDown);
   }
-  open() { this.setAttribute("open", ""); this._els?.modal?.show(); }
-  close() { this._els?.modal?.hide('programmatic'); this.removeAttribute("open"); }
+  open() {
+    this.setAttribute("open", "");
+    this._els?.modal?.show();
+  }
+  close() {
+    this._els?.modal?.hide("programmatic");
+    this.removeAttribute("open");
+  }
   _onKeyDown(e) {
     if (e.key === "Escape") this.close();
   }

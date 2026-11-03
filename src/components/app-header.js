@@ -1,14 +1,39 @@
-import { toggleTheme, getPreferredTheme, applyTheme, getProfileThemeMode } from '../lib/theme.js';
-import { toast } from '../lib/toast.js';
-import { ensureProfilesInitialized, populateProfilesSelect, updateLockButtonUI, applyReadOnlyByActiveDate, ensureDayResetIfNeeded } from '../lib/persistence.js';
-import { getTodayKey, setActiveViewDateKey, restoreDay, getActiveProfileId, setActiveProfile, saveToActiveProfile, loadProfilesData, saveProfilesData, createProfile, restoreActiveProfile } from '../lib/persistence.js';
-import { initProfilesFromRemoteIfAvailable } from '../lib/sync.js';
-import { getHelpModal } from './help-modal.js';
-import { getSettingsModal } from './settings-modal.js';
-import { getNewProfileModal } from './new-profile-modal.js';
-import { getDeleteProfileModal } from './delete-profile-modal.js';
-import { getDayPickerModal } from './day-picker-modal.js';
-import { listSavedDaysForActiveProfile, getActiveViewDateKey } from '../lib/persistence.js';
+import {
+  toggleTheme,
+  getPreferredTheme,
+  applyTheme,
+  getProfileThemeMode,
+} from "../lib/theme.js";
+import { toast } from "../lib/toast.js";
+import {
+  ensureProfilesInitialized,
+  populateProfilesSelect,
+  updateLockButtonUI,
+  applyReadOnlyByActiveDate,
+  ensureDayResetIfNeeded,
+} from "../lib/persistence.js";
+import {
+  getTodayKey,
+  setActiveViewDateKey,
+  restoreDay,
+  getActiveProfileId,
+  setActiveProfile,
+  saveToActiveProfile,
+  loadProfilesData,
+  saveProfilesData,
+  createProfile,
+  restoreActiveProfile,
+} from "../lib/persistence.js";
+import { initProfilesFromRemoteIfAvailable } from "../lib/sync.js";
+import { getHelpModal } from "./help-modal.js";
+import { getSettingsModal } from "./settings-modal.js";
+import { getNewProfileModal } from "./new-profile-modal.js";
+import { getDeleteProfileModal } from "./delete-profile-modal.js";
+import { getDayPickerModal } from "./day-picker-modal.js";
+import {
+  listSavedDaysForActiveProfile,
+  getActiveViewDateKey,
+} from "../lib/persistence.js";
 
 class AppHeader extends HTMLElement {
   constructor() {
@@ -27,7 +52,7 @@ class AppHeader extends HTMLElement {
     this._onOutsideClick = this._onOutsideClick.bind(this);
   }
   connectedCallback() {
-    const title = this.getAttribute('title') || 'Drawer Count';
+    const title = this.getAttribute("title") || "Drawer Count";
     this.innerHTML = `
       <style>
         :host { display: block; width: 100%; }
@@ -76,7 +101,7 @@ class AppHeader extends HTMLElement {
           <button class="icon-btn panel-toggle-btn" aria-label="Today’s count" title="Today’s count">⬒</button>
           <button class="icon-btn days-btn" aria-label="Daily history" title="Daily history">📅</button>
           <button class="icon-btn settings-btn" aria-label="Settings" title="Settings">⚙️</button>
-          <button class="icon-btn theme-toggle" aria-label="Toggle theme" title="Toggle theme">${(document.documentElement.getAttribute('data-theme')||getPreferredTheme())==='dark'?'🌙':'☀️'}</button>
+          <button class="icon-btn theme-toggle" aria-label="Toggle theme" title="Toggle theme">${(document.documentElement.getAttribute("data-theme") || getPreferredTheme()) === "dark" ? "🌙" : "☀️"}</button>
           <button class="icon-btn info-btn" aria-label="Help" title="Help">?</button>
         </div>
         <div class="right menu-area">
@@ -86,7 +111,7 @@ class AppHeader extends HTMLElement {
               <button class="icon-btn panel-toggle-btn" role="menuitem" aria-label="Today’s count" title="Today’s count">⬒</button>
               <button class="icon-btn days-btn" role="menuitem" aria-label="Daily history" title="Daily history">📅</button>
               <button class="icon-btn settings-btn" role="menuitem" aria-label="Settings" title="Settings">⚙️</button>
-              <button class="icon-btn theme-toggle" role="menuitem" aria-label="Toggle theme" title="Toggle theme">${(document.documentElement.getAttribute('data-theme')||getPreferredTheme())==='dark'?'🌙':'☀️'}</button>
+              <button class="icon-btn theme-toggle" role="menuitem" aria-label="Toggle theme" title="Toggle theme">${(document.documentElement.getAttribute("data-theme") || getPreferredTheme()) === "dark" ? "🌙" : "☀️"}</button>
               <button class="icon-btn info-btn" role="menuitem" aria-label="Help" title="Help">?</button>
             </div>
           </div>
@@ -94,171 +119,336 @@ class AppHeader extends HTMLElement {
         </div>
       </div>`;
 
-    this.querySelectorAll('.settings-btn')?.forEach((el) => el.addEventListener('click', this._onSettings));
-    this.querySelectorAll('.theme-toggle')?.forEach((el) => el.addEventListener('click', this._onTheme));
-    this.querySelectorAll('.info-btn')?.forEach((el) => el.addEventListener('click', this._onHelp));
-    this.querySelectorAll('.panel-toggle-btn')?.forEach((el) => el.addEventListener('click', this._onPanelToggle));
-    this.querySelector('.profile-select')?.addEventListener('change', this._onProfileChange);
-    
-    const newProfileBtn = this.querySelector('.new-profile-btn');
-    const deleteProfileBtn = this.querySelector('.delete-profile-btn');
-    
-    newProfileBtn?.addEventListener('click', (e) => {
+    this.querySelectorAll(".settings-btn")?.forEach((el) =>
+      el.addEventListener("click", this._onSettings),
+    );
+    this.querySelectorAll(".theme-toggle")?.forEach((el) =>
+      el.addEventListener("click", this._onTheme),
+    );
+    this.querySelectorAll(".info-btn")?.forEach((el) =>
+      el.addEventListener("click", this._onHelp),
+    );
+    this.querySelectorAll(".panel-toggle-btn")?.forEach((el) =>
+      el.addEventListener("click", this._onPanelToggle),
+    );
+    this.querySelector(".profile-select")?.addEventListener(
+      "change",
+      this._onProfileChange,
+    );
+
+    const newProfileBtn = this.querySelector(".new-profile-btn");
+    const deleteProfileBtn = this.querySelector(".delete-profile-btn");
+
+    newProfileBtn?.addEventListener("click", (e) => {
       e.preventDefault();
       this._onNewProfile();
     });
-    deleteProfileBtn?.addEventListener('click', (e) => {
+    deleteProfileBtn?.addEventListener("click", (e) => {
       e.preventDefault();
       this._onDeleteProfile();
     });
-    this.querySelectorAll('.days-btn')?.forEach((el) => el.addEventListener('click', this._onOpenDays));
-    this.querySelector('.menu-toggle')?.addEventListener('click', this._onMenuToggle);
-    window.addEventListener('keydown', this._onWindowKey);
-    window.addEventListener('click', this._onOutsideClick, true);
-    this.querySelector('.menu-backdrop')?.addEventListener('click', () => this._closeMenu());
+    this.querySelectorAll(".days-btn")?.forEach((el) =>
+      el.addEventListener("click", this._onOpenDays),
+    );
+    this.querySelector(".menu-toggle")?.addEventListener(
+      "click",
+      this._onMenuToggle,
+    );
+    window.addEventListener("keydown", this._onWindowKey);
+    window.addEventListener("click", this._onOutsideClick, true);
+    this.querySelector(".menu-backdrop")?.addEventListener("click", () =>
+      this._closeMenu(),
+    );
 
     (async () => {
-      try { await initProfilesFromRemoteIfAvailable(); } catch (_) {}
-      try { ensureProfilesInitialized(); } catch (_) {}
-  try { populateProfilesSelect(this); updateLockButtonUI(this); this._updatePanelBtnUI(); } catch (_) {}
+      try {
+        await initProfilesFromRemoteIfAvailable();
+      } catch (_) {}
+      try {
+        ensureProfilesInitialized();
+      } catch (_) {}
+      try {
+        populateProfilesSelect(this);
+        updateLockButtonUI(this);
+        this._updatePanelBtnUI();
+      } catch (_) {}
       // Ensure theme reflects active profile preference
-      try { const mode = getProfileThemeMode(); applyTheme(mode, false); } catch(_) {}
-      try { window.addEventListener('storage', this._updatePanelBtnUI); window.addEventListener('focus', this._updatePanelBtnUI); } catch(_) {}
+      try {
+        const mode = getProfileThemeMode();
+        applyTheme(mode, false);
+      } catch (_) {}
+      try {
+        window.addEventListener("storage", this._updatePanelBtnUI);
+        window.addEventListener("focus", this._updatePanelBtnUI);
+      } catch (_) {}
     })();
   }
 
-  _onTheme() { toggleTheme(); }
-  _onHelp() { getHelpModal().open(); }
-  _onSettings() { getSettingsModal().open(); }
+  _onTheme() {
+    toggleTheme();
+  }
+  _onHelp() {
+    getHelpModal().open();
+  }
+  _onSettings() {
+    getSettingsModal().open();
+  }
   _closeMenu() {
-    try { const menu = this.querySelector('.nav-menu'); const btn = this.querySelector('.menu-toggle'); if (menu && menu.classList.contains('open')) { menu.classList.remove('open'); btn?.setAttribute('aria-expanded', 'false'); this.querySelector('.menu-backdrop')?.classList.remove('show'); } } catch(_) {}
+    try {
+      const menu = this.querySelector(".nav-menu");
+      const btn = this.querySelector(".menu-toggle");
+      if (menu && menu.classList.contains("open")) {
+        menu.classList.remove("open");
+        btn?.setAttribute("aria-expanded", "false");
+        this.querySelector(".menu-backdrop")?.classList.remove("show");
+      }
+    } catch (_) {}
   }
-  disconnectedCallback() { window.removeEventListener('keydown', this._onWindowKey); window.removeEventListener('click', this._onOutsideClick, true); }
+  disconnectedCallback() {
+    window.removeEventListener("keydown", this._onWindowKey);
+    window.removeEventListener("click", this._onOutsideClick, true);
+  }
   _onMenuToggle(e) {
-    try { const btn = this.querySelector('.menu-toggle'); const menu = this.querySelector('.nav-menu'); if (!btn || !menu) return; const open = menu.classList.toggle('open'); btn.setAttribute('aria-expanded', open ? 'true' : 'false'); const backdrop = this.querySelector('.menu-backdrop'); if (backdrop) backdrop.classList.toggle('show', open); if (open) { setTimeout(() => { try { menu.querySelector('button')?.focus(); } catch(_) {} }, 0); } e?.stopPropagation?.(); } catch(_) {}
+    try {
+      const btn = this.querySelector(".menu-toggle");
+      const menu = this.querySelector(".nav-menu");
+      if (!btn || !menu) return;
+      const open = menu.classList.toggle("open");
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+      const backdrop = this.querySelector(".menu-backdrop");
+      if (backdrop) backdrop.classList.toggle("show", open);
+      if (open) {
+        setTimeout(() => {
+          try {
+            menu.querySelector("button")?.focus();
+          } catch (_) {}
+        }, 0);
+      }
+      e?.stopPropagation?.();
+    } catch (_) {}
   }
-  _onWindowKey(e) { if (e.key === 'Escape') { const menu = this.querySelector('.nav-menu'); const btn = this.querySelector('.menu-toggle'); if (menu && menu.classList.contains('open')) { menu.classList.remove('open'); btn?.setAttribute('aria-expanded', 'false'); this.querySelector('.menu-backdrop')?.classList.remove('show'); } } }
+  _onWindowKey(e) {
+    if (e.key === "Escape") {
+      const menu = this.querySelector(".nav-menu");
+      const btn = this.querySelector(".menu-toggle");
+      if (menu && menu.classList.contains("open")) {
+        menu.classList.remove("open");
+        btn?.setAttribute("aria-expanded", "false");
+        this.querySelector(".menu-backdrop")?.classList.remove("show");
+      }
+    }
+  }
   _onOutsideClick(e) {
-    try { const menu = this.querySelector('.nav-menu'); const btn = this.querySelector('.menu-toggle'); if (!menu || !btn) return; if (!menu.classList.contains('open')) return; const path = e.composedPath ? e.composedPath() : []; const backdrop = this.querySelector('.menu-backdrop'); const clickedInside = path.includes(menu) || path.includes(btn) || path.includes(backdrop); if (!clickedInside) { menu.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); this.querySelector('.menu-backdrop')?.classList.remove('show'); } } catch(_) {}
+    try {
+      const menu = this.querySelector(".nav-menu");
+      const btn = this.querySelector(".menu-toggle");
+      if (!menu || !btn) return;
+      if (!menu.classList.contains("open")) return;
+      const path = e.composedPath ? e.composedPath() : [];
+      const backdrop = this.querySelector(".menu-backdrop");
+      const clickedInside =
+        path.includes(menu) || path.includes(btn) || path.includes(backdrop);
+      if (!clickedInside) {
+        menu.classList.remove("open");
+        btn.setAttribute("aria-expanded", "false");
+        this.querySelector(".menu-backdrop")?.classList.remove("show");
+      }
+    } catch (_) {}
   }
 
   _onPanelToggle() {
     try {
       const today = getTodayKey();
-      try { setActiveViewDateKey(today); } catch(_) {}
-      
-      const panel = document.querySelector('count-panel');
-      let started = false, completed = false;
-      try { const pid = getActiveProfileId?.(); const key = `${pid || 'default'}::${today}`; const raw = localStorage.getItem('drawer-panel-v1'); const all = raw ? JSON.parse(raw) : {}; const st = all[key]; if (st && typeof st === 'object') { started = !!st.started; completed = !!st.completed; } } catch(_) {}
-      
+      try {
+        setActiveViewDateKey(today);
+      } catch (_) {}
+
+      const panel = document.querySelector("count-panel");
+      let started = false,
+        completed = false;
+      try {
+        const pid = getActiveProfileId?.();
+        const key = `${pid || "default"}::${today}`;
+        const raw = localStorage.getItem("drawer-panel-v1");
+        const all = raw ? JSON.parse(raw) : {};
+        const st = all[key];
+        if (st && typeof st === "object") {
+          started = !!st.started;
+          completed = !!st.completed;
+        }
+      } catch (_) {}
+
       // Check if there's actual saved data
-      const hasSavedData = panel && typeof panel._hasSavedDay === 'function' ? panel._hasSavedDay(today) : false;
-      
+      const hasSavedData =
+        panel && typeof panel._hasSavedDay === "function"
+          ? panel._hasSavedDay(today)
+          : false;
+
       if (panel) {
         if (completed && hasSavedData) {
           // Completed with saved data → Show summary
           panel.showCompletedSummary();
-        }
-        else if (!started) {
+        } else if (!started) {
           // Not started → Start counting
-          try { panel.querySelector('.start-btn')?.click?.(); } catch(_) {}
-        }
-        else if (started && !hasSavedData) {
+          try {
+            panel.querySelector(".start-btn")?.click?.();
+          } catch (_) {}
+        } else if (started && !hasSavedData) {
           // Started but no saved data → Reset to initial state
           try {
             // Reset the panel state to empty
-            const state = { started: false, collapsed: true, completed: false, reopened: false };
-            if (typeof panel._savePersisted === 'function') {
+            const state = {
+              started: false,
+              collapsed: true,
+              completed: false,
+              reopened: false,
+            };
+            if (typeof panel._savePersisted === "function") {
               panel._savePersisted(state);
             }
-            if (typeof panel._refresh === 'function') {
+            if (typeof panel._refresh === "function") {
               panel._refresh();
             }
-            toast('Returned to start screen', { type: 'info', duration: 1200 });
-          } catch(_) {}
-        }
-        else {
+            toast("Returned to start screen", { type: "info", duration: 1200 });
+          } catch (_) {}
+        } else {
           // Started with saved data → Toggle expand/collapse
           try {
-            const dc = document.querySelector('drawer-count');
-            if (dc && typeof dc.disableAutoSave === 'function') {
+            const dc = document.querySelector("drawer-count");
+            if (dc && typeof dc.disableAutoSave === "function") {
               dc.disableAutoSave();
             }
-          } catch(_) {}
-          
-          try { restoreDay(today); } catch(_) {}
-          
+          } catch (_) {}
+
           try {
-            if (typeof panel.isCollapsed === 'function' && typeof panel.expand === 'function' && typeof panel.collapse === 'function') {
+            restoreDay(today);
+          } catch (_) {}
+
+          try {
+            if (
+              typeof panel.isCollapsed === "function" &&
+              typeof panel.expand === "function" &&
+              typeof panel.collapse === "function"
+            ) {
               panel.isCollapsed() ? panel.expand() : panel.collapse();
             } else {
-              panel.querySelector('.toggle-btn')?.click?.();
+              panel.querySelector(".toggle-btn")?.click?.();
             }
-          } catch(_) {}
+          } catch (_) {}
         }
       }
-      try { applyReadOnlyByActiveDate(this); updateLockButtonUI(this); } catch(_) {}
+      try {
+        applyReadOnlyByActiveDate(this);
+        updateLockButtonUI(this);
+      } catch (_) {}
       this._closeMenu();
       this._updatePanelBtnUI();
-    } catch(_) {}
+    } catch (_) {}
   }
 
   _updatePanelBtnUI() {
     try {
-      const btns = this.querySelectorAll('.panel-toggle-btn'); if (!btns || !btns.length) return;
-      const today = getTodayKey(); let started = false, completed = false; try { const pid = getActiveProfileId?.(); const key = `${pid || 'default'}::${today}`; const raw = localStorage.getItem('drawer-panel-v1'); const all = raw ? JSON.parse(raw) : {}; const st = all[key]; if (st && typeof st === 'object') { started = !!st.started; completed = !!st.completed; } } catch(_) {}
-      const title = completed ? 'Show today’s count summary' : (started ? 'Continue today’s count' : 'Start today’s count');
-      btns.forEach((b)=>{ try { b.title = title; b.setAttribute('aria-label', title); } catch(_) {} });
-    } catch(_) {}
+      const btns = this.querySelectorAll(".panel-toggle-btn");
+      if (!btns || !btns.length) return;
+      const today = getTodayKey();
+      let started = false,
+        completed = false;
+      try {
+        const pid = getActiveProfileId?.();
+        const key = `${pid || "default"}::${today}`;
+        const raw = localStorage.getItem("drawer-panel-v1");
+        const all = raw ? JSON.parse(raw) : {};
+        const st = all[key];
+        if (st && typeof st === "object") {
+          started = !!st.started;
+          completed = !!st.completed;
+        }
+      } catch (_) {}
+      const title = completed
+        ? "Show today’s count summary"
+        : started
+          ? "Continue today’s count"
+          : "Start today’s count";
+      btns.forEach((b) => {
+        try {
+          b.title = title;
+          b.setAttribute("aria-label", title);
+        } catch (_) {}
+      });
+    } catch (_) {}
   }
 
-  _onProfileChange(e) { try { const id = e.target?.value; if (!id) return; setActiveProfile(id); restoreActiveProfile(); ensureDayResetIfNeeded(this); setActiveViewDateKey(getTodayKey()); applyReadOnlyByActiveDate(this); populateProfilesSelect(this); try { const mode = getProfileThemeMode(); applyTheme(mode, false); } catch(_) {} toast('Switched profile', { type:'info', duration: 1200}); } catch(_){} }
-  async _onNewProfile() { 
-    try { 
-      const modal = getNewProfileModal(); 
-      const name = await modal.open(''); 
-      if (!name) return; 
-      const currentMode = getProfileThemeMode?.() || 'system'; 
-      const id = createProfile(name); 
-      setActiveProfile(id); 
-      try { if (currentMode) applyTheme(currentMode, true); } catch(_) {} 
-      saveToActiveProfile(); 
-      populateProfilesSelect(this); 
-      applyReadOnlyByActiveDate(this); 
-      toast('Profile created', { type: 'success', duration: 1800 }); 
-    } catch(err) { 
-      console.error('Error in _onNewProfile:', err); 
-    } 
+  _onProfileChange(e) {
+    try {
+      const id = e.target?.value;
+      if (!id) return;
+      setActiveProfile(id);
+      restoreActiveProfile();
+      ensureDayResetIfNeeded(this);
+      setActiveViewDateKey(getTodayKey());
+      applyReadOnlyByActiveDate(this);
+      populateProfilesSelect(this);
+      try {
+        const mode = getProfileThemeMode();
+        applyTheme(mode, false);
+      } catch (_) {}
+      toast("Switched profile", { type: "info", duration: 1200 });
+    } catch (_) {}
   }
-  async _onDeleteProfile() { 
-    try { 
-      const data = loadProfilesData(); 
-      const ids = Object.keys(data.profiles||{}); 
-      if (ids.length<=1) { 
-        toast('Cannot delete last profile', { type:'warning', duration: 2200}); 
-        return; 
-      } 
-      const active = data.activeId; 
-      const name = data.profiles[active]?.name || active; 
-      const modal = getDeleteProfileModal(); 
-      const ok = await modal.open(name); 
-      if (!ok) return; 
-      delete data.profiles[active]; 
-      const nextId = ids.find((x)=>x!==active) || 'default'; 
-      data.activeId = nextId; 
-      saveProfilesData(data); 
-      restoreActiveProfile(); 
-      populateProfilesSelect(this); 
-      applyReadOnlyByActiveDate(this); 
-      try { const mode = getProfileThemeMode?.(); applyTheme(mode, false); } catch(_) {} 
-      toast('Profile deleted', { type: 'success', duration: 1800}); 
-    } catch(err) { 
-      console.error('Error in _onDeleteProfile:', err); 
-    } 
+  async _onNewProfile() {
+    try {
+      const modal = getNewProfileModal();
+      const name = await modal.open("");
+      if (!name) return;
+      const currentMode = getProfileThemeMode?.() || "system";
+      const id = createProfile(name);
+      setActiveProfile(id);
+      try {
+        if (currentMode) applyTheme(currentMode, true);
+      } catch (_) {}
+      saveToActiveProfile();
+      populateProfilesSelect(this);
+      applyReadOnlyByActiveDate(this);
+      toast("Profile created", { type: "success", duration: 1800 });
+    } catch (err) {
+      console.error("Error in _onNewProfile:", err);
+    }
+  }
+  async _onDeleteProfile() {
+    try {
+      const data = loadProfilesData();
+      const ids = Object.keys(data.profiles || {});
+      if (ids.length <= 1) {
+        toast("Cannot delete last profile", {
+          type: "warning",
+          duration: 2200,
+        });
+        return;
+      }
+      const active = data.activeId;
+      const name = data.profiles[active]?.name || active;
+      const modal = getDeleteProfileModal();
+      const ok = await modal.open(name);
+      if (!ok) return;
+      delete data.profiles[active];
+      const nextId = ids.find((x) => x !== active) || "default";
+      data.activeId = nextId;
+      saveProfilesData(data);
+      restoreActiveProfile();
+      populateProfilesSelect(this);
+      applyReadOnlyByActiveDate(this);
+      try {
+        const mode = getProfileThemeMode?.();
+        applyTheme(mode, false);
+      } catch (_) {}
+      toast("Profile deleted", { type: "success", duration: 1800 });
+    } catch (err) {
+      console.error("Error in _onDeleteProfile:", err);
+    }
   }
   async _onOpenDays() {
     try {
-      const days = (listSavedDaysForActiveProfile() || []).map(d => d.date);
+      const days = (listSavedDaysForActiveProfile() || []).map((d) => d.date);
       const selected = getActiveViewDateKey?.() || getTodayKey();
       const modal = getDayPickerModal();
       const picked = await modal.open({ days, selected });
@@ -269,14 +459,22 @@ class AppHeader extends HTMLElement {
       applyReadOnlyByActiveDate(header);
       try {
         const today = getTodayKey();
-        if (picked !== today) { document.querySelector('count-panel')?.showCompletedSummary?.(); }
-      } catch(_) {}
-      try { document.querySelector('count-panel')?.refresh?.(); } catch(_) {}
-      toast(ok ? `Loaded ${picked}` : 'Load failed', { type: ok ? 'success' : 'error', duration: 1500 });
-    } catch(_) {}
+        if (picked !== today) {
+          document.querySelector("count-panel")?.showCompletedSummary?.();
+        }
+      } catch (_) {}
+      try {
+        document.querySelector("count-panel")?.refresh?.();
+      } catch (_) {}
+      toast(ok ? `Loaded ${picked}` : "Load failed", {
+        type: ok ? "success" : "error",
+        duration: 1500,
+      });
+    } catch (_) {}
   }
 }
 
-if (!customElements.get('app-header')) customElements.define('app-header', AppHeader);
+if (!customElements.get("app-header"))
+  customElements.define("app-header", AppHeader);
 
 export default AppHeader;

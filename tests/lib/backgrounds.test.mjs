@@ -22,7 +22,6 @@ test('background catalog includes original and Southern variants', () => {
     'vw-southern-bg',
     'vw-atlas-southern-bg',
     'ram-2500-southern-bg',
-    'delbies-daycare-geriatrics-bg',
     'delbies-crew-bg'
   ]);
 });

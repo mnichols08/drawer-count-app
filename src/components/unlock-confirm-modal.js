@@ -1,16 +1,21 @@
-import './app-modal.js';
+import "./app-modal.js";
 
 class UnlockConfirmModal extends HTMLElement {
   constructor() {
     super();
-    this._shadow = this.attachShadow({ mode: 'open' });
+    this._shadow = this.attachShadow({ mode: "open" });
     this._onKeyDown = this._onKeyDown.bind(this);
     this._resolver = null;
-    this._dayKey = '';
+    this._dayKey = "";
     this._resolved = false; // Prevent double resolution
   }
-  connectedCallback() { this._render(); window.addEventListener('keydown', this._onKeyDown); }
-  disconnectedCallback() { window.removeEventListener('keydown', this._onKeyDown); }
+  connectedCallback() {
+    this._render();
+    window.addEventListener("keydown", this._onKeyDown);
+  }
+  disconnectedCallback() {
+    window.removeEventListener("keydown", this._onKeyDown);
+  }
   _render() {
     this._shadow.innerHTML = `
       <style>
@@ -37,35 +42,40 @@ class UnlockConfirmModal extends HTMLElement {
       </app-modal>
     `;
     this._els = {
-      modal: this._shadow.querySelector('app-modal'),
-      cancel: this._shadow.querySelector('.btn-cancel'),
-      unlock: this._shadow.querySelector('.btn-unlock'),
-      key: this._shadow.querySelector('.key'),
+      modal: this._shadow.querySelector("app-modal"),
+      cancel: this._shadow.querySelector(".btn-cancel"),
+      unlock: this._shadow.querySelector(".btn-unlock"),
+      key: this._shadow.querySelector(".key"),
     };
-    
-    this._els.modal?.addEventListener('modal-close', () => {
+
+    this._els.modal?.addEventListener("modal-close", () => {
       // Only call _cancel if we haven't already resolved
       if (!this._resolved) {
         this._cancel();
       }
     });
-    this._els.cancel?.addEventListener('click', () => this._cancel());
-    this._els.unlock?.addEventListener('click', () => this._confirm());
+    this._els.cancel?.addEventListener("click", () => this._cancel());
+    this._els.unlock?.addEventListener("click", () => this._confirm());
   }
-  open(dayKey = '') { 
-    if (!this._els) this._render(); 
-    this._dayKey = dayKey || ''; 
+  open(dayKey = "") {
+    if (!this._els) this._render();
+    this._dayKey = dayKey || "";
     this._resolved = false; // Reset the resolution flag
-    if (this._els.key) this._els.key.textContent = this._dayKey || 'this day'; 
-    this.setAttribute('open', ''); 
-    this._els.modal?.show(); 
-    return new Promise((resolve) => { this._resolver = resolve; }); 
+    if (this._els.key) this._els.key.textContent = this._dayKey || "this day";
+    this.setAttribute("open", "");
+    this._els.modal?.show();
+    return new Promise((resolve) => {
+      this._resolver = resolve;
+    });
   }
-  close() { this._els?.modal?.hide('programmatic'); this.removeAttribute('open'); }
-  _cancel() { 
+  close() {
+    this._els?.modal?.hide("programmatic");
+    this.removeAttribute("open");
+  }
+  _cancel() {
     this._resolveWith(false);
   }
-  _confirm() { 
+  _confirm() {
     this._resolveWith(true);
   }
   _resolveWith(value) {
@@ -74,13 +84,23 @@ class UnlockConfirmModal extends HTMLElement {
     }
     this._resolved = true;
     this.close();
-    const r = this._resolver; 
-    this._resolver = null; 
-    if (r) r(value); 
+    const r = this._resolver;
+    this._resolver = null;
+    if (r) r(value);
   }
-  _onKeyDown(e) { if (e.key === 'Escape' && this.hasAttribute('open')) this._cancel(); }
+  _onKeyDown(e) {
+    if (e.key === "Escape" && this.hasAttribute("open")) this._cancel();
+  }
 }
 
-if (!customElements.get('unlock-confirm-modal')) customElements.define('unlock-confirm-modal', UnlockConfirmModal);
+if (!customElements.get("unlock-confirm-modal"))
+  customElements.define("unlock-confirm-modal", UnlockConfirmModal);
 
-export function getUnlockConfirmModal() { let m = document.querySelector('unlock-confirm-modal'); if (!m) { m = document.createElement('unlock-confirm-modal'); document.body.appendChild(m); } return m; }
+export function getUnlockConfirmModal() {
+  let m = document.querySelector("unlock-confirm-modal");
+  if (!m) {
+    m = document.createElement("unlock-confirm-modal");
+    document.body.appendChild(m);
+  }
+  return m;
+}

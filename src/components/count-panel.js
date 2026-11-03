@@ -1,17 +1,42 @@
-import { toast } from '../lib/toast.js';
-import './drawer-count.js';
-import { DRAWER_DAYS_KEY, getActiveViewDateKey, getTodayKey, isDayEditUnlocked, setDayEditUnlocked, saveSpecificDay, saveDayDraft, isDayCompleted, restoreDay, updateStatusPill, applyReadOnlyByActiveDate, updateLockButtonUI, getActiveProfileId, setActiveViewDateKey } from '../lib/persistence.js';
-import { _getActiveDaysEntry } from '../lib/persistence.js';
-import { AUTOSAVE_DELAY_MS, isMatchingSyncRevision, millisecondsUntilNextLocalDay, shouldRolloverDay } from '../lib/daily-session.mjs';
-import { SYNC_STATUS_EVENT } from '../lib/sync.js';
-import { getUnlockConfirmModal } from './unlock-confirm-modal.js';
-import { getRevertConfirmModal } from './revert-confirm-modal.js';
+import { toast } from "../lib/toast.js";
+import "./drawer-count.js";
+import {
+  DRAWER_DAYS_KEY,
+  getActiveViewDateKey,
+  getTodayKey,
+  isDayEditUnlocked,
+  setDayEditUnlocked,
+  saveSpecificDay,
+  saveDayDraft,
+  isDayCompleted,
+  restoreDay,
+  updateStatusPill,
+  applyReadOnlyByActiveDate,
+  updateLockButtonUI,
+  getActiveProfileId,
+  setActiveViewDateKey,
+} from "../lib/persistence.js";
+import { _getActiveDaysEntry } from "../lib/persistence.js";
+import {
+  AUTOSAVE_DELAY_MS,
+  isMatchingSyncRevision,
+  millisecondsUntilNextLocalDay,
+  shouldRolloverDay,
+} from "../lib/daily-session.mjs";
+import { SYNC_STATUS_EVENT } from "../lib/sync.js";
+import { getUnlockConfirmModal } from "./unlock-confirm-modal.js";
+import { getRevertConfirmModal } from "./revert-confirm-modal.js";
 
 class CountPanel extends HTMLElement {
   constructor() {
     super();
     this._els = {};
-    this._state = { started: false, collapsed: true, completed: false, reopened: false };
+    this._state = {
+      started: false,
+      collapsed: true,
+      completed: false,
+      reopened: false,
+    };
     this._isProcessing = false;
     this._autosaveTimer = null;
     this._dayRolloverTimer = null;
@@ -33,19 +58,28 @@ class CountPanel extends HTMLElement {
     this._bind();
     this._state = { ...this._state, ...this._loadPersisted() };
     this._observedTodayKey = getTodayKey();
-    if (!this.querySelector('drawer-count')) {
-      const dc = document.createElement('drawer-count');
+    if (!this.querySelector("drawer-count")) {
+      const dc = document.createElement("drawer-count");
       this._els.body.appendChild(dc);
     }
-    
+
     // Force past dates and completed today to start collapsed (summary first)
     try {
-      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
-      const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; 
-      const isPastDate = key && today && (key !== today);
-      const isCompletedToday = key && today && (key === today) && isDayCompleted(key);
-      const isDraftToday = key && today && (key === today) && this._hasSavedDay(key) && !isCompletedToday;
-      
+      const key =
+        typeof getActiveViewDateKey === "function"
+          ? getActiveViewDateKey()
+          : null;
+      const today = typeof getTodayKey === "function" ? getTodayKey() : "";
+      const isPastDate = key && today && key !== today;
+      const isCompletedToday =
+        key && today && key === today && isDayCompleted(key);
+      const isDraftToday =
+        key &&
+        today &&
+        key === today &&
+        this._hasSavedDay(key) &&
+        !isCompletedToday;
+
       if (isPastDate || isCompletedToday) {
         // Initialize state if needed
         if (!this._state) this._state = {};
@@ -58,14 +92,14 @@ class CountPanel extends HTMLElement {
         this._state.completed = false;
         restoreDay(key);
         this._savePersisted(this._state);
-        this._setSaveStatus('saved', 'Draft restored • autosave is on');
+        this._setSaveStatus("saved", "Draft restored • autosave is on");
       } else if (isCompletedToday) {
         this._state.started = true;
         this._state.completed = true;
         restoreDay(key);
         this._savePersisted(this._state);
       }
-      
+
       // Reset started flag if there's no saved data (show welcome screen)
       const hasSavedData = key ? this._hasSavedDay(key) : false;
       if (!hasSavedData) {
@@ -73,47 +107,50 @@ class CountPanel extends HTMLElement {
         this._state.started = false;
         this._savePersisted(this._state);
       }
-    } catch(_) {}
-    
+    } catch (_) {}
+
     this._refresh(true);
-    window.addEventListener('storage', this._onVisibilityRefresh);
-    window.addEventListener('focus', this._onVisibilityRefresh);
+    window.addEventListener("storage", this._onVisibilityRefresh);
+    window.addEventListener("focus", this._onVisibilityRefresh);
     window.addEventListener(SYNC_STATUS_EVENT, this._onSyncStatus);
-    document.addEventListener('visibilitychange', this._onVisibilityChange);
+    document.addEventListener("visibilitychange", this._onVisibilityChange);
     this._scheduleDayRolloverCheck();
-    
+
     // Set up drawer count event listeners
     this._onStepperComplete = this._onStepperComplete.bind(this);
     this._setupDrawerCountListeners();
   }
 
   _setupDrawerCountListeners() {
-    try { 
-      this._dc = this.querySelector('drawer-count'); 
+    try {
+      this._dc = this.querySelector("drawer-count");
       if (this._dc) {
-        this._dc.addEventListener('change', this._onDrawerChange);
-        this._dc.addEventListener('stepper-complete', this._onStepperComplete);
+        this._dc.addEventListener("change", this._onDrawerChange);
+        this._dc.addEventListener("stepper-complete", this._onStepperComplete);
       }
-    } catch(_) {}
+    } catch (_) {}
   }
 
   disconnectedCallback() {
-    window.removeEventListener('storage', this._onVisibilityRefresh);
-    window.removeEventListener('focus', this._onVisibilityRefresh);
+    window.removeEventListener("storage", this._onVisibilityRefresh);
+    window.removeEventListener("focus", this._onVisibilityRefresh);
     window.removeEventListener(SYNC_STATUS_EVENT, this._onSyncStatus);
-    document.removeEventListener('visibilitychange', this._onVisibilityChange);
+    document.removeEventListener("visibilitychange", this._onVisibilityChange);
     if (this._autosaveTimer) clearTimeout(this._autosaveTimer);
     if (this._dayRolloverTimer) clearTimeout(this._dayRolloverTimer);
-    try { 
+    try {
       if (this._dc) {
-        this._dc.removeEventListener('change', this._onDrawerChange);
-        this._dc.removeEventListener('stepper-complete', this._onStepperComplete);
+        this._dc.removeEventListener("change", this._onDrawerChange);
+        this._dc.removeEventListener(
+          "stepper-complete",
+          this._onStepperComplete,
+        );
       }
-    } catch(_) {}
+    } catch (_) {}
   }
 
   _render() {
-    this.classList.add('count-panel');
+    this.classList.add("count-panel");
     this.innerHTML = `
       <div class="panel-header" role="group" aria-label="Drawer count controls">
         <div class="panel-heading">
@@ -139,70 +176,121 @@ class CountPanel extends HTMLElement {
 
   _cacheEls() {
     this._els = {};
-    this._els.header = this.querySelector('.panel-header');
-    this._els.title = this.querySelector('.panel-title');
-    this._els.saveStatus = this.querySelector('.save-status');
-    this._els.actions = this.querySelector('.panel-actions');
-    this._els.start = this.querySelector('.start-btn');
-    this._els.toggle = this.querySelector('.toggle-btn');
-    this._els.lock = this.querySelector('.lock-btn');
-    this._els.clear = this.querySelector('.clear-btn');
-    this._els.optional = this.querySelector('.optional-btn');
-    this._els.complete = this.querySelector('.complete-btn');
-    this._els.cancel = this.querySelector('.cancel-btn');
-    this._els.body = this.querySelector('.panel-body');
-    this._els.doneHint = this.querySelector('.done-hint');
-    this._els.summary = this.querySelector('.panel-summary');
-    this._els.lockHint = this.querySelector('.lock-hint');
+    this._els.header = this.querySelector(".panel-header");
+    this._els.title = this.querySelector(".panel-title");
+    this._els.saveStatus = this.querySelector(".save-status");
+    this._els.actions = this.querySelector(".panel-actions");
+    this._els.start = this.querySelector(".start-btn");
+    this._els.toggle = this.querySelector(".toggle-btn");
+    this._els.lock = this.querySelector(".lock-btn");
+    this._els.clear = this.querySelector(".clear-btn");
+    this._els.optional = this.querySelector(".optional-btn");
+    this._els.complete = this.querySelector(".complete-btn");
+    this._els.cancel = this.querySelector(".cancel-btn");
+    this._els.body = this.querySelector(".panel-body");
+    this._els.doneHint = this.querySelector(".done-hint");
+    this._els.summary = this.querySelector(".panel-summary");
+    this._els.lockHint = this.querySelector(".lock-hint");
   }
 
   _bind() {
-    this._els.start.addEventListener('click', this._onStart);
-    this._els.toggle.addEventListener('click', this._onToggle);
-    this._els.lock.addEventListener('click', this._onToggleLock.bind(this));
-    this._els.clear.addEventListener('click', this._onClear.bind(this));
-    this._els.optional.addEventListener('click', this._onOptional.bind(this));
-    this._els.complete.addEventListener('click', this._onComplete);
-    this._els.cancel.addEventListener('click', this._onCancel.bind(this));
+    this._els.start.addEventListener("click", this._onStart);
+    this._els.toggle.addEventListener("click", this._onToggle);
+    this._els.lock.addEventListener("click", this._onToggleLock.bind(this));
+    this._els.clear.addEventListener("click", this._onClear.bind(this));
+    this._els.optional.addEventListener("click", this._onOptional.bind(this));
+    this._els.complete.addEventListener("click", this._onComplete);
+    this._els.cancel.addEventListener("click", this._onCancel.bind(this));
   }
 
   _panelKey() {
-    try { const pid = (typeof getActiveProfileId === 'function') ? getActiveProfileId() : null; const dkey = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; if (pid && dkey) return `${pid}::${dkey}`; } catch (_) {}
+    try {
+      const pid =
+        typeof getActiveProfileId === "function" ? getActiveProfileId() : null;
+      const dkey =
+        typeof getActiveViewDateKey === "function"
+          ? getActiveViewDateKey()
+          : null;
+      if (pid && dkey) return `${pid}::${dkey}`;
+    } catch (_) {}
     return `default::${getTodayKey()}`;
   }
 
   _loadPersisted() {
-    try { const raw = localStorage.getItem('drawer-panel-v1'); const all = raw ? JSON.parse(raw) : {}; const key = this._panelKey(); return all[key] || { started: false, collapsed: true, completed: false, reopened: false }; } catch (_) { return { started: false, collapsed: true, completed: false, reopened: false }; }
+    try {
+      const raw = localStorage.getItem("drawer-panel-v1");
+      const all = raw ? JSON.parse(raw) : {};
+      const key = this._panelKey();
+      return (
+        all[key] || {
+          started: false,
+          collapsed: true,
+          completed: false,
+          reopened: false,
+        }
+      );
+    } catch (_) {
+      return {
+        started: false,
+        collapsed: true,
+        completed: false,
+        reopened: false,
+      };
+    }
   }
-  _savePersisted(next) { try { const raw = localStorage.getItem('drawer-panel-v1'); const all = raw ? JSON.parse(raw) : {}; const key = this._panelKey(); all[key] = { ...all[key], ...next }; localStorage.setItem('drawer-panel-v1', JSON.stringify(all)); } catch (_) {} }
+  _savePersisted(next) {
+    try {
+      const raw = localStorage.getItem("drawer-panel-v1");
+      const all = raw ? JSON.parse(raw) : {};
+      const key = this._panelKey();
+      all[key] = { ...all[key], ...next };
+      localStorage.setItem("drawer-panel-v1", JSON.stringify(all));
+    } catch (_) {}
+  }
 
   _setSaveStatus(kind, text) {
     const el = this._els?.saveStatus;
     if (!el) return;
-    el.dataset.state = kind || 'idle';
-    el.textContent = text || '';
+    el.dataset.state = kind || "idle";
+    el.textContent = text || "";
     el.hidden = !text;
   }
 
   _formatStatusTime(timestamp = Date.now()) {
-    try { return new Date(timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); } catch(_) { return ''; }
+    try {
+      return new Date(timestamp).toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    } catch (_) {
+      return "";
+    }
   }
 
   _scheduleAutosave() {
     if (this._autosaveTimer) clearTimeout(this._autosaveTimer);
-    this._setSaveStatus('saving', 'Saving…');
+    this._setSaveStatus("saving", "Saving…");
     this._autosaveTimer = setTimeout(() => {
       this._autosaveTimer = null;
       const key = getActiveViewDateKey();
       const today = getTodayKey();
-      if (key !== today || !this._state.started || this._state.completed || this._state.reopened) return;
+      if (
+        key !== today ||
+        !this._state.started ||
+        this._state.completed ||
+        this._state.reopened
+      )
+        return;
       const saveStartedAt = Date.now();
       if (saveDayDraft(key)) {
         this._pendingSyncAt = saveStartedAt;
-        this._setSaveStatus('saved', `Saved locally • ${this._formatStatusTime()}`);
+        this._setSaveStatus(
+          "saved",
+          `Saved locally • ${this._formatStatusTime()}`,
+        );
         this._refresh(true);
       } else {
-        this._setSaveStatus('error', 'Could not save this draft');
+        this._setSaveStatus("error", "Could not save this draft");
       }
     }, AUTOSAVE_DELAY_MS);
   }
@@ -214,26 +302,32 @@ class CountPanel extends HTMLElement {
     const localUpdatedAt = Number(detail.localUpdatedAt || 0);
     const revision = Number(detail.revision || 0);
     if (localUpdatedAt && localUpdatedAt < this._pendingSyncAt) return;
-    if (detail.status === 'queued') {
+    if (detail.status === "queued") {
       this._pendingSyncRevision = revision;
-      this._setSaveStatus('syncing', 'Syncing…');
+      this._setSaveStatus("syncing", "Syncing…");
       return;
     }
     if (!isMatchingSyncRevision(this._pendingSyncRevision, revision)) return;
-    if (detail.status === 'syncing') this._setSaveStatus('syncing', 'Syncing…');
-    else if (detail.status === 'synced') {
+    if (detail.status === "syncing") this._setSaveStatus("syncing", "Syncing…");
+    else if (detail.status === "synced") {
       this._pendingSyncAt = 0;
       this._pendingSyncRevision = 0;
-      this._setSaveStatus('synced', `Synced • ${this._formatStatusTime(detail.at)}`);
-    }
-    else if (detail.status === 'error') {
-      const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
-      this._setSaveStatus('error', offline ? 'Saved locally • offline' : 'Saved locally • sync pending');
+      this._setSaveStatus(
+        "synced",
+        `Synced • ${this._formatStatusTime(detail.at)}`,
+      );
+    } else if (detail.status === "error") {
+      const offline =
+        typeof navigator !== "undefined" && navigator.onLine === false;
+      this._setSaveStatus(
+        "error",
+        offline ? "Saved locally • offline" : "Saved locally • sync pending",
+      );
     }
   }
 
   _onVisibilityChange() {
-    if (document.visibilityState === 'visible') this._onVisibilityRefresh();
+    if (document.visibilityState === "visible") this._onVisibilityRefresh();
   }
 
   _scheduleDayRolloverCheck() {
@@ -250,7 +344,8 @@ class CountPanel extends HTMLElement {
 
     const previousDate = this._observedTodayKey;
     const today = getTodayKey();
-    const previousWasDraft = this._hasSavedDay(previousDate) && !isDayCompleted(previousDate);
+    const previousWasDraft =
+      this._hasSavedDay(previousDate) && !isDayCompleted(previousDate);
 
     if (this._autosaveTimer) {
       clearTimeout(this._autosaveTimer);
@@ -262,7 +357,7 @@ class CountPanel extends HTMLElement {
     setActiveViewDateKey(today);
     setDayEditUnlocked(true);
 
-    const drawer = this.querySelector('drawer-count');
+    const drawer = this.querySelector("drawer-count");
     drawer?.setReadOnly?.(false);
     const hasToday = this._hasSavedDay(today);
     if (hasToday) restoreDay(today);
@@ -274,30 +369,52 @@ class CountPanel extends HTMLElement {
       collapsed: completedToday,
       completed: completedToday,
       reopened: false,
-      ...this._loadPersisted()
+      ...this._loadPersisted(),
     };
-    if (!hasToday) this._state = { started: false, collapsed: true, completed: false, reopened: false };
-    else if (completedToday) this._state = { ...this._state, started: true, collapsed: true, completed: true };
+    if (!hasToday)
+      this._state = {
+        started: false,
+        collapsed: true,
+        completed: false,
+        reopened: false,
+      };
+    else if (completedToday)
+      this._state = {
+        ...this._state,
+        started: true,
+        collapsed: true,
+        completed: true,
+      };
     else this._state = { ...this._state, started: true, completed: false };
     this._savePersisted(this._state);
 
     try {
-      const header = document.querySelector('app-header');
+      const header = document.querySelector("app-header");
       applyReadOnlyByActiveDate(header);
       updateLockButtonUI(header);
-    } catch(_) {}
-    this._setSaveStatus('idle', '');
+    } catch (_) {}
+    this._setSaveStatus("idle", "");
     this._pendingSyncAt = 0;
     this._pendingSyncRevision = 0;
     this._refresh(true);
-    if (previousWasDraft || (this._hasSavedDay(previousDate) && !isDayCompleted(previousDate))) {
-      toast("New day started. Yesterday's unfinished count is saved as a draft.", { type: 'info', duration: 4000 });
+    if (
+      previousWasDraft ||
+      (this._hasSavedDay(previousDate) && !isDayCompleted(previousDate))
+    ) {
+      toast(
+        "New day started. Yesterday's unfinished count is saved as a draft.",
+        { type: "info", duration: 4000 },
+      );
     }
     return true;
   }
 
-  isCollapsed() { return !!this._state.collapsed; }
-  refresh() { this._refresh(); }
+  isCollapsed() {
+    return !!this._state.collapsed;
+  }
+  refresh() {
+    this._refresh();
+  }
   expand() {
     if (!this._state.started) return false;
     this._state.collapsed = false;
@@ -312,39 +429,59 @@ class CountPanel extends HTMLElement {
     this._refresh();
     return true;
   }
-  toggleCollapsed() { if (!this._state.started) return false; this._state.collapsed = !this._state.collapsed; this._savePersisted({ collapsed: this._state.collapsed, started: this._state.started }); this._refresh(); return true; }
+  toggleCollapsed() {
+    if (!this._state.started) return false;
+    this._state.collapsed = !this._state.collapsed;
+    this._savePersisted({
+      collapsed: this._state.collapsed,
+      started: this._state.started,
+    });
+    this._refresh();
+    return true;
+  }
 
-  showCompletedSummary() { 
+  showCompletedSummary() {
     // Don't override when state is temporarily protected (e.g., right after saving)
     if (this._stateProtected) {
       return;
     }
-    
+
     // Don't override reopened state - if something is reopened, let it stay reopened
     if (this._state?.reopened) {
       return;
     }
-    
+
     const key = getActiveViewDateKey();
     const completed = isDayCompleted(key);
     this._state.started = true;
     this._state.completed = completed;
     this._state.collapsed = true;
     this._savePersisted({ started: true, completed, collapsed: true });
-    try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch (_) {}
-    this._setSaveStatus(completed ? 'synced' : 'saved', completed ? '' : 'Unfinished draft • unlock to resume');
+    try {
+      if (typeof setDayEditUnlocked === "function") setDayEditUnlocked(false);
+    } catch (_) {}
+    this._setSaveStatus(
+      completed ? "synced" : "saved",
+      completed ? "" : "Unfinished draft • unlock to resume",
+    );
     this._refresh();
   }
 
   _refresh(noAnim = false) {
-    this._state = { ...{ started: false, collapsed: true, completed: false, reopened: false }, ...this._loadPersisted() };
+    this._state = {
+      ...{ started: false, collapsed: true, completed: false, reopened: false },
+      ...this._loadPersisted(),
+    };
     const { started, completed } = this._state;
     if (!started) this._state.collapsed = true;
-    
+
     // Check if there's actually saved data for this date
-    const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
+    const key =
+      typeof getActiveViewDateKey === "function"
+        ? getActiveViewDateKey()
+        : null;
     const hasSavedData = key ? this._hasSavedDay(key) : false;
-    
+
     // Empty state: show when no saved data exists AND user hasn't started the UI session
     // This shows the initial welcome state, but once started shows the form even without data
     const isEmpty = !hasSavedData && !started;
@@ -353,16 +490,16 @@ class CountPanel extends HTMLElement {
 
     // Update drawer-count component's read-only state
     try {
-      const drawerCount = this.querySelector('drawer-count');
-      if (drawerCount && typeof drawerCount.setReadOnly === 'function') {
+      const drawerCount = this.querySelector("drawer-count");
+      if (drawerCount && typeof drawerCount.setReadOnly === "function") {
         drawerCount.setReadOnly(readOnly);
       }
-    } catch(_) {}
+    } catch (_) {}
 
-    this.classList.toggle('collapsed', !!collapsed);
-    this.classList.toggle('empty', !!isEmpty);
-    this.classList.toggle('completed', !!completed);
-    this.setAttribute('aria-busy', this._isProcessing ? 'true' : 'false');
+    this.classList.toggle("collapsed", !!collapsed);
+    this.classList.toggle("empty", !!isEmpty);
+    this.classList.toggle("completed", !!completed);
+    this.setAttribute("aria-busy", this._isProcessing ? "true" : "false");
 
     // Manage card visibility for empty state
     this._manageCardVisibility(isEmpty);
@@ -372,63 +509,82 @@ class CountPanel extends HTMLElement {
     this._els.toggle.hidden = isEmpty;
     let isPast = false;
     let isCompletedToday = false;
-    try { 
-      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
-      const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; 
+    try {
+      const key =
+        typeof getActiveViewDateKey === "function"
+          ? getActiveViewDateKey()
+          : null;
+      const today = typeof getTodayKey === "function" ? getTodayKey() : "";
       if (key && today) {
-        isPast = (key !== today);
-        isCompletedToday = (key === today) && isDayCompleted(key);
+        isPast = key !== today;
+        isCompletedToday = key === today && isDayCompleted(key);
       }
-    } catch(_) { 
-      isPast = false; 
+    } catch (_) {
+      isPast = false;
       isCompletedToday = false;
     }
-    
+
     // Show lock button for past days or completed/reopened items that are expanded (in edit mode)
     let showLockButton = false;
     try {
-      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
-      const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; 
+      const key =
+        typeof getActiveViewDateKey === "function"
+          ? getActiveViewDateKey()
+          : null;
+      const today = typeof getTodayKey === "function" ? getTodayKey() : "";
       if (key && today) {
-        isPast = (key !== today);
-        isCompletedToday = (key === today) && (isDayCompleted(key) || this._state.completed);
+        isPast = key !== today;
+        isCompletedToday =
+          key === today && (isDayCompleted(key) || this._state.completed);
       }
-      
+
       // Show lock button when:
       // - Past days with saved data (always need unlock to edit)
       // - Today's completed/reopened items (need unlock to edit after completion)
       // - Currently expanded (in edit mode)
-      showLockButton = !!(started && (isPast || isCompletedToday || this._state.completed || this._state.reopened) && !this._state.collapsed);
-    } catch(_) { 
+      showLockButton = !!(
+        started &&
+        (isPast ||
+          isCompletedToday ||
+          this._state.completed ||
+          this._state.reopened) &&
+        !this._state.collapsed
+      );
+    } catch (_) {
       showLockButton = false;
     }
     this._els.lock.hidden = !showLockButton;
 
     let showCancel = false;
     let showComplete = false;
-    
+
     try {
       if (started && !this._state.collapsed && !readOnly) {
         const saveMode = this._isSaveMode();
-        const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
+        const key =
+          typeof getActiveViewDateKey === "function"
+            ? getActiveViewDateKey()
+            : null;
         const hasSaved = key ? this._hasSavedDay(key) : false;
         const hasCompleted = key ? isDayCompleted(key) : false;
         const hasUnsaved = this._hasUnsavedChangesComparedToSaved();
         const hasContent = this._hasAnyFormContent();
-        
+
         // Only show save/cancel buttons when there are actual changes or content
-        const todayReopenCase = (!saveMode && !!this._state.reopened && hasSaved && hasUnsaved);
-        const pastEditCase = (saveMode && hasSaved && hasUnsaved);
-        const newTodayCase = (!saveMode && !hasCompleted && !completed && hasContent);
-        
+        const todayReopenCase =
+          !saveMode && !!this._state.reopened && hasSaved && hasUnsaved;
+        const pastEditCase = saveMode && hasSaved && hasUnsaved;
+        const newTodayCase =
+          !saveMode && !hasCompleted && !completed && hasContent;
+
         showCancel = !!(pastEditCase || todayReopenCase);
         showComplete = !!(pastEditCase || todayReopenCase || newTodayCase);
       }
-    } catch(_) { 
-      showCancel = false; 
+    } catch (_) {
+      showCancel = false;
       showComplete = false;
     }
-    
+
     this._els.cancel.hidden = !showCancel;
     this._els.complete.hidden = !showComplete;
 
@@ -441,88 +597,109 @@ class CountPanel extends HTMLElement {
       // Simple disable logic since buttons are hidden when no changes
       this._els.complete.disabled = !!this._isProcessing || readOnly;
     }
-    
+
     if (this._els.cancel) {
       // Simple disable logic since buttons are hidden when no changes
       this._els.cancel.disabled = !!this._isProcessing;
     }
     if (this._els.lock) {
       this._els.lock.disabled = !!this._isProcessing;
-      
+
       // Update lock button icon based on current lock state
       try {
-        const isUnlocked = (typeof isDayEditUnlocked === 'function') ? isDayEditUnlocked() : false;
-        this._els.lock.textContent = isUnlocked ? '🔓' : '🔒';
-        this._els.lock.title = isUnlocked ? 'Lock editing' : 'Unlock editing';
-        this._els.lock.setAttribute('aria-label', isUnlocked ? 'Lock editing' : 'Unlock editing');
-      } catch(_) {}
+        const isUnlocked =
+          typeof isDayEditUnlocked === "function" ? isDayEditUnlocked() : false;
+        this._els.lock.textContent = isUnlocked ? "🔓" : "🔒";
+        this._els.lock.title = isUnlocked ? "Lock editing" : "Unlock editing";
+        this._els.lock.setAttribute(
+          "aria-label",
+          isUnlocked ? "Lock editing" : "Unlock editing",
+        );
+      } catch (_) {}
     }
     if (this._els.toggle) this._els.toggle.disabled = !!this._isProcessing;
 
-    this._els.toggle.textContent = collapsed ? '▼' : '▲';
-    this._els.toggle.setAttribute('aria-expanded', String(!collapsed));
-    
+    this._els.toggle.textContent = collapsed ? "▼" : "▲";
+    this._els.toggle.setAttribute("aria-expanded", String(!collapsed));
+
     // Contextual labels based on completion or reopened state
     if (completed || this._state.reopened) {
-      const label = collapsed ? 'Edit count' : 'Show summary';
-      const title = collapsed ? 'Expand to edit this count' : 'Collapse to show summary';
-      this._els.toggle.setAttribute('aria-label', label);
-      this._els.toggle.setAttribute('title', title);
+      const label = collapsed ? "Edit count" : "Show summary";
+      const title = collapsed
+        ? "Expand to edit this count"
+        : "Collapse to show summary";
+      this._els.toggle.setAttribute("aria-label", label);
+      this._els.toggle.setAttribute("title", title);
     } else {
-      const label = collapsed ? 'Expand' : 'Collapse';
-      this._els.toggle.setAttribute('aria-label', label);
-      this._els.toggle.setAttribute('title', label);
+      const label = collapsed ? "Expand" : "Collapse";
+      this._els.toggle.setAttribute("aria-label", label);
+      this._els.toggle.setAttribute("title", label);
     }
 
     const saveMode = this._isSaveMode();
-    try { if (this._els.title) this._els.title.textContent = this._activeDayTitle(); } catch(_) {}
+    try {
+      if (this._els.title) this._els.title.textContent = this._activeDayTitle();
+    } catch (_) {}
     if (!this._els.complete.hidden) {
       const activeKey = getActiveViewDateKey();
       const completingDraft = saveMode && !isDayCompleted(activeKey);
-      const baseLabel = saveMode && !completingDraft ? 'Save' : 'Mark complete';
-      const processingLabel = saveMode && !completingDraft ? 'Saving…' : 'Completing…';
-      const baseIcon = saveMode && !completingDraft ? '💾' : '✅';
-      this._els.complete.classList.toggle('processing', !!this._isProcessing);
-      if (this._isProcessing) { this._els.complete.innerHTML = `${processingLabel} <span class="dots" aria-hidden="true"></span>`; }
-      else { this._els.complete.textContent = baseIcon; }
-      this._els.complete.setAttribute('aria-label', this._isProcessing ? processingLabel : baseLabel);
-      this._els.complete.title = this._isProcessing ? processingLabel : baseLabel;
+      const baseLabel = saveMode && !completingDraft ? "Save" : "Mark complete";
+      const processingLabel =
+        saveMode && !completingDraft ? "Saving…" : "Completing…";
+      const baseIcon = saveMode && !completingDraft ? "💾" : "✅";
+      this._els.complete.classList.toggle("processing", !!this._isProcessing);
+      if (this._isProcessing) {
+        this._els.complete.innerHTML = `${processingLabel} <span class="dots" aria-hidden="true"></span>`;
+      } else {
+        this._els.complete.textContent = baseIcon;
+      }
+      this._els.complete.setAttribute(
+        "aria-label",
+        this._isProcessing ? processingLabel : baseLabel,
+      );
+      this._els.complete.title = this._isProcessing
+        ? processingLabel
+        : baseLabel;
     }
 
     const container = this._visibleContainer();
-    
+
     // Render summary data when completed, reopened, or past dates with data
     let shouldRenderSummary = completed || this._state.reopened;
     if (!shouldRenderSummary) {
       // Also render summary for past dates with data
       try {
-        const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
-        const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; 
-        const isPastWithData = key && today && (key !== today) && this._state.started;
+        const key =
+          typeof getActiveViewDateKey === "function"
+            ? getActiveViewDateKey()
+            : null;
+        const today = typeof getTodayKey === "function" ? getTodayKey() : "";
+        const isPastWithData =
+          key && today && key !== today && this._state.started;
         shouldRenderSummary = isPastWithData;
-      } catch(_) {}
+      } catch (_) {}
     }
     if (shouldRenderSummary) this._renderSummary();
-    
+
     const collapsedChanged = this._lastCollapsed !== collapsed;
     const completedChanged = this._lastCompleted !== completed;
-    
+
     // Handle animations for state changes
     if (!isEmpty && (collapsedChanged || completedChanged)) {
       // First sync containers to ensure proper visibility state
       this._syncContainersVisibility();
-      
+
       // For completed OR reopened states with toggle behavior, we need to handle both containers
       if ((completed || this._state.reopened) && collapsedChanged) {
         if (collapsed) {
           // Switching to summary view - ensure body is hidden first, then animate summary
           this._els.body.hidden = true;
-          this._els.body.setAttribute('aria-hidden', 'true');
+          this._els.body.setAttribute("aria-hidden", "true");
           this._expandEl(this._els.summary, !noAnim);
         } else {
           // Switching to edit view - ensure summary is hidden first, then animate body
           this._els.summary.hidden = true;
-          this._els.summary.setAttribute('aria-hidden', 'true');
+          this._els.summary.setAttribute("aria-hidden", "true");
           this._expandEl(this._els.body, !noAnim);
         }
       } else {
@@ -536,248 +713,325 @@ class CountPanel extends HTMLElement {
     } else if (isEmpty) {
       // For empty state, immediately hide without animation conflicts
       try {
-        this._els.body.classList.remove('expanding', 'collapsing');
-        this._els.summary.classList.remove('expanding', 'collapsing');
-        this._els.body.hidden = true; 
-        this._els.body.setAttribute('aria-hidden', 'true'); 
-        this._els.body.style.height = '0px';
-        this._els.summary.hidden = true; 
-        this._els.summary.setAttribute('aria-hidden', 'true'); 
-        this._els.summary.style.height = '0px';
-      } catch(_) {}
+        this._els.body.classList.remove("expanding", "collapsing");
+        this._els.summary.classList.remove("expanding", "collapsing");
+        this._els.body.hidden = true;
+        this._els.body.setAttribute("aria-hidden", "true");
+        this._els.body.style.height = "0px";
+        this._els.summary.hidden = true;
+        this._els.summary.setAttribute("aria-hidden", "true");
+        this._els.summary.style.height = "0px";
+      } catch (_) {}
     } else {
       // Always sync visibility when no state changes occurred
       this._syncContainersVisibility();
     }
-    
-    this._lastCollapsed = collapsed; 
+
+    this._lastCollapsed = collapsed;
     this._lastCompleted = completed;
 
     this._els.doneHint.hidden = !completed;
-    if (this._els.lockHint) this._els.lockHint.hidden = !(started && !completed && readOnly);
-    try { updateStatusPill(this); } catch(_) {}
+    if (this._els.lockHint)
+      this._els.lockHint.hidden = !(started && !completed && readOnly);
+    try {
+      updateStatusPill(this);
+    } catch (_) {}
 
-    try { const emptyEl = this.querySelector('.panel-empty'); if (emptyEl) { if (isEmpty) { emptyEl.hidden = false; emptyEl.setAttribute('aria-hidden', 'false'); } else { emptyEl.hidden = true; emptyEl.setAttribute('aria-hidden', 'true'); } } } catch(_) {}
+    try {
+      const emptyEl = this.querySelector(".panel-empty");
+      if (emptyEl) {
+        if (isEmpty) {
+          emptyEl.hidden = false;
+          emptyEl.setAttribute("aria-hidden", "false");
+        } else {
+          emptyEl.hidden = true;
+          emptyEl.setAttribute("aria-hidden", "true");
+        }
+      }
+    } catch (_) {}
   }
 
   async _onCancel() {
-    if (this._isProcessing) return; 
+    if (this._isProcessing) return;
     if (!this._state.started) return;
-    
+
     try {
-      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null;
-      
-      if (key && this._hasSavedDay(key) && this._hasUnsavedChangesComparedToSaved()) {
-        const modal = (typeof getRevertConfirmModal === 'function') ? getRevertConfirmModal() : null;
-        let proceed = true; 
-        if (modal && typeof modal.open === 'function') { 
-          proceed = await modal.open(key); 
+      const key =
+        typeof getActiveViewDateKey === "function"
+          ? getActiveViewDateKey()
+          : null;
+
+      if (
+        key &&
+        this._hasSavedDay(key) &&
+        this._hasUnsavedChangesComparedToSaved()
+      ) {
+        const modal =
+          typeof getRevertConfirmModal === "function"
+            ? getRevertConfirmModal()
+            : null;
+        let proceed = true;
+        if (modal && typeof modal.open === "function") {
+          proceed = await modal.open(key);
         }
-        
+
         if (!proceed) return;
-        
+
         // Begin processing with visual feedback (same as save)
-        this._beginProcessing('revert');
-        
-        try { 
-          restoreDay(key); 
-          
+        this._beginProcessing("revert");
+
+        try {
+          restoreDay(key);
+
           // Lock editing (same as save)
-          try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch(_) {}
-          try { const header = document.querySelector('app-header'); updateStatusPill(header); applyReadOnlyByActiveDate(header); } catch(_) {}
-          
+          try {
+            if (typeof setDayEditUnlocked === "function")
+              setDayEditUnlocked(false);
+          } catch (_) {}
+          try {
+            const header = document.querySelector("app-header");
+            updateStatusPill(header);
+            applyReadOnlyByActiveDate(header);
+          } catch (_) {}
+
           // Set completed state to show summary (same as save)
           // But don't override reopened state
           if (!this._state.reopened) {
-            this._state.completed = true; 
+            this._state.completed = true;
             this._state.collapsed = true;
-            this._savePersisted({ completed: true, started: true, collapsed: true });
+            this._savePersisted({
+              completed: true,
+              started: true,
+              collapsed: true,
+            });
           }
-          
-          toast('Reverted changes. Showing summary.', { type: 'info', duration: 1800 }); 
-        } catch(_) {}
-        
+
+          toast("Reverted changes. Showing summary.", {
+            type: "info",
+            duration: 1800,
+          });
+        } catch (_) {}
+
         // End processing with same timing as save
         setTimeout(() => this._endProcessing(), 200);
         this._refresh();
         return;
       }
-    } catch(_) {}
+    } catch (_) {}
     return;
   }
 
   _hasUnsavedChangesComparedToSaved() {
-    try { 
-      const comp = this.querySelector('drawer-count'); 
-      const cur = comp?.getState?.(); 
-      if (!cur) return false; 
-      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
-      if (!key) return false; 
-      const { entry } = _getActiveDaysEntry(false); 
-      const saved = entry?.days?.[key]?.state; 
-      if (!saved) return false; 
-      
+    try {
+      const comp = this.querySelector("drawer-count");
+      const cur = comp?.getState?.();
+      if (!cur) return false;
+      const key =
+        typeof getActiveViewDateKey === "function"
+          ? getActiveViewDateKey()
+          : null;
+      if (!key) return false;
+      const { entry } = _getActiveDaysEntry(false);
+      const saved = entry?.days?.[key]?.state;
+      if (!saved) return false;
+
       // Compare only the meaningful data fields, excluding timestamp and version
       const normalize = (state) => {
         if (!state) return null;
         return {
           base: state.base || {},
           optional: state.optional || {},
-          extra: state.extra || { slips: [], checks: [] }
+          extra: state.extra || { slips: [], checks: [] },
         };
       };
-      
+
       const curNormalized = normalize(cur);
       const savedNormalized = normalize(saved);
-      
+
       return JSON.stringify(curNormalized) !== JSON.stringify(savedNormalized);
-    } catch(_) { 
-      return false; 
+    } catch (_) {
+      return false;
     }
   }
 
   _hasAnyFormContent() {
     try {
-      const comp = this.querySelector('drawer-count');
+      const comp = this.querySelector("drawer-count");
       const state = comp?.getState?.();
       if (!state) return false;
-      
+
       // Check base fields for any non-zero values
       const baseValues = Object.values(state.base || {});
-      if (baseValues.some(val => val > 0)) return true;
-      
+      if (baseValues.some((val) => val > 0)) return true;
+
       // Check optional fields for any non-zero values
       const optionalValues = Object.values(state.optional || {});
-      if (optionalValues.some(val => val > 0)) return true;
-      
+      if (optionalValues.some((val) => val > 0)) return true;
+
       // Check extra arrays for any content
-      if (state.extra?.slips?.length > 0 || state.extra?.checks?.length > 0) return true;
-      
+      if (state.extra?.slips?.length > 0 || state.extra?.checks?.length > 0)
+        return true;
+
       return false;
-    } catch(_) { 
-      return false; 
+    } catch (_) {
+      return false;
     }
   }
 
   async _onToggleLock() {
     let btn = null;
     let prevDisabled = false;
-    
+
     try {
-      const today = getTodayKey(); 
-      const key = getActiveViewDateKey(); 
-      
+      const today = getTodayKey();
+      const key = getActiveViewDateKey();
+
       // Special handling for today's completed counts
       if (key === today) {
         // If it's today but not completed, it's always editable
         if (!this._state?.completed && !this._state?.reopened) {
-          toast('Today is always editable', { type: 'info', duration: 1400 }); 
-          return; 
+          toast("Today is always editable", { type: "info", duration: 1400 });
+          return;
         }
         // If it's today and completed/reopened, allow unlock/lock toggle
       }
-      
-  btn = this._els?.lock; 
+
+      btn = this._els?.lock;
       prevDisabled = btn ? btn.disabled : false;
-      
-      if (btn) { 
-        btn.classList.add('processing'); 
-        btn.innerHTML = `${btn.textContent} <span class="dots" aria-hidden="true"></span>`; 
-        btn.disabled = true; 
+
+      if (btn) {
+        btn.classList.add("processing");
+        btn.innerHTML = `${btn.textContent} <span class="dots" aria-hidden="true"></span>`;
+        btn.disabled = true;
       }
-      
+
       const unlocked = isDayEditUnlocked();
-      
-      if (!unlocked) { 
-        const modal = getUnlockConfirmModal(); 
-        const ok = await modal.open(key); 
-        
+
+      if (!unlocked) {
+        const modal = getUnlockConfirmModal();
+        const ok = await modal.open(key);
+
         if (!ok) {
-          return; 
+          return;
         }
-        
+
         setDayEditUnlocked(true);
-        
+
         // When unlocking, set the state to reopened to indicate editing of completed item
         if (this._state?.completed) {
           this._state.reopened = true;
           this._state.collapsed = false; // Expand for editing
-          this._savePersisted({ ...this._state, reopened: true, collapsed: false });
+          this._savePersisted({
+            ...this._state,
+            reopened: true,
+            collapsed: false,
+          });
         }
-        
-        toast('Editing unlocked for this day', { type: 'info', duration: 1600 }); 
+
+        toast("Editing unlocked for this day", {
+          type: "info",
+          duration: 1600,
+        });
+      } else {
+        setDayEditUnlocked(false);
+
+        toast("Editing locked for this day", { type: "info", duration: 1600 });
       }
-      else { 
-        setDayEditUnlocked(false); 
-        
-        toast('Editing locked for this day', { type: 'info', duration: 1600 }); 
+
+      try {
+        const header = document.querySelector("app-header");
+        applyReadOnlyByActiveDate(header);
+      } catch (e) {
+        console.error("Error applying readonly to header:", e);
       }
-      
-      try { const header = document.querySelector('app-header'); applyReadOnlyByActiveDate(header); } catch(e) { console.error('Error applying readonly to header:', e); }
-      try { updateLockButtonUI(this); } catch(e) { console.error('Error updating lock button UI:', e); }
-      try { this._refresh(); } catch(e) { console.error('Error refreshing:', e); }
-    } catch(error) {
-      console.error('Error in _onToggleLock:', error);
-      toast('Error toggling lock state', { type: 'error', duration: 2000 });
+      try {
+        updateLockButtonUI(this);
+      } catch (e) {
+        console.error("Error updating lock button UI:", e);
+      }
+      try {
+        this._refresh();
+      } catch (e) {
+        console.error("Error refreshing:", e);
+      }
+    } catch (error) {
+      console.error("Error in _onToggleLock:", error);
+      toast("Error toggling lock state", { type: "error", duration: 2000 });
     } finally {
       // Always restore button state, but preserve the updated icon
-      setTimeout(() => { 
-        try { 
-          if (btn) { 
-            btn.classList.remove('processing'); 
+      setTimeout(() => {
+        try {
+          if (btn) {
+            btn.classList.remove("processing");
             // Don't restore innerHTML - let the updateLockButtonUI handle the icon
-            // btn.innerHTML = prevHtml; 
-            btn.disabled = prevDisabled; 
-          } 
-        } catch(e) { 
-          console.error('Error restoring button state:', e); 
-        } 
+            // btn.innerHTML = prevHtml;
+            btn.disabled = prevDisabled;
+          }
+        } catch (e) {
+          console.error("Error restoring button state:", e);
+        }
       }, 200);
     }
   }
 
   _onClear() {
     try {
-      const drawerCount = this.querySelector('drawer-count');
-      if (drawerCount && typeof drawerCount.clearInputs === 'function') {
+      const drawerCount = this.querySelector("drawer-count");
+      if (drawerCount && typeof drawerCount.clearInputs === "function") {
         const cleared = drawerCount.clearInputs();
-        if (cleared && this._state.started && !this._state.completed && !this._state.reopened) this._scheduleAutosave();
+        if (
+          cleared &&
+          this._state.started &&
+          !this._state.completed &&
+          !this._state.reopened
+        )
+          this._scheduleAutosave();
       }
-    } catch(error) {
-      console.error('Error clearing inputs:', error);
-      try { toast('Error clearing inputs', { type: 'error', duration: 2000 }); } catch(_) {}
+    } catch (error) {
+      console.error("Error clearing inputs:", error);
+      try {
+        toast("Error clearing inputs", { type: "error", duration: 2000 });
+      } catch (_) {}
     }
   }
 
   async _onOptional() {
     try {
-      const drawerCount = this.querySelector('drawer-count');
-      if (drawerCount && typeof drawerCount.openOptionalFields === 'function') {
+      const drawerCount = this.querySelector("drawer-count");
+      if (drawerCount && typeof drawerCount.openOptionalFields === "function") {
         await drawerCount.openOptionalFields();
       }
-    } catch(error) {
-      console.error('Error opening optional fields:', error);
-      try { toast('Error opening optional fields', { type: 'error', duration: 2000 }); } catch(_) {}
+    } catch (error) {
+      console.error("Error opening optional fields:", error);
+      try {
+        toast("Error opening optional fields", {
+          type: "error",
+          duration: 2000,
+        });
+      } catch (_) {}
     }
   }
 
-  _visibleContainer() { 
+  _visibleContainer() {
     const { completed, collapsed, reopened, started } = this._state;
-    
+
     // Check if this is a past date with data
     let isPastWithData = false;
     try {
-      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
-      const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; 
-      isPastWithData = key && today && (key !== today) && started;
-    } catch(_) {}
-    
+      const key =
+        typeof getActiveViewDateKey === "function"
+          ? getActiveViewDateKey()
+          : null;
+      const today = typeof getTodayKey === "function" ? getTodayKey() : "";
+      isPastWithData = key && today && key !== today && started;
+    } catch (_) {}
+
     // Force summary view for past dates (override any stored collapsed state)
     if (isPastWithData) {
       // For past dates, show summary unless explicitly expanded (collapsed = false)
       return collapsed ? this._els.summary : this._els.body;
     }
-    
+
     // Regular logic for today and other dates
     if (completed || reopened) {
       return collapsed ? this._els.summary : this._els.body;
@@ -788,128 +1042,179 @@ class CountPanel extends HTMLElement {
 
   _syncContainersVisibility() {
     const { completed, collapsed, reopened, started } = this._state;
-    
+
     // Check if this is a past date with data
     let isPastWithData = false;
     try {
-      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
-      const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; 
-      isPastWithData = key && today && (key !== today) && started;
-    } catch(_) {}
-    
+      const key =
+        typeof getActiveViewDateKey === "function"
+          ? getActiveViewDateKey()
+          : null;
+      const today = typeof getTodayKey === "function" ? getTodayKey() : "";
+      isPastWithData = key && today && key !== today && started;
+    } catch (_) {}
+
     // Skip if visibility state hasn't changed (include isPastWithData in state check)
     const currentVisState = `${completed}_${collapsed}_${reopened}_${isPastWithData}`;
     if (this._lastVisState === currentVisState) {
       return;
     }
     this._lastVisState = currentVisState;
-    
+
     // Simplified logic: if collapsed and we have data, show summary; otherwise show body
     if (collapsed && (isPastWithData || completed || reopened)) {
       // Show summary, hide body
       this._els.body.hidden = true;
-      this._els.body.setAttribute('aria-hidden', 'true');
+      this._els.body.setAttribute("aria-hidden", "true");
       this._els.summary.hidden = false;
-      this._els.summary.setAttribute('aria-hidden', 'false');
+      this._els.summary.setAttribute("aria-hidden", "false");
     } else {
       // Show body, hide summary
       this._els.summary.hidden = true;
-      this._els.summary.setAttribute('aria-hidden', 'true');
+      this._els.summary.setAttribute("aria-hidden", "true");
       if (collapsed) {
         this._els.body.hidden = true;
-        this._els.body.setAttribute('aria-hidden', 'true');
+        this._els.body.setAttribute("aria-hidden", "true");
       } else {
         this._els.body.hidden = false;
-        this._els.body.setAttribute('aria-hidden', 'false');
+        this._els.body.setAttribute("aria-hidden", "false");
       }
     }
   }
 
   _expandEl(el, animate = true) {
     if (!el) return;
-    
+
     // Clear any existing animation classes
-    el.classList.remove('collapsing', 'expanding');
-    
+    el.classList.remove("collapsing", "expanding");
+
     // Set initial visibility and aria state
-    el.setAttribute('aria-hidden', 'false');
+    el.setAttribute("aria-hidden", "false");
     el.hidden = false;
-    
+
     if (!animate) {
-      el.style.height = 'auto';
+      el.style.height = "auto";
       return;
     }
 
     // Get target height
-    el.style.height = 'auto';
+    el.style.height = "auto";
     const target = el.scrollHeight;
-    
+
     // Start animation from collapsed state
-    el.style.height = '0px';
-    
+    el.style.height = "0px";
+
     // Force reflow
     el.offsetHeight;
-    
+
     // Animate to target height
     requestAnimationFrame(() => {
       el.style.height = `${target}px`;
-      
+
       // Clean up after animation
       const onEnd = () => {
-        el.style.height = 'auto';
-        el.removeEventListener('transitionend', onEnd);
+        el.style.height = "auto";
+        el.removeEventListener("transitionend", onEnd);
       };
-      
-      el.addEventListener('transitionend', onEnd, { once: true });
+
+      el.addEventListener("transitionend", onEnd, { once: true });
     });
   }
 
   _collapseEl(el, animate = true) {
     if (!el) return;
-    
+
     // Clear any existing animation classes
-    el.classList.remove('collapsing', 'expanding');
-    
+    el.classList.remove("collapsing", "expanding");
+
     if (!animate) {
-      el.style.height = '0px';
+      el.style.height = "0px";
       el.hidden = true;
-      el.setAttribute('aria-hidden', 'true');
+      el.setAttribute("aria-hidden", "true");
       return;
     }
 
     // Get current height
     const current = el.scrollHeight;
     el.style.height = `${current}px`;
-    
+
     // Force reflow
     el.offsetHeight;
-    
+
     // Animate to collapsed state
     requestAnimationFrame(() => {
-      el.style.height = '0px';
-      
+      el.style.height = "0px";
+
       // Clean up after animation
       const onEnd = () => {
         el.hidden = true;
-        el.setAttribute('aria-hidden', 'true');
-        el.removeEventListener('transitionend', onEnd);
+        el.setAttribute("aria-hidden", "true");
+        el.removeEventListener("transitionend", onEnd);
       };
-      
-      el.addEventListener('transitionend', onEnd, { once: true });
+
+      el.addEventListener("transitionend", onEnd, { once: true });
     });
   }
 
   _renderSummary() {
     try {
-      const dc = this.querySelector('drawer-count'); if (!dc || !dc.getCount) return; const c = dc.getCount(); let st = null; try { st = dc.getState?.(); } catch(_) { st = null; }
-      const fmt = (n) => { const v = Number(n || 0); return v.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }); };
+      const dc = this.querySelector("drawer-count");
+      if (!dc || !dc.getCount) return;
+      const c = dc.getCount();
+      let st = null;
+      try {
+        st = dc.getState?.();
+      } catch (_) {
+        st = null;
+      }
+      const fmt = (n) => {
+        const v = Number(n || 0);
+        return v.toLocaleString(undefined, {
+          style: "currency",
+          currency: "USD",
+          maximumFractionDigits: 2,
+        });
+      };
       const ts = c.timestamp ? new Date(c.timestamp) : new Date();
-      const cashTotal = [c.hundreds, c.fifties, c.twenties, c.tens, c.fives, c.ones, c.quarters, c.dimes, c.nickels, c.pennies, c.qRolls, c.dRolls, c.nRolls, c.pRolls].map((x) => Number(x || 0)).reduce((a, b) => a + b, 0);
-      const slipsList = Array.isArray(st?.extra?.slips) && st.extra.slips.length ? `<ul class="list">${st.extra.slips.map((v,i) => `<li><span class="label">Slip ${i+1}</span><span class="val">${fmt(v)}</span></li>`).join('')}</ul>` : '';
-      const checksList = Array.isArray(st?.extra?.checks) && st.extra.checks.length ? `<ul class="list">${st.extra.checks.map((v,i) => `<li><span class="label">Check ${i+1}</span><span class="val">${fmt(v)}</span></li>`).join('')}</ul>` : '';
+      const cashTotal = [
+        c.hundreds,
+        c.fifties,
+        c.twenties,
+        c.tens,
+        c.fives,
+        c.ones,
+        c.quarters,
+        c.dimes,
+        c.nickels,
+        c.pennies,
+        c.qRolls,
+        c.dRolls,
+        c.nRolls,
+        c.pRolls,
+      ]
+        .map((x) => Number(x || 0))
+        .reduce((a, b) => a + b, 0);
+      const slipsList =
+        Array.isArray(st?.extra?.slips) && st.extra.slips.length
+          ? `<ul class="list">${st.extra.slips.map((v, i) => `<li><span class="label">Slip ${i + 1}</span><span class="val">${fmt(v)}</span></li>`).join("")}</ul>`
+          : "";
+      const checksList =
+        Array.isArray(st?.extra?.checks) && st.extra.checks.length
+          ? `<ul class="list">${st.extra.checks.map((v, i) => `<li><span class="label">Check ${i + 1}</span><span class="val">${fmt(v)}</span></li>`).join("")}</ul>`
+          : "";
       const opt = st?.optional || {};
-      const optEntries = [ ['Charges', opt.charges], ['Total Received', opt.totalReceived], ['Net Sales', opt.grossProfitAmount], ['Gross Profit ($)', opt.grossProfitAmount], ['Gross Profit (%)', opt.grossProfitPercent], ['# Invoices', opt.numInvoices], ['# Voids', opt.numVoids], ].filter(([,v]) => Number(v || 0) !== 0);
-      const optList = optEntries.length ? `<ul class="list">${optEntries.map(([k,v]) => `<li><span class="label">${k}</span><span class="val">${k.includes('%') ? (Number(v||0).toLocaleString(undefined, { maximumFractionDigits: 2 }) + '%') : (k.startsWith('#') ? Number(v||0).toLocaleString() : fmt(v))}</span></li>`).join('')}</ul>` : '';
+      const optEntries = [
+        ["Charges", opt.charges],
+        ["Total Received", opt.totalReceived],
+        ["Net Sales", opt.grossProfitAmount],
+        ["Gross Profit ($)", opt.grossProfitAmount],
+        ["Gross Profit (%)", opt.grossProfitPercent],
+        ["# Invoices", opt.numInvoices],
+        ["# Voids", opt.numVoids],
+      ].filter(([, v]) => Number(v || 0) !== 0);
+      const optList = optEntries.length
+        ? `<ul class="list">${optEntries.map(([k, v]) => `<li><span class="label">${k}</span><span class="val">${k.includes("%") ? Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 2 }) + "%" : k.startsWith("#") ? Number(v || 0).toLocaleString() : fmt(v)}</span></li>`).join("")}</ul>`
+        : "";
       this._els.summary.innerHTML = `
         <div class="sum-grid">
           <div class="row"><span class="k">Total Count</span><span class="v">${fmt(c.count)}</span></div>
@@ -920,74 +1225,152 @@ class CountPanel extends HTMLElement {
           <div class="row"><span class="k">Balance</span><span class="v">${fmt(c.balance)}</span></div>
           <div class="row ts"><span class="k">Counted</span><span class="v">${ts.toLocaleString()}</span></div>
         </div>
-        ${slipsList ? `<div class="section"><h4>Recorded Slips</h4>${slipsList}</div>` : ''}
-        ${checksList ? `<div class="section"><h4>Recorded Checks</h4>${checksList}</div>` : ''}
-        ${optList ? `<div class="section"><h4>Optional Fields</h4>${optList}</div>` : ''}
+        ${slipsList ? `<div class="section"><h4>Recorded Slips</h4>${slipsList}</div>` : ""}
+        ${checksList ? `<div class="section"><h4>Recorded Checks</h4>${checksList}</div>` : ""}
+        ${optList ? `<div class="section"><h4>Optional Fields</h4>${optList}</div>` : ""}
       `;
     } catch (_) {}
   }
 
   _computeReadOnly() {
-    try { 
-      const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; 
-      const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; 
-      if (!key) return false; 
-      const unlocked = (typeof isDayEditUnlocked === 'function') ? isDayEditUnlocked() : false; 
-      
+    try {
+      const key =
+        typeof getActiveViewDateKey === "function"
+          ? getActiveViewDateKey()
+          : null;
+      const today = typeof getTodayKey === "function" ? getTodayKey() : "";
+      if (!key) return false;
+      const unlocked =
+        typeof isDayEditUnlocked === "function" ? isDayEditUnlocked() : false;
+
       // If item is reopened (completed item being edited), it should be read-only until unlocked
       // This applies to ANY date, including today
       if (this._state?.reopened) {
         return !unlocked;
       }
-      
+
       // If item is completed, it should be read-only until unlocked
       // This applies to ANY date, including today
       if (this._state?.completed) {
         return !unlocked;
       }
-      
+
       // Past dates (not today) require unlocking if they have saved data
       const isPast = key !== today;
       if (isPast) {
         const hasSavedData = this._hasSavedDay(key);
         return hasSavedData && !unlocked;
       }
-      
+
       // Today without completion is always editable
-      return false; 
-    } catch (_) { return false; }
+      return false;
+    } catch (_) {
+      return false;
+    }
   }
 
   _activeDayTitle() {
-    try { const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; if (!key) return "Today's Count"; const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; if (key === today) return "Today's Count"; const d = new Date(); d.setDate(d.getDate() - 1); const yk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; if (key === yk) return "Yesterday's Count"; const [Y,M,D] = key.split('-').map((x)=>Number(x)); const dt = new Date(Y, (M||1)-1, D||1); const formatted = dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }); return `${formatted} Count`; } catch(_) { return "Count"; }
+    try {
+      const key =
+        typeof getActiveViewDateKey === "function"
+          ? getActiveViewDateKey()
+          : null;
+      if (!key) return "Today's Count";
+      const today = typeof getTodayKey === "function" ? getTodayKey() : "";
+      if (key === today) return "Today's Count";
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      const yk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      if (key === yk) return "Yesterday's Count";
+      const [Y, M, D] = key.split("-").map((x) => Number(x));
+      const dt = new Date(Y, (M || 1) - 1, D || 1);
+      const formatted = dt.toLocaleDateString(undefined, {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+      return `${formatted} Count`;
+    } catch (_) {
+      return "Count";
+    }
   }
 
-  _hasSavedDay(key) { try { const { entry } = _getActiveDaysEntry(false); return !!entry?.days?.[key]; } catch (_) { return false; } }
-  _isSaveMode() { try { const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; if (!key) return false; const today = (typeof getTodayKey === 'function') ? getTodayKey() : ''; return key !== today; } catch (_) { return false; } }
-  _focusFirstInput() { try { const dc = this.querySelector('drawer-count'); const first = dc?.shadowRoot?.querySelector('input, button, [tabindex="0"]') || dc?.querySelector('input, button, [tabindex="0"]'); if (first && typeof first.focus === 'function') first.focus(); } catch (_) {}
+  _hasSavedDay(key) {
+    try {
+      const { entry } = _getActiveDaysEntry(false);
+      return !!entry?.days?.[key];
+    } catch (_) {
+      return false;
+    }
+  }
+  _isSaveMode() {
+    try {
+      const key =
+        typeof getActiveViewDateKey === "function"
+          ? getActiveViewDateKey()
+          : null;
+      if (!key) return false;
+      const today = typeof getTodayKey === "function" ? getTodayKey() : "";
+      return key !== today;
+    } catch (_) {
+      return false;
+    }
+  }
+  _focusFirstInput() {
+    try {
+      const dc = this.querySelector("drawer-count");
+      const first =
+        dc?.shadowRoot?.querySelector('input, button, [tabindex="0"]') ||
+        dc?.querySelector('input, button, [tabindex="0"]');
+      if (first && typeof first.focus === "function") first.focus();
+    } catch (_) {}
   }
 
   _onStart() {
-    try { const today = (typeof getTodayKey === 'function') ? getTodayKey() : null; const key = (typeof getActiveViewDateKey === 'function') ? getActiveViewDateKey() : null; if (today && key && key !== today) { try { setActiveViewDateKey(today); } catch(_) {} try { restoreDay(today); } catch(_) {} try { setDayEditUnlocked(true); } catch(_) {} try { const header = document.querySelector('app-header'); applyReadOnlyByActiveDate(header); } catch(_) {} } } catch(_) {}
-    
+    try {
+      const today = typeof getTodayKey === "function" ? getTodayKey() : null;
+      const key =
+        typeof getActiveViewDateKey === "function"
+          ? getActiveViewDateKey()
+          : null;
+      if (today && key && key !== today) {
+        try {
+          setActiveViewDateKey(today);
+        } catch (_) {}
+        try {
+          restoreDay(today);
+        } catch (_) {}
+        try {
+          setDayEditUnlocked(true);
+        } catch (_) {}
+        try {
+          const header = document.querySelector("app-header");
+          applyReadOnlyByActiveDate(header);
+        } catch (_) {}
+      }
+    } catch (_) {}
+
     // Reset state for new count
-    this._state.started = true; 
-    this._state.collapsed = false; 
-    this._state.completed = false; 
-    this._state.reopened = false; 
+    this._state.started = true;
+    this._state.collapsed = false;
+    this._state.completed = false;
+    this._state.reopened = false;
     this._savePersisted(this._state);
-    this._setSaveStatus('idle', 'Autosave is on');
-    
-    try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(true); } catch (_) {}
-    
+    this._setSaveStatus("idle", "Autosave is on");
+
+    try {
+      if (typeof setDayEditUnlocked === "function") setDayEditUnlocked(true);
+    } catch (_) {}
+
     // Enable auto-save for first input if this is a new count
     try {
-      const dc = this.querySelector('drawer-count');
-      if (dc && typeof dc.enableFirstDayAutoSave === 'function') {
+      const dc = this.querySelector("drawer-count");
+      if (dc && typeof dc.enableFirstDayAutoSave === "function") {
         const today = getTodayKey();
         const key = getActiveViewDateKey();
         const hasSavedData = key ? this._hasSavedDay(key) : false;
-        
+
         if (key === today && !hasSavedData) {
           // This is today and no saved data exists - enable first-day auto-save
           dc.enableFirstDayAutoSave();
@@ -996,21 +1379,32 @@ class CountPanel extends HTMLElement {
           dc.disableAutoSave();
         }
       }
-    } catch(_) {}
-    
+    } catch (_) {}
+
     this._refresh();
     queueMicrotask(() => this._focusFirstInput());
   }
 
-  _onToggle() { 
-    if (!this._state.started) return; 
-    this._state.collapsed = !this._state.collapsed; 
-    this._savePersisted({ collapsed: this._state.collapsed, started: this._state.started }); 
-    this._refresh(); 
+  _onToggle() {
+    if (!this._state.started) return;
+    this._state.collapsed = !this._state.collapsed;
+    this._savePersisted({
+      collapsed: this._state.collapsed,
+      started: this._state.started,
+    });
+    this._refresh();
   }
 
-  _beginProcessing(kind) { this._isProcessing = true; this._processingKind = kind || null; this._refresh(); }
-  _endProcessing() { this._isProcessing = false; this._processingKind = null; this._refresh(); }
+  _beginProcessing(kind) {
+    this._isProcessing = true;
+    this._processingKind = kind || null;
+    this._refresh();
+  }
+  _endProcessing() {
+    this._isProcessing = false;
+    this._processingKind = null;
+    this._refresh();
+  }
 
   _onComplete() {
     if (this._isProcessing) return;
@@ -1020,81 +1414,130 @@ class CountPanel extends HTMLElement {
     }
     const saveMode = this._isSaveMode();
     const completingDraft = saveMode && !isDayCompleted(getActiveViewDateKey());
-    this._beginProcessing(saveMode ? 'save' : 'complete');
+    this._beginProcessing(saveMode ? "save" : "complete");
     if (saveMode) {
-      try { 
-        if (typeof getActiveViewDateKey === 'function' && typeof saveSpecificDay === 'function') { 
-          const key = getActiveViewDateKey(); 
+      try {
+        if (
+          typeof getActiveViewDateKey === "function" &&
+          typeof saveSpecificDay === "function"
+        ) {
+          const key = getActiveViewDateKey();
           if (key) {
             const saveStartedAt = Date.now();
             if (saveSpecificDay(key)) this._pendingSyncAt = saveStartedAt;
           }
-        } 
-        try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch(_) {} 
-        try { const header = document.querySelector('app-header'); updateStatusPill(header); applyReadOnlyByActiveDate(header); } catch(_) {} 
-        
+        }
+        try {
+          if (typeof setDayEditUnlocked === "function")
+            setDayEditUnlocked(false);
+        } catch (_) {}
+        try {
+          const header = document.querySelector("app-header");
+          updateStatusPill(header);
+          applyReadOnlyByActiveDate(header);
+        } catch (_) {}
+
         // Always set completed and collapsed state to show summary after saving
-        this._state.completed = true; 
+        this._state.completed = true;
         this._state.collapsed = true;
-        this._savePersisted({ completed: true, started: true, collapsed: true, reopened: this._state.reopened });
-        
+        this._savePersisted({
+          completed: true,
+          started: true,
+          collapsed: true,
+          reopened: this._state.reopened,
+        });
+
         // Protect against interference from other code
         this._protectStateTemporarily();
-        
+
         // Explicitly show completed summary
         setTimeout(() => {
           this.showCompletedSummary();
         }, 100);
-        
-        this._setSaveStatus('saved', `${completingDraft ? 'Completed' : 'Saved'} locally • ${this._formatStatusTime()}`);
-        toast(completingDraft ? 'Draft completed. Editing locked.' : 'Saved. Editing locked.', { type: 'success', duration: 3000 });
-      } catch (_) { }
-      setTimeout(() => this._endProcessing(), 200); 
-      this._refresh(); 
+
+        this._setSaveStatus(
+          "saved",
+          `${completingDraft ? "Completed" : "Saved"} locally • ${this._formatStatusTime()}`,
+        );
+        toast(
+          completingDraft
+            ? "Draft completed. Editing locked."
+            : "Saved. Editing locked.",
+          { type: "success", duration: 3000 },
+        );
+      } catch (_) {}
+      setTimeout(() => this._endProcessing(), 200);
+      this._refresh();
       return;
     }
-    this._state.completed = true; this._state.reopened = false; this._savePersisted({ completed: true, started: true, reopened: false });
-    try { if (typeof setDayEditUnlocked === 'function') setDayEditUnlocked(false); } catch (_) {}
-    try { if (typeof getActiveViewDateKey === 'function' && typeof saveSpecificDay === 'function') { const key = getActiveViewDateKey(); if (key) { const saveStartedAt = Date.now(); if (saveSpecificDay(key)) this._pendingSyncAt = saveStartedAt; } } } catch (_) {}
-    this._setSaveStatus('saved', `Completed locally • ${this._formatStatusTime()}`);
-    try { toast('Marked complete for this day.'); } catch(_) {}
+    this._state.completed = true;
+    this._state.reopened = false;
+    this._savePersisted({ completed: true, started: true, reopened: false });
+    try {
+      if (typeof setDayEditUnlocked === "function") setDayEditUnlocked(false);
+    } catch (_) {}
+    try {
+      if (
+        typeof getActiveViewDateKey === "function" &&
+        typeof saveSpecificDay === "function"
+      ) {
+        const key = getActiveViewDateKey();
+        if (key) {
+          const saveStartedAt = Date.now();
+          if (saveSpecificDay(key)) this._pendingSyncAt = saveStartedAt;
+        }
+      }
+    } catch (_) {}
+    this._setSaveStatus(
+      "saved",
+      `Completed locally • ${this._formatStatusTime()}`,
+    );
+    try {
+      toast("Marked complete for this day.");
+    } catch (_) {}
     this._state.collapsed = true;
-    
+
     // Explicitly show completed summary
     setTimeout(() => {
       this.showCompletedSummary();
     }, 100);
-    
+
     setTimeout(() => this._endProcessing(), 250);
     this._refresh();
   }
 
-  _onVisibilityRefresh() { 
+  _onVisibilityRefresh() {
     // Don't refresh when state is temporarily protected (e.g., right after saving)
     if (this._stateProtected) {
       return;
     }
     this._reconcileDayRollover();
-    this._refresh(); 
+    this._refresh();
   }
   _onDrawerChange() {
     try {
       const today = getTodayKey();
       const key = getActiveViewDateKey();
-      if (key === today && this._state.started && !this._state.completed && !this._state.reopened && !this._computeReadOnly()) {
+      if (
+        key === today &&
+        this._state.started &&
+        !this._state.completed &&
+        !this._state.reopened &&
+        !this._computeReadOnly()
+      ) {
         this._scheduleAutosave();
       }
-    } catch(_) {}
-    this._refresh(true); 
+    } catch (_) {}
+    this._refresh(true);
   }
-  
+
   _onStepperComplete(_e) {
     // Only auto-complete if the drawer count is started and not already completed
     if (!this._state.started || this._state.completed) return;
-    
+
     // Only auto-complete if not in read-only mode
     if (this._computeReadOnly()) return;
-    
+
     // Add a small delay to ensure the stepper transition is complete
     setTimeout(() => {
       // Trigger the same completion logic as the "Mark complete" button
@@ -1105,40 +1548,41 @@ class CountPanel extends HTMLElement {
   _manageCardVisibility(isEmpty) {
     try {
       // Find the parent card element
-      const card = this.closest('.card');
-      const container = document.querySelector('.container');
-      
+      const card = this.closest(".card");
+      const container = document.querySelector(".container");
+
       if (!card) return;
-      
+
       // Toggle card visibility classes for browsers without :has() support
-      card.classList.toggle('card-empty', isEmpty);
-      
+      card.classList.toggle("card-empty", isEmpty);
+
       // Toggle container hint visibility
       if (container) {
-        container.classList.toggle('show-empty-hint', isEmpty);
+        container.classList.toggle("show-empty-hint", isEmpty);
       }
-      
+
       // Add smooth transition when card becomes visible
-      if (!isEmpty && card.classList.contains('card-empty')) {
+      if (!isEmpty && card.classList.contains("card-empty")) {
         // Small delay to ensure smooth transition
         setTimeout(() => {
-          card.classList.remove('card-empty');
+          card.classList.remove("card-empty");
         }, 50);
       }
-    } catch(_) {}
+    } catch (_) {}
   }
 
   _protectStateTemporarily() {
     // Protect against interference from showCompletedSummary() and other functions
     if (this._stateProtected) return;
     this._stateProtected = true;
-    
+
     setTimeout(() => {
       this._stateProtected = false;
     }, 1000); // Protect for 1 second after save
   }
 }
 
-if (!customElements.get('count-panel')) customElements.define('count-panel', CountPanel);
+if (!customElements.get("count-panel"))
+  customElements.define("count-panel", CountPanel);
 
 export default CountPanel;

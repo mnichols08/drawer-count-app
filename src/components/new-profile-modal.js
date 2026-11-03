@@ -1,14 +1,19 @@
-import './app-modal.js';
+import "./app-modal.js";
 
 class NewProfileModal extends HTMLElement {
   constructor() {
     super();
-    this._shadow = this.attachShadow({ mode: 'open' });
+    this._shadow = this.attachShadow({ mode: "open" });
     this._onKeyDown = this._onKeyDown.bind(this);
     this._resolver = null;
   }
-  connectedCallback() { this._render(); window.addEventListener('keydown', this._onKeyDown); }
-  disconnectedCallback() { window.removeEventListener('keydown', this._onKeyDown); }
+  connectedCallback() {
+    this._render();
+    window.addEventListener("keydown", this._onKeyDown);
+  }
+  disconnectedCallback() {
+    window.removeEventListener("keydown", this._onKeyDown);
+  }
   _render() {
     this._shadow.innerHTML = `
       <style>
@@ -45,50 +50,79 @@ class NewProfileModal extends HTMLElement {
       </app-modal>
     `;
     this._els = {
-      modal: this._shadow.querySelector('app-modal'),
-      form: this._shadow.querySelector('form'),
-      input: this._shadow.querySelector('#np-name'),
-      cancel: this._shadow.querySelector('.btn-cancel'),
-      submit: this._shadow.querySelector('.btn-submit'),
+      modal: this._shadow.querySelector("app-modal"),
+      form: this._shadow.querySelector("form"),
+      input: this._shadow.querySelector("#np-name"),
+      cancel: this._shadow.querySelector(".btn-cancel"),
+      submit: this._shadow.querySelector(".btn-submit"),
     };
-    this._els.modal?.addEventListener('modal-close', (e) => {
+    this._els.modal?.addEventListener("modal-close", (e) => {
       // Only cancel if the modal was closed by escape/cancel, not by form submission
-      if (e.detail?.reason !== 'submit') {
+      if (e.detail?.reason !== "submit") {
         this._cancel();
       }
     });
-    this._els.cancel?.addEventListener('click', () => this._cancel());
-    this._els.input?.addEventListener('input', () => { const name = (this._els.input.value || '').trim(); this._els.submit.disabled = name.length === 0; });
-    this._els.form?.addEventListener('submit', (e) => { 
-      e.preventDefault(); 
-      const name = (this._els.input.value || '').trim(); 
-      if (!name) { this._els.input.focus(); return; } 
-      this.removeAttribute('open'); 
-      this._els.modal?.hide('submit'); 
-      this._resolve(name); 
+    this._els.cancel?.addEventListener("click", () => this._cancel());
+    this._els.input?.addEventListener("input", () => {
+      const name = (this._els.input.value || "").trim();
+      this._els.submit.disabled = name.length === 0;
+    });
+    this._els.form?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = (this._els.input.value || "").trim();
+      if (!name) {
+        this._els.input.focus();
+        return;
+      }
+      this.removeAttribute("open");
+      this._els.modal?.hide("submit");
+      this._resolve(name);
     });
   }
-  open(defaultValue = '') { 
-    this.setAttribute('open', ''); 
-    if (!this._els) this._render(); 
-    this._els.input.value = defaultValue || ''; 
-    this._els.submit.disabled = (this._els.input.value.trim().length === 0); 
-    this._els.modal?.show(); 
-    setTimeout(() => { try { this._els.input.focus(); this._els.input.select(); } catch(_) {} }, 0); 
-    return new Promise((resolve) => { this._resolver = resolve; }); 
+  open(defaultValue = "") {
+    this.setAttribute("open", "");
+    if (!this._els) this._render();
+    this._els.input.value = defaultValue || "";
+    this._els.submit.disabled = this._els.input.value.trim().length === 0;
+    this._els.modal?.show();
+    setTimeout(() => {
+      try {
+        this._els.input.focus();
+        this._els.input.select();
+      } catch (_) {}
+    }, 0);
+    return new Promise((resolve) => {
+      this._resolver = resolve;
+    });
   }
-  close() { this._els?.modal?.hide('programmatic'); this.removeAttribute('open'); this._resolve(null); }
-  _cancel() { this.close(); }
-  _resolve(value) { 
-    const r = this._resolver; 
-    this._resolver = null; 
+  close() {
+    this._els?.modal?.hide("programmatic");
+    this.removeAttribute("open");
+    this._resolve(null);
+  }
+  _cancel() {
+    this.close();
+  }
+  _resolve(value) {
+    const r = this._resolver;
+    this._resolver = null;
     if (r) {
-      r(value); 
+      r(value);
     }
   }
-  _onKeyDown(e) { if (e.key === 'Escape' && this.hasAttribute('open')) this.close(); }
+  _onKeyDown(e) {
+    if (e.key === "Escape" && this.hasAttribute("open")) this.close();
+  }
 }
 
-if (!customElements.get('new-profile-modal')) customElements.define('new-profile-modal', NewProfileModal);
+if (!customElements.get("new-profile-modal"))
+  customElements.define("new-profile-modal", NewProfileModal);
 
-export function getNewProfileModal() { let m = document.querySelector('new-profile-modal'); if (!m) { m = document.createElement('new-profile-modal'); document.body.appendChild(m); } return m; }
+export function getNewProfileModal() {
+  let m = document.querySelector("new-profile-modal");
+  if (!m) {
+    m = document.createElement("new-profile-modal");
+    document.body.appendChild(m);
+  }
+  return m;
+}

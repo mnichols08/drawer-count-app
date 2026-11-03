@@ -8,8 +8,7 @@ export const BACKGROUND_OPTIONS = Object.freeze([
   { id: 'vw-southern-bg', label: 'Volkswagen GTI — Southern' },
   { id: 'vw-atlas-southern-bg', label: '2019 Volkswagen Atlas — Southern' },
   { id: 'ram-2500-southern-bg', label: '2015 Ram 2500 — Southern' },
-  { id: 'delbies-daycare-geriatrics-bg', label: "Delbie's Daycare & Geriatrics" },
-  { id: 'delbies-crew-bg', label: "Delbie's Daycare & Geriatrics — Crew" }
+  { id: 'delbies-crew-bg', label: "Delbie's Daycare & Geriatrics" }
 ]);
 
 const BACKGROUND_IDS = new Set(BACKGROUND_OPTIONS.map(({ id }) => id));

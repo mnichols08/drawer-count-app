@@ -1,7 +1,7 @@
 class AppModal extends HTMLElement {
   constructor() {
     super();
-    this._shadow = this.attachShadow({ mode: 'open' });
+    this._shadow = this.attachShadow({ mode: "open" });
     this._onKeyDown = this._onKeyDown.bind(this);
     this._onBackdrop = this._onBackdrop.bind(this);
     this._onContainerClick = this._onContainerClick.bind(this);
@@ -9,13 +9,15 @@ class AppModal extends HTMLElement {
     this._prevDocOverflow = null;
   }
 
-  static get observedAttributes() { return ['open', 'title', 'closable']; }
+  static get observedAttributes() {
+    return ["open", "title", "closable"];
+  }
 
   connectedCallback() {
     this._render();
-    this._upgrade('open');
-    this._upgrade('title');
-    this._upgrade('closable');
+    this._upgrade("open");
+    this._upgrade("title");
+    this._upgrade("closable");
     // Initialize modal accessibility
     this._syncAria();
     if (this.open) this._onOpenSideEffects();
@@ -26,28 +28,59 @@ class AppModal extends HTMLElement {
   }
 
   attributeChangedCallback(name) {
-    if (name === 'open') {
+    if (name === "open") {
       this._syncAria(); // Update accessibility state
-      if (this.hasAttribute('open')) this._onOpenSideEffects();
+      if (this.hasAttribute("open")) this._onOpenSideEffects();
       else this._teardownSideEffects();
     }
-    if (name === 'title') this._syncTitle();
-    if (name === 'closable') this._syncClosable();
+    if (name === "title") this._syncTitle();
+    if (name === "closable") this._syncClosable();
   }
 
-  get open() { return this.hasAttribute('open'); }
-  set open(v) { v ? this.setAttribute('open', '') : this.removeAttribute('open'); }
+  get open() {
+    return this.hasAttribute("open");
+  }
+  set open(v) {
+    v ? this.setAttribute("open", "") : this.removeAttribute("open");
+  }
 
-  get title() { return this.getAttribute('title') || ''; }
-  set title(v) { if (v == null) this.removeAttribute('title'); else this.setAttribute('title', String(v)); }
+  get title() {
+    return this.getAttribute("title") || "";
+  }
+  set title(v) {
+    if (v == null) this.removeAttribute("title");
+    else this.setAttribute("title", String(v));
+  }
 
-  get closable() { return this.hasAttribute('closable'); }
-  set closable(v) { v ? this.setAttribute('closable', '') : this.removeAttribute('closable'); }
+  get closable() {
+    return this.hasAttribute("closable");
+  }
+  set closable(v) {
+    v ? this.setAttribute("closable", "") : this.removeAttribute("closable");
+  }
 
-  show() { this.open = true; }
-  hide(reason = 'dismiss') { if (!this.open) return; this.open = false; this.dispatchEvent(new CustomEvent('modal-close', { detail: { reason }, bubbles: true, composed: true })); }
+  show() {
+    this.open = true;
+  }
+  hide(reason = "dismiss") {
+    if (!this.open) return;
+    this.open = false;
+    this.dispatchEvent(
+      new CustomEvent("modal-close", {
+        detail: { reason },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
 
-  _upgrade(prop) { if (this.hasOwnProperty(prop)) { const v = this[prop]; delete this[prop]; this[prop] = v; } }
+  _upgrade(prop) {
+    if (this.hasOwnProperty(prop)) {
+      const v = this[prop];
+      delete this[prop];
+      this[prop] = v;
+    }
+  }
 
   _render() {
     this._shadow.innerHTML = `
@@ -82,53 +115,65 @@ class AppModal extends HTMLElement {
       </div>
     `;
     this._els = {
-      backdrop: this._shadow.querySelector('.backdrop'),
-      container: this._shadow.querySelector('.container'),
-      dialog: this._shadow.querySelector('.dialog'),
-      close: this._shadow.querySelector('.close'),
-      titleEl: this._shadow.querySelector('#titleEl')
+      backdrop: this._shadow.querySelector(".backdrop"),
+      container: this._shadow.querySelector(".container"),
+      dialog: this._shadow.querySelector(".dialog"),
+      close: this._shadow.querySelector(".close"),
+      titleEl: this._shadow.querySelector("#titleEl"),
     };
-    this._els.container?.addEventListener('click', this._onContainerClick);
-    this._els.close?.addEventListener('click', () => this.hide('close'));
+    this._els.container?.addEventListener("click", this._onContainerClick);
+    this._els.close?.addEventListener("click", () => this.hide("close"));
     this._syncTitle();
     this._syncClosable();
     this._syncAria();
   }
 
-  _syncTitle() { if (this._els?.titleEl) this._els.titleEl.textContent = this.title || ''; }
-  _syncClosable() { if (!this._els?.close) return; const can = this.closable !== false; this._els.close.style.display = can ? '' : 'none'; }
-  _syncAria() { 
+  _syncTitle() {
+    if (this._els?.titleEl) this._els.titleEl.textContent = this.title || "";
+  }
+  _syncClosable() {
+    if (!this._els?.close) return;
+    const can = this.closable !== false;
+    this._els.close.style.display = can ? "" : "none";
+  }
+  _syncAria() {
     // For modal dialogs with aria-modal="true", aria-hidden is not necessary
     // The aria-modal attribute already properly indicates the modal nature to assistive technology
     // Using aria-hidden on modal dialogs can cause focus issues and is not recommended
   }
 
-  _onBackdrop() { this.hide('backdrop'); }
-  _onContainerClick(e) { 
+  _onBackdrop() {
+    this.hide("backdrop");
+  }
+  _onContainerClick(e) {
     // Only close if the click was directly on the container (outside the dialog)
     if (e.target === this._els.container) {
-      this.hide('backdrop'); 
+      this.hide("backdrop");
     }
   }
-  _onKeyDown(e) { if (e.key === 'Escape' && this.open) this.hide('escape'); if (e.key === 'Tab' && this.open) this._trapTab(e); }
+  _onKeyDown(e) {
+    if (e.key === "Escape" && this.open) this.hide("escape");
+    if (e.key === "Tab" && this.open) this._trapTab(e);
+  }
 
   _onOpenSideEffects() {
     try {
-      window.addEventListener('keydown', this._onKeyDown);
+      window.addEventListener("keydown", this._onKeyDown);
       this._lockScroll();
       this._focusFirst();
-    } catch(_) {}
+    } catch (_) {}
   }
   _teardownSideEffects() {
     try {
       // Ensure any focused elements inside the modal lose focus before closing
-      const focusedElement = this._shadow.activeElement || document.activeElement;
+      const focusedElement =
+        this._shadow.activeElement || document.activeElement;
       if (focusedElement && this._els?.dialog?.contains(focusedElement)) {
         focusedElement.blur();
       }
-      window.removeEventListener('keydown', this._onKeyDown);
+      window.removeEventListener("keydown", this._onKeyDown);
       this._unlockScroll();
-    } catch(_) {}
+    } catch (_) {}
   }
 
   _focusFirst() {
@@ -136,25 +181,43 @@ class AppModal extends HTMLElement {
       const focusables = this._getFocusable();
       if (focusables[0]) focusables[0].focus({ preventScroll: true });
       else this._els?.close?.focus({ preventScroll: true });
-    } catch(_) {}
+    } catch (_) {}
   }
 
   _getFocusable() {
     const root = this._els?.dialog || this._shadow;
     // Focusables inside the shadow (header/footer controls)
-    const inShadow = Array.from(root.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'));
+    const inShadow = Array.from(
+      root.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      ),
+    );
     // Include focusables from slotted content in body/footer
-    const slots = Array.from(root.querySelectorAll('slot'));
+    const slots = Array.from(root.querySelectorAll("slot"));
     const inSlots = [];
     for (const slot of slots) {
       const nodes = slot.assignedElements({ flatten: true }) || [];
       for (const n of nodes) {
-        if (n.matches && n.matches('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')) inSlots.push(n);
-        inSlots.push(...Array.from(n.querySelectorAll?.('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') || []));
+        if (
+          n.matches &&
+          n.matches(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+          )
+        )
+          inSlots.push(n);
+        inSlots.push(
+          ...Array.from(
+            n.querySelectorAll?.(
+              'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+            ) || [],
+          ),
+        );
       }
     }
-    return [...inShadow, ...inSlots]
-      .filter(el => !!el && !el.hasAttribute('disabled') && !el.getAttribute('aria-hidden'));
+    return [...inShadow, ...inSlots].filter(
+      (el) =>
+        !!el && !el.hasAttribute("disabled") && !el.getAttribute("aria-hidden"),
+    );
   }
 
   _trapTab(e) {
@@ -164,31 +227,45 @@ class AppModal extends HTMLElement {
     const last = nodes[nodes.length - 1];
     const active = this._shadow.activeElement || document.activeElement;
     if (e.shiftKey) {
-      if (active === first || !nodes.includes(active)) { last.focus(); e.preventDefault(); }
+      if (active === first || !nodes.includes(active)) {
+        last.focus();
+        e.preventDefault();
+      }
     } else {
-      if (active === last) { first.focus(); e.preventDefault(); }
+      if (active === last) {
+        first.focus();
+        e.preventDefault();
+      }
     }
   }
 
   _lockScroll() {
     try {
-      const b = document.body, d = document.documentElement;
+      const b = document.body,
+        d = document.documentElement;
       this._prevBodyOverflow = b.style.overflow;
       this._prevDocOverflow = d.style.overflow;
-      b.style.overflow = 'hidden';
-      d.style.overflow = 'hidden';
-    } catch(_) {}
+      b.style.overflow = "hidden";
+      d.style.overflow = "hidden";
+    } catch (_) {}
   }
   _unlockScroll() {
     try {
-      const b = document.body, d = document.documentElement;
-      if (this._prevBodyOverflow != null) b.style.overflow = this._prevBodyOverflow; else b.style.overflow = '';
-      if (this._prevDocOverflow != null) d.style.overflow = this._prevDocOverflow; else d.style.overflow = '';
-      this._prevBodyOverflow = null; this._prevDocOverflow = null;
-    } catch(_) {}
+      const b = document.body,
+        d = document.documentElement;
+      if (this._prevBodyOverflow != null)
+        b.style.overflow = this._prevBodyOverflow;
+      else b.style.overflow = "";
+      if (this._prevDocOverflow != null)
+        d.style.overflow = this._prevDocOverflow;
+      else d.style.overflow = "";
+      this._prevBodyOverflow = null;
+      this._prevDocOverflow = null;
+    } catch (_) {}
   }
 }
 
-if (!customElements.get('app-modal')) customElements.define('app-modal', AppModal);
+if (!customElements.get("app-modal"))
+  customElements.define("app-modal", AppModal);
 
 export default AppModal;

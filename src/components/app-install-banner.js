@@ -1,9 +1,9 @@
-import { toast } from '../lib/toast.js';
+import { toast } from "../lib/toast.js";
 
 class AppInstallBanner extends HTMLElement {
   constructor() {
     super();
-    this._shadow = this.attachShadow({ mode: 'open' });
+    this._shadow = this.attachShadow({ mode: "open" });
     this._onInstallClick = this._onInstallClick.bind(this);
     this._onOpenClick = this._onOpenClick.bind(this);
     this._onIOSHelp = this._onIOSHelp.bind(this);
@@ -46,50 +46,79 @@ class AppInstallBanner extends HTMLElement {
       </div>
     `;
     this._el = {
-      wrap: this._shadow.querySelector('.wrap'),
-      msg: this._shadow.querySelector('.msg'),
-      primary: this._shadow.querySelector('.primary'),
-      dismiss: this._shadow.querySelector('.dismiss'),
+      wrap: this._shadow.querySelector(".wrap"),
+      msg: this._shadow.querySelector(".msg"),
+      primary: this._shadow.querySelector(".primary"),
+      dismiss: this._shadow.querySelector(".dismiss"),
     };
-    this._el.primary.addEventListener('click', () => {
+    this._el.primary.addEventListener("click", () => {
       if (this._installed) this._onOpenClick();
       else if (this._iosMode) this._onIOSHelp();
       else this._onInstallClick();
     });
-    this._el.dismiss.addEventListener('click', this._onDismiss);
+    this._el.dismiss.addEventListener("click", this._onDismiss);
 
-    window.addEventListener('beforeinstallprompt', this._onBeforeInstallPrompt);
-    window.addEventListener('appinstalled', this._onAppInstalled);
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.addEventListener('message', this._onSwMessage);
+    window.addEventListener("beforeinstallprompt", this._onBeforeInstallPrompt);
+    window.addEventListener("appinstalled", this._onAppInstalled);
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.addEventListener("message", this._onSwMessage);
     }
     // Observe onboarding tour open/close state
     try {
       this._mo = new MutationObserver(this._onTourMutation);
-      this._mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-tour-open'] });
-    } catch (_) { /* ignore */ }
+      this._mo.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["data-tour-open"],
+      });
+    } catch (_) {
+      /* ignore */
+    }
 
     this._installed = this._isAppInstalled();
-    if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
-      try { localStorage.setItem('pwa-installed', '1'); } catch (_) {}
+    if (
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.navigator.standalone === true
+    ) {
+      try {
+        localStorage.setItem("pwa-installed", "1");
+      } catch (_) {}
       this._installed = true;
     }
     if (window.matchMedia) {
-      const mm = window.matchMedia('(display-mode: standalone)');
-      mm?.addEventListener?.('change', (e) => { if (e.matches) { try { localStorage.setItem('pwa-installed','1'); } catch(_) {} this._installed = true; this._update(); } });
+      const mm = window.matchMedia("(display-mode: standalone)");
+      mm?.addEventListener?.("change", (e) => {
+        if (e.matches) {
+          try {
+            localStorage.setItem("pwa-installed", "1");
+          } catch (_) {}
+          this._installed = true;
+          this._update();
+        }
+      });
     }
-    try { this._dismissed = localStorage.getItem('install-banner-dismissed') === '1'; } catch (_) {}
+    try {
+      this._dismissed =
+        localStorage.getItem("install-banner-dismissed") === "1";
+    } catch (_) {}
     this._update();
   }
 
   disconnectedCallback() {
-    window.removeEventListener('beforeinstallprompt', this._onBeforeInstallPrompt);
-    window.removeEventListener('appinstalled', this._onAppInstalled);
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.removeEventListener('message', this._onSwMessage);
+    window.removeEventListener(
+      "beforeinstallprompt",
+      this._onBeforeInstallPrompt,
+    );
+    window.removeEventListener("appinstalled", this._onAppInstalled);
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.removeEventListener("message", this._onSwMessage);
     }
     this._clearAutoHide();
-    try { this._mo?.disconnect(); this._mo = null; } catch (_) { /* ignore */ }
+    try {
+      this._mo?.disconnect();
+      this._mo = null;
+    } catch (_) {
+      /* ignore */
+    }
   }
 
   _onBeforeInstallPrompt(e) {
@@ -98,7 +127,7 @@ class AppInstallBanner extends HTMLElement {
     // If onboarding is open, defer showing until it closes (no toast yet)
     if (!this._installed && !this._isDismissed() && !this._isOnboardingOpen()) {
       this._showInstall();
-      toast('You can install this app', { type: 'info', duration: 2500 });
+      toast("You can install this app", { type: "info", duration: 2500 });
     } else {
       // Ensure current UI reflects hidden state during onboarding
       this._update();
@@ -110,65 +139,92 @@ class AppInstallBanner extends HTMLElement {
     try {
       this._deferredPrompt.prompt();
       const choice = await this._deferredPrompt.userChoice;
-      if (choice?.outcome === 'accepted') {
-        try { localStorage.setItem('pwa-installed', '1'); } catch (_) {}
+      if (choice?.outcome === "accepted") {
+        try {
+          localStorage.setItem("pwa-installed", "1");
+        } catch (_) {}
         this._installed = true;
-        toast('Installed!', { type: 'success', duration: 3000 });
+        toast("Installed!", { type: "success", duration: 3000 });
       }
-    } catch (_) { /* ignore */ }
+    } catch (_) {
+      /* ignore */
+    }
     this._deferredPrompt = null;
     this._update();
   }
 
   _onAppInstalled() {
-    try { localStorage.setItem('pwa-installed', '1'); } catch (_) {}
+    try {
+      localStorage.setItem("pwa-installed", "1");
+    } catch (_) {}
     this._installed = true;
     this._update();
-    toast('Installed!', { type: 'success', duration: 3000 });
+    toast("Installed!", { type: "success", duration: 3000 });
   }
 
   _isAppInstalled() {
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.navigator.standalone === true;
     let persisted = false;
-    try { persisted = localStorage.getItem('pwa-installed') === '1'; } catch (_) {}
+    try {
+      persisted = localStorage.getItem("pwa-installed") === "1";
+    } catch (_) {}
     return isStandalone || persisted;
   }
 
   async _onOpenClick() {
     try {
-      if ('serviceWorker' in navigator) {
+      if ("serviceWorker" in navigator) {
         const reg = await navigator.serviceWorker.ready;
-        reg.active?.postMessage({ type: 'OPEN_APP' });
+        reg.active?.postMessage({ type: "OPEN_APP" });
       }
-      const url = new URL('/', location.origin).toString();
-      window.open(url, '_blank', 'noopener');
-      toast('Opening in app…', { type: 'info', duration: 2000 });
+      const url = new URL("/", location.origin).toString();
+      window.open(url, "_blank", "noopener");
+      toast("Opening in app…", { type: "info", duration: 2000 });
       setTimeout(this._tryCloseTab, 120);
-    } catch (_) { /* ignore */ }
+    } catch (_) {
+      /* ignore */
+    }
   }
 
   _onSwMessage(event) {
     const data = event.data;
     if (!data) return;
-    if (data.type === 'OPEN_APP_DONE') {
+    if (data.type === "OPEN_APP_DONE") {
       this._tryCloseTab();
-      toast('Opened in app. You can close this tab.', { type: 'success', duration: 3500 });
+      toast("Opened in app. You can close this tab.", {
+        type: "success",
+        duration: 3500,
+      });
     }
   }
 
   _tryCloseTab() {
     try {
       window.close();
-      window.open('', '_self');
+      window.open("", "_self");
       window.close();
-    } catch (_) { /* ignored */ }
+    } catch (_) {
+      /* ignored */
+    }
   }
 
   _update() {
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.navigator.standalone === true;
     // Suppress banner entirely while onboarding tour is open
-    if (this._isOnboardingOpen()) { this._el.wrap.style.display = 'none'; this._clearAutoHide(); return; }
-    if (isStandalone || this._isDismissed()) { this._el.wrap.style.display = 'none'; this._clearAutoHide(); return; }
+    if (this._isOnboardingOpen()) {
+      this._el.wrap.style.display = "none";
+      this._clearAutoHide();
+      return;
+    }
+    if (isStandalone || this._isDismissed()) {
+      this._el.wrap.style.display = "none";
+      this._clearAutoHide();
+      return;
+    }
 
     if (this._installed) {
       this._showOpen();
@@ -177,86 +233,114 @@ class AppInstallBanner extends HTMLElement {
     } else if (this._isIOS()) {
       this._showIOS();
     } else {
-      this._el.wrap.style.display = 'none';
+      this._el.wrap.style.display = "none";
       this._clearAutoHide();
     }
   }
 
   _showInstall() {
-    this._el.msg.textContent = 'Install this app for a faster, offline experience.';
-    this._el.primary.textContent = 'Install App';
-    this._el.primary.setAttribute('aria-label', 'Install this app');
-    this._el.wrap.style.display = 'block';
+    this._el.msg.textContent =
+      "Install this app for a faster, offline experience.";
+    this._el.primary.textContent = "Install App";
+    this._el.primary.setAttribute("aria-label", "Install this app");
+    this._el.wrap.style.display = "block";
     this._scheduleAutoHide();
   }
 
   _showOpen() {
-    this._el.msg.textContent = 'This app is installed.';
-    this._el.primary.textContent = 'Open in App';
-    this._el.primary.setAttribute('aria-label', 'Open in installed app');
-    this._el.wrap.style.display = 'block';
+    this._el.msg.textContent = "This app is installed.";
+    this._el.primary.textContent = "Open in App";
+    this._el.primary.setAttribute("aria-label", "Open in installed app");
+    this._el.wrap.style.display = "block";
     this._iosMode = false;
     this._scheduleAutoHide();
   }
 
-  _isDismissed() { return this._dismissed === true; }
+  _isDismissed() {
+    return this._dismissed === true;
+  }
   _isOnboardingOpen() {
-    try { return document.documentElement?.hasAttribute('data-tour-open'); } catch (_) { return false; }
+    try {
+      return document.documentElement?.hasAttribute("data-tour-open");
+    } catch (_) {
+      return false;
+    }
   }
   _onTourMutation() {
     // If tour is open, hide immediately; if it just closed, wait briefly
     if (this._isOnboardingOpen()) {
-      if (this._tourDebounce) { clearTimeout(this._tourDebounce); this._tourDebounce = 0; }
+      if (this._tourDebounce) {
+        clearTimeout(this._tourDebounce);
+        this._tourDebounce = 0;
+      }
       this._update();
       return;
     }
-    if (this._tourDebounce) { clearTimeout(this._tourDebounce); }
+    if (this._tourDebounce) {
+      clearTimeout(this._tourDebounce);
+    }
     this._tourDebounce = setTimeout(() => {
       this._tourDebounce = 0;
       this._update();
     }, 800);
   }
   _isIOS() {
-    const ua = navigator.userAgent || navigator.vendor || window.opera || '';
+    const ua = navigator.userAgent || navigator.vendor || window.opera || "";
     const isIOSUA = /iphone|ipad|ipod/i.test(ua);
-    const isIpadOSMasquerade = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isIpadOSMasquerade =
+      navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
     return isIOSUA || isIpadOSMasquerade;
   }
   _onIOSHelp() {
     try {
-      const isIpad = /ipad/i.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      const device = isIpad ? 'iPad' : 'iPhone';
-      toast(`Install on ${device}: In Safari, tap Share (square with ↑), then "Add to Home Screen".`, { type: 'info', duration: 5000 });
+      const isIpad =
+        /ipad/i.test(navigator.userAgent || "") ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      const device = isIpad ? "iPad" : "iPhone";
+      toast(
+        `Install on ${device}: In Safari, tap Share (square with ↑), then "Add to Home Screen".`,
+        { type: "info", duration: 5000 },
+      );
     } catch (_) {}
   }
   _showIOS() {
-    const isIpad = /ipad/i.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const device = isIpad ? 'iPad' : 'iPhone';
+    const isIpad =
+      /ipad/i.test(navigator.userAgent || "") ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const device = isIpad ? "iPad" : "iPhone";
     this._el.msg.textContent = `Install this app: On your ${device}, tap the Share button, then "Add to Home Screen".`;
-    this._el.primary.textContent = 'How to Install';
-    this._el.primary.setAttribute('aria-label', `How to install on ${device}`);
-    this._el.wrap.style.display = 'block';
+    this._el.primary.textContent = "How to Install";
+    this._el.primary.setAttribute("aria-label", `How to install on ${device}`);
+    this._el.wrap.style.display = "block";
     this._iosMode = true;
     this._scheduleAutoHide();
   }
   _onDismiss() {
     this._dismissed = true;
-    this._el.wrap.style.display = 'none';
+    this._el.wrap.style.display = "none";
     this._clearAutoHide();
-    try { localStorage.setItem('install-banner-dismissed', '1'); } catch (_) {}
+    try {
+      localStorage.setItem("install-banner-dismissed", "1");
+    } catch (_) {}
   }
 
   _scheduleAutoHide() {
     this._clearAutoHide();
     this._autoHideTimer = setTimeout(() => {
       this._dismissed = true;
-      this._el.wrap.style.display = 'none';
+      this._el.wrap.style.display = "none";
       this._clearAutoHide();
     }, 20000);
   }
-  _clearAutoHide() { if (this._autoHideTimer) { clearTimeout(this._autoHideTimer); this._autoHideTimer = null; } }
+  _clearAutoHide() {
+    if (this._autoHideTimer) {
+      clearTimeout(this._autoHideTimer);
+      this._autoHideTimer = null;
+    }
+  }
 }
 
-if (!customElements.get('app-install-banner')) customElements.define('app-install-banner', AppInstallBanner);
+if (!customElements.get("app-install-banner"))
+  customElements.define("app-install-banner", AppInstallBanner);
 
 export default AppInstallBanner;
